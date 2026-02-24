@@ -43,12 +43,15 @@ function setManufacturerValue(value) {
 
 function getFormValues() {
   const assetTag = qs('#assetTag').value.trim() || null;
+  const equipment = qs('#equipment').value.trim() || null;
+  const model = qs('#model').value.trim() || null;
+  const derivedDeviceName = equipment || model || assetTag || null;
   return {
     p_id: qs('#assetId').value.trim() || null,
     p_asset_tag: assetTag,
     p_serial: assetTag,
-    p_equipment: qs('#equipment').value.trim() || null,
-    p_device_name: qs('#deviceName').value.trim() || null,
+    p_equipment: equipment,
+    p_device_name: derivedDeviceName,
     p_manufacturer: currentManufacturerValue(),
     p_model: qs('#model').value.trim() || null,
     p_category: qs('#category').value.trim() || null,
@@ -73,7 +76,6 @@ function setForm(asset) {
   qs('#assetId').value = asset.id || '';
   qs('#assetTag').value = asset.asset_tag || '';
   qs('#equipment').value = asset.equipment || '';
-  qs('#deviceName').value = asset.device_name || '';
   setManufacturerValue(asset.manufacturer || '');
   qs('#model').value = asset.model || '';
   qs('#category').value = asset.category || '';

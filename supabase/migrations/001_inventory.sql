@@ -378,11 +378,15 @@ begin
     raise exception 'asset_tag and serial must be the same value';
   end if;
 
+  if p_device_name is null then
+    p_device_name := coalesce(p_equipment, p_model, coalesce(p_asset_tag, p_serial));
+  end if;
+
   v_tag_serial := coalesce(p_asset_tag, p_serial);
 
   if p_id is null then
-    if v_tag_serial is null or p_device_name is null then
-      raise exception 'asset_tag (same as serial) and device_name are required for create';
+    if v_tag_serial is null then
+      raise exception 'asset_tag (same as serial) is required for create';
     end if;
 
     insert into public.assets (

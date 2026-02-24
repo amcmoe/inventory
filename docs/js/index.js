@@ -101,13 +101,14 @@ function renderAssets(assets) {
   assets.forEach((asset) => {
     const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
     const assignee = current?.people?.display_name || '-';
+    const title = asset.equipment || asset.model || asset.asset_tag;
 
     const card = document.createElement('article');
     card.className = 'asset-card';
     card.innerHTML = `
       <div class="asset-card-head">
         <div>
-          <div class="asset-title">${escapeHtml(asset.device_name)}</div>
+          <div class="asset-title">${escapeHtml(title)}</div>
           <div class="asset-subtitle">${escapeHtml(asset.category || 'Uncategorized')}</div>
         </div>
         ${statusBadge(asset.status)}
@@ -135,7 +136,7 @@ function fillFilterOptions(assets) {
 async function loadAssets() {
   let query = supabase
     .from('assets')
-    .select('id, asset_tag, serial, equipment, device_name, manufacturer, model, category, location, building, room, asset_condition, ownership, status, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+    .select('id, asset_tag, serial, equipment, manufacturer, model, category, location, building, room, asset_condition, ownership, status, asset_current(assignee_person_id, checked_out_at, people(display_name))')
     .order('asset_tag', { ascending: true })
     .limit(200);
 
@@ -145,7 +146,7 @@ async function loadAssets() {
   const location = locationFilter.value;
 
   if (term) {
-    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,equipment.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
+    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,equipment.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
   }
   if (status) {
     query = query.eq('status', status);

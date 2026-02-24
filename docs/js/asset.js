@@ -81,8 +81,9 @@ async function loadAsset() {
 
   const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
   const assignee = current?.people?.display_name || '-';
+  const title = asset.equipment || asset.model || asset.asset_tag;
 
-  assetTitle.innerHTML = `${escapeHtml(asset.asset_tag)} - ${escapeHtml(asset.device_name)}`;
+  assetTitle.innerHTML = `${escapeHtml(asset.asset_tag)} - ${escapeHtml(title)}`;
   assetMeta.innerHTML = `
     <div class="meta">Status: ${statusBadge(asset.status)}</div>
     <div class="meta">Equipment: ${escapeHtml(asset.equipment || '-')}</div>
