@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - Bulk Checkout</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar" id="bulkTopbar" hidden style="display:none;">
+      <div class="brand">Bulk Checkout</div>
+      <nav class="nav" id="bulkNav" hidden style="display:none;">
+        <a href="./index.html">Search</a>
+        <a href="./bulk.html">Bulk</a>
+        <a href="./admin.html" data-role-min="admin">Admin</a>
+        <a href="./qr-helper.html">QR Helper</a>
+      </nav>
+    </header>
+
+    <section class="panel" id="bulkLoadingPanel">
+      <h2>Checking Access</h2>
+      <p class="muted">Please wait while we verify your session and role.</p>
+    </section>
+
+    <section class="panel" id="bulkMainSection" hidden>
+      <h2>Bulk Checkout</h2>
+      <p class="muted">Select assignee once, then submit multiple asset tags.</p>
+      <div class="grid">
+        <div>
+          <label for="assigneeSearch">Assignee</label>
+          <input id="assigneeSearch" placeholder="Type person name...">
+          <div id="assigneeSuggestions" class="suggestions" hidden></div>
+          <div id="assigneeSelected" class="muted">No assignee selected</div>
+        </div>
+        <div>
+          <label for="dueDate">Due Date (optional)</label>
+          <input id="dueDate" type="date">
+        </div>
+        <div>
+          <label for="notes">Notes (optional)</label>
+          <textarea id="notes"></textarea>
+        </div>
+        <div>
+          <label for="assetTags">Asset Tags (one per line)</label>
+          <textarea id="assetTags" placeholder="A-1001&#10;A-1002&#10;A-1003"></textarea>
+        </div>
+        <button class="btn primary" id="submitBulkBtn">Submit Bulk Checkout</button>
+      </div>
+    </section>
+
+    <section class="panel" id="bulkResultsSection" hidden>
+      <div class="row" style="justify-content: space-between;">
+        <h3>Results</h3>
+        <button class="btn" id="clearResultsBtn">Clear</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset Tag</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/bulk.js"></script>
+</body>
+</html>

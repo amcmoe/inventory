@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - Asset</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar" id="assetTopbar" hidden style="display:none;">
+      <div class="brand">Asset Detail</div>
+      <nav class="nav" id="assetNav" hidden style="display:none;">
+        <a href="./index.html">Search</a>
+        <a href="./bulk.html" data-role-min="tech">Bulk</a>
+        <a href="./admin.html" data-role-min="admin">Admin</a>
+        <a href="./qr-helper.html" data-role-min="tech">QR Helper</a>
+      </nav>
+    </header>
+
+    <section class="panel" id="assetLoadingPanel">
+      <h2>Checking Access</h2>
+      <p class="muted">Please wait while we verify your session.</p>
+    </section>
+
+    <section class="panel" id="assetPanel" hidden>
+      <div class="row" style="justify-content: space-between;">
+        <h2 id="assetTitle">Loading...</h2>
+        <button class="btn" id="refreshBtn">Refresh</button>
+      </div>
+      <div id="assetMeta" class="grid"></div>
+      <div class="row" id="actionButtons" data-role-min="tech" hidden>
+        <button class="btn primary" id="checkoutBtn">Check Out</button>
+        <button class="btn warn" id="checkinBtn">Check In</button>
+        <button class="btn danger" id="reportDamageBtn">Report Damage</button>
+      </div>
+    </section>
+
+    <section class="panel dialog" id="checkoutDialog" hidden>
+      <h3>Check Out</h3>
+      <div class="grid">
+        <div>
+          <label for="assigneeSearch">Assignee</label>
+          <input id="assigneeSearch" placeholder="Type person name...">
+          <div id="assigneeSuggestions" class="suggestions" hidden></div>
+          <div class="muted" id="assigneeSelected">No assignee selected</div>
+          <button class="btn" id="createPersonBtn" data-role-min="admin" hidden>Create New Person</button>
+        </div>
+        <div>
+          <label for="dueDate">Due Date (optional)</label>
+          <input id="dueDate" type="date">
+        </div>
+        <div>
+          <label for="checkoutNotes">Notes (optional)</label>
+          <textarea id="checkoutNotes"></textarea>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="confirmCheckoutBtn">Confirm Checkout</button>
+          <button class="btn" id="cancelCheckoutBtn">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel dialog" id="damageDialog" hidden>
+      <h3>Create Damage Report</h3>
+      <div class="grid">
+        <div>
+          <label for="damageSummary">Summary</label>
+          <input id="damageSummary" placeholder="Short damage summary">
+        </div>
+        <div>
+          <label for="damageNotes">Notes</label>
+          <textarea id="damageNotes" placeholder="More details"></textarea>
+        </div>
+        <div>
+          <label for="damagePhotos">Photos (multiple)</label>
+          <input id="damagePhotos" type="file" accept="image/*" capture="environment" multiple>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="submitDamageBtn">Submit Report</button>
+          <button class="btn" id="cancelDamageBtn">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="historySection" hidden>
+      <h3>Transaction History</h3>
+      <div id="historyList"></div>
+    </section>
+
+    <section class="panel" id="damageSection" hidden>
+      <h3>Damage Reports</h3>
+      <div id="damageList"></div>
+    </section>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/asset.js"></script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - Admin</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar" id="adminTopbar" hidden style="display:none;">
+      <div class="brand">Admin</div>
+      <nav class="nav" id="adminNav" hidden style="display:none;">
+        <a href="./index.html">Search</a>
+        <a href="./bulk.html">Bulk</a>
+        <a href="./admin.html">Admin</a>
+        <a href="./qr-helper.html">QR Helper</a>
+      </nav>
+    </header>
+
+    <section class="panel" id="adminLoadingPanel">
+      <h2>Checking Access</h2>
+      <p class="muted">Please wait while we verify your session and role.</p>
+    </section>
+
+    <section class="panel" id="assetAdminSection" hidden>
+      <h2>Create / Edit Asset</h2>
+      <p class="muted">This form uses the admin-only RPC.</p>
+      <div class="grid cols-2">
+        <div>
+          <label for="assetId">Asset ID (leave blank to create)</label>
+          <input id="assetId" placeholder="UUID for edit mode">
+        </div>
+        <div>
+          <label for="equipment">Equipment</label>
+          <input id="equipment">
+        </div>
+        <div>
+          <label for="assetTag">Serial #</label>
+          <input id="assetTag" placeholder="A-1001">
+        </div>
+        <div>
+          <label for="deviceName">Device Name</label>
+          <input id="deviceName" placeholder="iPad">
+        </div>
+        <div>
+          <label for="manufacturer">Manufacturer</label>
+          <select id="manufacturer">
+            <option value="">Select manufacturer</option>
+            <option value="Apple">Apple</option>
+            <option value="Dell">Dell</option>
+            <option value="Lenovo">Lenovo</option>
+            <option value="HP">HP</option>
+            <option value="Beelink">Beelink</option>
+            <option value="__custom__">Add new...</option>
+          </select>
+          <input id="manufacturerCustom" placeholder="Enter new manufacturer" hidden>
+        </div>
+        <div>
+          <label for="model">Model</label>
+          <input id="model">
+        </div>
+        <div>
+          <label for="category">Category</label>
+          <input id="category">
+        </div>
+        <div>
+          <label for="location">Location</label>
+          <input id="location">
+        </div>
+        <div>
+          <label for="building">Building</label>
+          <select id="building">
+            <option value="">Select building</option>
+            <option value="Boiling Springs High School">Boiling Springs High School</option>
+            <option value="Yellow Breeches Middle School">Yellow Breeches Middle School</option>
+            <option value="Iron Forge Elementary School">Iron Forge Elementary School</option>
+            <option value="W.G. Rice Elementary School">W.G. Rice Elementary School</option>
+          </select>
+        </div>
+        <div>
+          <label for="room">Room</label>
+          <input id="room">
+        </div>
+        <div>
+          <label for="serviceStartDate">In Service Since</label>
+          <input id="serviceStartDate" type="date">
+        </div>
+        <div>
+          <label for="assetCondition">Condition</label>
+          <select id="assetCondition">
+            <option value="">Unspecified</option>
+            <option value="Excellent">Excellent</option>
+            <option value="Good">Good</option>
+            <option value="Fair">Fair</option>
+            <option value="Poor">Poor</option>
+            <option value="Damaged">Damaged</option>
+            <option value="Needs Repair">Needs Repair</option>
+          </select>
+        </div>
+        <div>
+          <label for="notes">Condition Notes</label>
+          <textarea id="notes"></textarea>
+        </div>
+        <div>
+          <label for="ownership">Owned or Leased?</label>
+          <select id="ownership">
+            <option value="">Unspecified</option>
+            <option value="owned">Owned</option>
+            <option value="leased">Leased</option>
+          </select>
+        </div>
+        <div>
+          <label for="warrantyExpirationDate">Warranty Expiration Date</label>
+          <input id="warrantyExpirationDate" type="date">
+        </div>
+        <div>
+          <label for="obsolete">Obsolete?</label>
+          <select id="obsolete">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+        <div>
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="available">Available</option>
+            <option value="repair">Repair</option>
+            <option value="retired">Retired</option>
+          </select>
+        </div>
+        <div>
+          <label for="comments">Assignment History</label>
+          <textarea id="comments" rows="16"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="saveAssetBtn">Save Asset</button>
+        <button class="btn" id="loadByTagBtn">Load by Serial</button>
+      </div>
+    </section>
+
+    <section class="panel" id="peopleAdminSection" hidden>
+      <h3>Create Person</h3>
+      <div class="grid cols-2">
+        <div>
+          <label for="personName">Display Name</label>
+          <input id="personName">
+        </div>
+        <div>
+          <label for="personEmail">Email (optional)</label>
+          <input id="personEmail" type="email">
+        </div>
+        <div>
+          <label for="personEmployeeId">Employee ID (optional)</label>
+          <input id="personEmployeeId">
+        </div>
+        <div>
+          <label for="personDepartment">Department (optional)</label>
+          <input id="personDepartment">
+        </div>
+      </div>
+      <button class="btn primary" id="savePersonBtn">Create Person</button>
+    </section>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/admin.js"></script>
+</body>
+</html>

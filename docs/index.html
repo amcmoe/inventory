@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - Search</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+  <div class="app">
+    <header class="topbar panel" id="indexTopbar" hidden style="display:none;">
+      <div class="brand">Inventory Command</div>
+      <nav class="nav" id="mainNav" hidden style="display:none;">
+        <a href="./index.html">Search</a>
+        <a href="./bulk.html" data-role-min="tech">Bulk</a>
+        <a href="./admin.html" data-role-min="admin">Admin</a>
+        <a href="./qr-helper.html" data-role-min="tech">QR Helper</a>
+      </nav>
+    </header>
+
+    <section class="auth-shell" id="authShell">
+      <div class="panel auth-panel" id="authPanel">
+        <h2>Sign In</h2>
+        <p class="muted">Use email magic link for fast mobile sign-in.</p>
+        <div class="grid">
+          <div>
+            <label for="emailInput">Email</label>
+            <input id="emailInput" type="email" placeholder="name@school.org" autocomplete="email">
+          </div>
+          <button class="btn primary" id="sendLinkBtn">Send Magic Link</button>
+        </div>
+        <p class="muted" id="authMessage"></p>
+      </div>
+    </section>
+
+    <section class="panel search-shell" id="searchPanel" hidden>
+      <div class="search-head">
+        <div class="search-title-wrap">
+          <p class="eyebrow">Inventory</p>
+          <h2>Asset Search</h2>
+          <div class="muted" id="userMeta"></div>
+        </div>
+        <div class="row action-row">
+          <button class="btn" id="refreshBtn">Refresh</button>
+          <button class="btn" id="signOutBtn">Sign Out</button>
+        </div>
+      </div>
+
+      <div class="stats-strip">
+        <article class="stat">
+          <div class="stat-label">Visible</div>
+          <div class="stat-value" id="statTotal">0</div>
+        </article>
+        <article class="stat">
+          <div class="stat-label">Available</div>
+          <div class="stat-value" id="statAvailable">0</div>
+        </article>
+        <article class="stat">
+          <div class="stat-label">Checked Out</div>
+          <div class="stat-value" id="statCheckedOut">0</div>
+        </article>
+        <article class="stat">
+          <div class="stat-label">Repair/Retired</div>
+          <div class="stat-value" id="statRepairRetired">0</div>
+        </article>
+      </div>
+
+      <div class="grid search-grid">
+        <div>
+          <label for="searchInput">Search by serial/equipment/name/manufacturer/model/location</label>
+          <input id="searchInput" class="search-input" placeholder="Type serial or device name...">
+        </div>
+        <div class="grid cols-2">
+          <div>
+            <label for="statusFilter">Status</label>
+            <select id="statusFilter">
+              <option value="">All</option>
+              <option value="available">Available</option>
+              <option value="checked_out">Checked Out</option>
+              <option value="repair">Repair</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+          <div>
+            <label for="categoryFilter">Category</label>
+            <select id="categoryFilter">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div>
+            <label for="locationFilter">Location</label>
+            <select id="locationFilter">
+              <option value="">All</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="resultsPanel" hidden>
+      <div class="row results-head" style="justify-content: space-between;">
+        <h3>Results</h3>
+        <div class="muted" id="resultCount"></div>
+      </div>
+      <div class="asset-list" id="assetList"></div>
+    </section>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/index.js"></script>
+</body>
+</html>
