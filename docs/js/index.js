@@ -135,7 +135,9 @@ async function initAuthedUI(session) {
     indexTopbar.style.display = '';
   }
   searchPanel.hidden = false;
+  searchPanel.style.display = '';
   resultsPanel.hidden = false;
+  resultsPanel.style.display = '';
   mainNav.hidden = false;
   mainNav.style.display = '';
 
@@ -217,7 +219,9 @@ async function init() {
         indexTopbar.style.display = 'none';
       }
       searchPanel.hidden = true;
+      searchPanel.style.display = 'none';
       resultsPanel.hidden = true;
+      resultsPanel.style.display = 'none';
       mainNav.hidden = true;
       mainNav.style.display = 'none';
       assetList.innerHTML = '';
