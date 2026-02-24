@@ -25,6 +25,54 @@ const locationFilter = qs('#locationFilter');
 let currentProfile = null;
 let debounceTimer = null;
 
+function showAuthedLayout() {
+  if (authShell) authShell.style.display = 'none';
+  if (authPanel) authPanel.hidden = true;
+
+  if (indexTopbar) {
+    indexTopbar.hidden = false;
+    indexTopbar.style.display = '';
+  }
+
+  if (searchPanel) {
+    searchPanel.hidden = false;
+    searchPanel.style.display = '';
+  }
+  if (resultsPanel) {
+    resultsPanel.hidden = false;
+    resultsPanel.style.display = '';
+  }
+
+  if (mainNav) {
+    mainNav.hidden = false;
+    mainNav.style.display = '';
+  }
+}
+
+function showLoggedOutLayout() {
+  if (authShell) authShell.style.display = 'grid';
+  if (authPanel) authPanel.hidden = false;
+
+  if (indexTopbar) {
+    indexTopbar.hidden = true;
+    indexTopbar.style.display = 'none';
+  }
+
+  if (searchPanel) {
+    searchPanel.hidden = true;
+    searchPanel.style.display = 'none';
+  }
+  if (resultsPanel) {
+    resultsPanel.hidden = true;
+    resultsPanel.style.display = 'none';
+  }
+
+  if (mainNav) {
+    mainNav.hidden = true;
+    mainNav.style.display = 'none';
+  }
+}
+
 function statusBadge(status) {
   return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
 }
@@ -128,18 +176,7 @@ function bindSearch() {
 }
 
 async function initAuthedUI(session) {
-  authPanel.hidden = true;
-  if (authShell) authShell.hidden = true;
-  if (indexTopbar) {
-    indexTopbar.hidden = false;
-    indexTopbar.style.display = '';
-  }
-  searchPanel.hidden = false;
-  searchPanel.style.display = '';
-  resultsPanel.hidden = false;
-  resultsPanel.style.display = '';
-  mainNav.hidden = false;
-  mainNav.style.display = '';
+  showAuthedLayout();
 
   try {
     currentProfile = await getCurrentProfile();
@@ -177,6 +214,8 @@ async function init() {
     return;
   }
 
+  showLoggedOutLayout();
+
   qs('#sendLinkBtn').addEventListener('click', async () => {
     const email = qs('#emailInput').value.trim();
     if (!email) {
@@ -212,18 +251,7 @@ async function init() {
     if (sessionData) {
       await initAuthedUI(sessionData);
     } else {
-      authPanel.hidden = false;
-      if (authShell) authShell.hidden = false;
-      if (indexTopbar) {
-        indexTopbar.hidden = true;
-        indexTopbar.style.display = 'none';
-      }
-      searchPanel.hidden = true;
-      searchPanel.style.display = 'none';
-      resultsPanel.hidden = true;
-      resultsPanel.style.display = 'none';
-      mainNav.hidden = true;
-      mainNav.style.display = 'none';
+      showLoggedOutLayout();
       assetList.innerHTML = '';
     }
   });
