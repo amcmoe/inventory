@@ -14,3 +14,4 @@ Thumbs.db
 *.pem
 secrets/
 private/
+docs/config.local.js
