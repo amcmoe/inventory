@@ -26,11 +26,8 @@
     <section class="panel" id="assetAdminSection" hidden>
       <h2>Create / Edit Asset</h2>
       <p class="muted">This form uses the admin-only RPC.</p>
+      <input id="assetId" type="hidden">
       <div class="grid cols-2">
-        <div>
-          <label for="assetId">Asset ID (leave blank to create)</label>
-          <input id="assetId" placeholder="UUID for edit mode">
-        </div>
         <div>
           <label for="assetTag">Serial #</label>
           <input id="assetTag" placeholder="PW063XXX">
@@ -106,14 +103,14 @@
           <label for="warrantyExpirationDate">Warranty Expiration Date</label>
           <input id="warrantyExpirationDate" type="date">
         </div>
-        <div>
+        <div data-edit-only hidden>
           <label for="obsolete">Obsolete?</label>
           <select id="obsolete">
             <option value="false">No</option>
             <option value="true">Yes</option>
           </select>
         </div>
-        <div>
+        <div data-edit-only hidden>
           <label for="status">Status</label>
           <select id="status">
             <option value="available">Available</option>
@@ -121,7 +118,7 @@
             <option value="retired">Retired</option>
           </select>
         </div>
-        <div>
+        <div data-edit-only hidden>
           <label for="comments">Assignment History</label>
           <textarea id="comments" rows="16"></textarea>
         </div>

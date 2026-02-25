@@ -153,6 +153,7 @@ async function initAuthedUI(session) {
   resultsPanel.hidden = false;
   mainNav.hidden = false;
   mainNav.style.display = '';
+  window.scrollTo(0, 0);
 
   try {
     currentProfile = await getCurrentProfile();
@@ -224,6 +225,7 @@ async function init() {
   supabase.auth.onAuthStateChange(async (_event, sessionData) => {
     if (sessionData) {
       await initAuthedUI(sessionData);
+      window.scrollTo(0, 0);
     } else {
       authPanel.hidden = false;
       if (authShell) authShell.hidden = false;

@@ -7,6 +7,7 @@ const adminTopbar = qs('#adminTopbar');
 const assetAdminSection = qs('#assetAdminSection');
 const peopleAdminSection = qs('#peopleAdminSection');
 const adminNav = qs('#adminNav');
+const editOnlyFields = document.querySelectorAll('[data-edit-only]');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 
@@ -39,6 +40,12 @@ function setManufacturerValue(value) {
   qs('#manufacturer').value = '__custom__';
   qs('#manufacturerCustom').value = value;
   qs('#manufacturerCustom').hidden = false;
+}
+
+function setEditMode(isEditMode) {
+  editOnlyFields.forEach((node) => {
+    node.hidden = !isEditMode;
+  });
 }
 
 function getFormValues() {
@@ -88,10 +95,12 @@ function setForm(asset) {
   qs('#obsolete').value = asset.obsolete ? 'true' : 'false';
   qs('#status').value = editableStatus;
   qs('#notes').value = asset.notes || '';
+  setEditMode(Boolean(asset.id));
 }
 
 async function saveAsset() {
   const payload = getFormValues();
+  const isEdit = Boolean(payload.p_id);
 
   const { data, error } = await supabase.rpc('admin_upsert_asset', payload);
   if (error) {
@@ -100,7 +109,7 @@ async function saveAsset() {
   }
 
   setForm(data);
-  toast('Asset saved.');
+  toast(isEdit ? 'Asset updated.' : 'Asset created.');
 }
 
 async function loadByTag() {
@@ -123,6 +132,7 @@ async function loadByTag() {
 
   if (!data) {
     toast('Asset not found for that tag.', true);
+    setEditMode(false);
     return;
   }
 
@@ -199,6 +209,7 @@ async function init() {
   qs('#savePersonBtn').addEventListener('click', createPerson);
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
+  setEditMode(false);
 }
 
 init().catch((err) => toast(err.message, true));
