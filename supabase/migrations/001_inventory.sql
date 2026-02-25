@@ -53,7 +53,7 @@ create table public.assets (
   device_name text not null,
   manufacturer text,
   model text,
-  category text,
+  equipment_type text,
   location text,
   building text,
   room text,
@@ -111,7 +111,7 @@ create table public.damage_photos (
 );
 
 create index idx_people_display_name on public.people using gin (display_name gin_trgm_ops);
-create index idx_assets_search on public.assets (asset_tag, serial, equipment, device_name, manufacturer, model, category, location, building, room, asset_condition, status);
+create index idx_assets_search on public.assets (asset_tag, serial, equipment, device_name, manufacturer, model, equipment_type, location, building, room, asset_condition, status);
 create index idx_transactions_asset_time on public.transactions(asset_id, occurred_at desc);
 create index idx_damage_reports_asset_time on public.damage_reports(asset_id, created_at desc);
 create index idx_damage_photos_report on public.damage_photos(damage_report_id);
@@ -345,7 +345,7 @@ create or replace function public.admin_upsert_asset(
   p_device_name text default null,
   p_manufacturer text default null,
   p_model text default null,
-  p_category text default null,
+  p_equipment_type text default null,
   p_location text default null,
   p_building text default null,
   p_room text default null,
@@ -378,15 +378,11 @@ begin
     raise exception 'asset_tag and serial must be the same value';
   end if;
 
-  if p_device_name is null then
-    p_device_name := coalesce(p_equipment, p_model, coalesce(p_asset_tag, p_serial));
-  end if;
-
   v_tag_serial := coalesce(p_asset_tag, p_serial);
 
   if p_id is null then
-    if v_tag_serial is null then
-      raise exception 'asset_tag (same as serial) is required for create';
+    if v_tag_serial is null or p_device_name is null then
+      raise exception 'asset_tag (same as serial) and device_name are required for create';
     end if;
 
     insert into public.assets (
@@ -396,7 +392,7 @@ begin
       device_name,
       manufacturer,
       model,
-      category,
+      equipment_type,
       location,
       building,
       room,
@@ -416,7 +412,7 @@ begin
       p_device_name,
       p_manufacturer,
       p_model,
-      p_category,
+      p_equipment_type,
       p_location,
       p_building,
       p_room,
@@ -439,7 +435,7 @@ begin
       device_name = coalesce(p_device_name, device_name),
       manufacturer = p_manufacturer,
       model = p_model,
-      category = p_category,
+      equipment_type = p_equipment_type,
       location = p_location,
       building = p_building,
       room = p_room,

@@ -19,59 +19,11 @@ const statRepairRetired = qs('#statRepairRetired');
 
 const searchInput = qs('#searchInput');
 const statusFilter = qs('#statusFilter');
-const categoryFilter = qs('#categoryFilter');
+const equipmentTypeFilter = qs('#equipmentTypeFilter');
 const locationFilter = qs('#locationFilter');
 
 let currentProfile = null;
 let debounceTimer = null;
-
-function showAuthedLayout() {
-  if (authShell) authShell.style.display = 'none';
-  if (authPanel) authPanel.hidden = true;
-
-  if (indexTopbar) {
-    indexTopbar.hidden = false;
-    indexTopbar.style.display = '';
-  }
-
-  if (searchPanel) {
-    searchPanel.hidden = false;
-    searchPanel.style.display = '';
-  }
-  if (resultsPanel) {
-    resultsPanel.hidden = false;
-    resultsPanel.style.display = '';
-  }
-
-  if (mainNav) {
-    mainNav.hidden = false;
-    mainNav.style.display = '';
-  }
-}
-
-function showLoggedOutLayout() {
-  if (authShell) authShell.style.display = 'grid';
-  if (authPanel) authPanel.hidden = false;
-
-  if (indexTopbar) {
-    indexTopbar.hidden = true;
-    indexTopbar.style.display = 'none';
-  }
-
-  if (searchPanel) {
-    searchPanel.hidden = true;
-    searchPanel.style.display = 'none';
-  }
-  if (resultsPanel) {
-    resultsPanel.hidden = true;
-    resultsPanel.style.display = 'none';
-  }
-
-  if (mainNav) {
-    mainNav.hidden = true;
-    mainNav.style.display = 'none';
-  }
-}
 
 function statusBadge(status) {
   return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
@@ -101,24 +53,38 @@ function renderAssets(assets) {
   assets.forEach((asset) => {
     const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
     const assignee = current?.people?.display_name || '-';
-    const title = asset.equipment || asset.model || asset.asset_tag;
+    const title = asset.model || asset.device_name || asset.asset_tag;
+    const equipmentType = asset.equipment_type || 'Unspecified Type';
+    const building = asset.building || '-';
+    const room = asset.room || '-';
+    const condition = asset.asset_condition || '-';
+    const ownership = asset.ownership || '-';
+    const statusClass = `status-${asset.status}`;
 
     const card = document.createElement('article');
     card.className = 'asset-card';
     card.innerHTML = `
-      <div class="asset-card-head">
-        <div>
+      <div class="asset-hero">
+        <div class="asset-avatar" aria-hidden="true">IT</div>
+        <div class="asset-main">
           <div class="asset-title">${escapeHtml(title)}</div>
-          <div class="asset-subtitle">${escapeHtml(asset.category || 'Uncategorized')}</div>
+          <div class="asset-subtitle">${escapeHtml(equipmentType)}</div>
+          <div class="asset-serial">Serial ${escapeHtml(asset.asset_tag)}</div>
         </div>
-        ${statusBadge(asset.status)}
+        <div class="asset-side">
+          ${statusBadge(asset.status)}
+          <a class="btn primary" href="./asset.html?tag=${encodeURIComponent(asset.asset_tag)}">Open Asset</a>
+        </div>
       </div>
-      <div class="meta">Serial: ${escapeHtml(asset.asset_tag)} | Equipment: ${escapeHtml(asset.equipment || '-')} | Manufacturer: ${escapeHtml(asset.manufacturer || '-')} | Model: ${escapeHtml(asset.model || '-')}</div>
-      <div class="meta">Category: ${escapeHtml(asset.category || '-')} | Location: ${escapeHtml(asset.location || '-')} ${asset.building ? `| Building: ${escapeHtml(asset.building)}` : ''} ${asset.room ? `| Room: ${escapeHtml(asset.room)}` : ''}</div>
-      <div class="meta">Condition: ${escapeHtml(asset.asset_condition || '-')} | Ownership: ${escapeHtml(asset.ownership || '-')}</div>
-      <div class="meta">Current Assignee: ${escapeHtml(assignee)}</div>
-      <div class="row asset-actions">
-        <a class="btn" href="./asset.html?tag=${encodeURIComponent(asset.asset_tag)}">Open Asset</a>
+      <div class="asset-meta-grid ${escapeHtml(statusClass)}">
+        <div class="meta-pill"><span class="meta-label">Manufacturer</span><span class="meta-value">${escapeHtml(asset.manufacturer || '-')}</span></div>
+        <div class="meta-pill"><span class="meta-label">Model</span><span class="meta-value">${escapeHtml(asset.model || '-')}</span></div>
+        <div class="meta-pill"><span class="meta-label">Building</span><span class="meta-value">${escapeHtml(building)}</span></div>
+        <div class="meta-pill"><span class="meta-label">Room</span><span class="meta-value">${escapeHtml(room)}</span></div>
+        <div class="meta-pill"><span class="meta-label">Condition</span><span class="meta-value">${escapeHtml(condition)}</span></div>
+        <div class="meta-pill"><span class="meta-label">Ownership</span><span class="meta-value">${escapeHtml(ownership)}</span></div>
+        <div class="meta-pill"><span class="meta-label">Assignee</span><span class="meta-value">${escapeHtml(assignee)}</span></div>
+        <div class="meta-pill"><span class="meta-label">Location</span><span class="meta-value">${escapeHtml(asset.location || '-')}</span></div>
       </div>
     `;
     assetList.appendChild(card);
@@ -126,33 +92,33 @@ function renderAssets(assets) {
 }
 
 function fillFilterOptions(assets) {
-  const categories = [...new Set(assets.map((a) => a.category).filter(Boolean))].sort();
+  const equipmentTypes = [...new Set(assets.map((a) => a.equipment_type).filter(Boolean))].sort();
   const locations = [...new Set(assets.map((a) => a.location).filter(Boolean))].sort();
 
-  categoryFilter.innerHTML = '<option value="">All</option>' + categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  equipmentTypeFilter.innerHTML = '<option value="">All</option>' + equipmentTypes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   locationFilter.innerHTML = '<option value="">All</option>' + locations.map((l) => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
 }
 
 async function loadAssets() {
   let query = supabase
     .from('assets')
-    .select('id, asset_tag, serial, equipment, manufacturer, model, category, location, building, room, asset_condition, ownership, status, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, asset_condition, ownership, status, asset_current(assignee_person_id, checked_out_at, people(display_name))')
     .order('asset_tag', { ascending: true })
     .limit(200);
 
   const term = searchInput.value.trim();
   const status = statusFilter.value;
-  const category = categoryFilter.value;
+  const equipmentType = equipmentTypeFilter.value;
   const location = locationFilter.value;
 
   if (term) {
-    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,equipment.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
+    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
   }
   if (status) {
     query = query.eq('status', status);
   }
-  if (category) {
-    query = query.eq('category', category);
+  if (equipmentType) {
+    query = query.eq('equipment_type', equipmentType);
   }
   if (location) {
     query = query.eq('location', location);
@@ -167,7 +133,7 @@ async function loadAssets() {
 }
 
 function bindSearch() {
-  [searchInput, statusFilter, categoryFilter, locationFilter].forEach((el) => {
+  [searchInput, statusFilter, equipmentTypeFilter, locationFilter].forEach((el) => {
     el.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(loadAssets, 220);
@@ -177,7 +143,16 @@ function bindSearch() {
 }
 
 async function initAuthedUI(session) {
-  showAuthedLayout();
+  authPanel.hidden = true;
+  if (authShell) authShell.hidden = true;
+  if (indexTopbar) {
+    indexTopbar.hidden = false;
+    indexTopbar.style.display = '';
+  }
+  searchPanel.hidden = false;
+  resultsPanel.hidden = false;
+  mainNav.hidden = false;
+  mainNav.style.display = '';
 
   try {
     currentProfile = await getCurrentProfile();
@@ -196,8 +171,8 @@ async function initAuthedUI(session) {
 
   const { data, error } = await supabase
     .from('assets')
-    .select('category, location')
-    .order('category', { ascending: true })
+    .select('equipment_type, location')
+    .order('equipment_type', { ascending: true })
     .limit(500);
 
   if (!error && data) {
@@ -214,8 +189,6 @@ async function init() {
     authMessage.textContent = 'Update config.js with Supabase URL and anon key.';
     return;
   }
-
-  showLoggedOutLayout();
 
   qs('#sendLinkBtn').addEventListener('click', async () => {
     const email = qs('#emailInput').value.trim();
@@ -252,7 +225,16 @@ async function init() {
     if (sessionData) {
       await initAuthedUI(sessionData);
     } else {
-      showLoggedOutLayout();
+      authPanel.hidden = false;
+      if (authShell) authShell.hidden = false;
+      if (indexTopbar) {
+        indexTopbar.hidden = true;
+        indexTopbar.style.display = 'none';
+      }
+      searchPanel.hidden = true;
+      resultsPanel.hidden = true;
+      mainNav.hidden = true;
+      mainNav.style.display = 'none';
       assetList.innerHTML = '';
     }
   });

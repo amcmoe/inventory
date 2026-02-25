@@ -8,9 +8,9 @@
 </head>
 <body>
   <div class="app">
-    <header class="topbar" id="adminTopbar" hidden>
+    <header class="topbar" id="adminTopbar" hidden style="display:none;">
       <div class="brand">Admin</div>
-      <nav class="nav" id="adminNav" hidden>
+      <nav class="nav" id="adminNav" hidden style="display:none;">
         <a href="./index.html">Search</a>
         <a href="./bulk.html">Bulk</a>
         <a href="./admin.html">Admin</a>
@@ -26,15 +26,14 @@
     <section class="panel" id="assetAdminSection" hidden>
       <h2>Create / Edit Asset</h2>
       <p class="muted">This form uses the admin-only RPC.</p>
-      <input id="assetId" type="hidden">
       <div class="grid cols-2">
         <div>
-          <label for="equipment">Equipment</label>
-          <input id="equipment">
+          <label for="assetId">Asset ID (leave blank to create)</label>
+          <input id="assetId" placeholder="UUID for edit mode">
         </div>
         <div>
           <label for="assetTag">Serial #</label>
-          <input id="assetTag" placeholder="A-1001">
+          <input id="assetTag" placeholder="PW063XXX">
         </div>
         <div>
           <label for="manufacturer">Manufacturer</label>
@@ -54,8 +53,12 @@
           <input id="model">
         </div>
         <div>
-          <label for="category">Category</label>
-          <input id="category">
+          <label for="equipmentType">Equipment Type</label>
+          <input id="equipmentType" placeholder="Laptop, Chromebook, Tablet">
+        </div>
+        <div>
+          <label for="location">Location</label>
+          <input id="location">
         </div>
         <div>
           <label for="building">Building</label>
@@ -103,38 +106,26 @@
           <label for="warrantyExpirationDate">Warranty Expiration Date</label>
           <input id="warrantyExpirationDate" type="date">
         </div>
-      </div>
-
-      <section class="panel" id="existingAssetExtras" hidden>
-        <h3>Edit-Only Fields</h3>
-        <p class="muted">These fields are only available after loading an existing asset.</p>
-        <div class="grid cols-2">
-          <div>
-            <label for="status">Status</label>
-            <select id="status">
-              <option value="available">Available</option>
-              <option value="repair">Repair</option>
-              <option value="retired">Retired</option>
-            </select>
-          </div>
-          <div>
-            <label for="obsolete">Obsolete?</label>
-            <select id="obsolete">
-              <option value="false">No</option>
-              <option value="true">Yes</option>
-            </select>
-          </div>
-          <div>
-            <label for="assignToName">Assign To (name)</label>
-            <input id="assignToName" placeholder="Enter person name">
-          </div>
-          <div>
-            <label for="comments">Assignment History</label>
-            <textarea id="comments" rows="16"></textarea>
-          </div>
+        <div>
+          <label for="obsolete">Obsolete?</label>
+          <select id="obsolete">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
         </div>
-      </section>
-
+        <div>
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="available">Available</option>
+            <option value="repair">Repair</option>
+            <option value="retired">Retired</option>
+          </select>
+        </div>
+        <div>
+          <label for="comments">Assignment History</label>
+          <textarea id="comments" rows="16"></textarea>
+        </div>
+      </div>
       <div class="row">
         <button class="btn primary" id="saveAssetBtn">Save Asset</button>
         <button class="btn" id="loadByTagBtn">Load by Serial</button>

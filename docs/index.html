@@ -10,9 +10,9 @@
   <div class="bg-orb orb-a"></div>
   <div class="bg-orb orb-b"></div>
   <div class="app">
-    <header class="topbar panel" id="indexTopbar" hidden>
+    <header class="topbar panel" id="indexTopbar" hidden style="display:none;">
       <div class="brand">Inventory Command</div>
-      <nav class="nav" id="mainNav" hidden>
+      <nav class="nav" id="mainNav" hidden style="display:none;">
         <a href="./index.html">Search</a>
         <a href="./bulk.html" data-role-min="tech">Bulk</a>
         <a href="./admin.html" data-role-min="admin">Admin</a>
@@ -69,8 +69,8 @@
 
       <div class="grid search-grid">
         <div>
-          <label for="searchInput">Search by serial/equipment/name/manufacturer/model/location</label>
-          <input id="searchInput" class="search-input" placeholder="Type serial or device name...">
+          <label for="searchInput">Search by serial/name/manufacturer/model/building/room</label>
+          <input id="searchInput" class="search-input" placeholder="Type serial or model...">
         </div>
         <div class="grid cols-2">
           <div>
@@ -84,8 +84,8 @@
             </select>
           </div>
           <div>
-            <label for="categoryFilter">Category</label>
-            <select id="categoryFilter">
+            <label for="equipmentTypeFilter">Equipment Type</label>
+            <select id="equipmentTypeFilter">
               <option value="">All</option>
             </select>
           </div>
@@ -100,7 +100,7 @@
     </section>
 
     <section class="panel" id="resultsPanel" hidden>
-      <div class="row row-between results-head">
+      <div class="row results-head row-between">
         <h3>Results</h3>
         <div class="muted" id="resultCount"></div>
       </div>

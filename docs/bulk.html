@@ -8,9 +8,9 @@
 </head>
 <body>
   <div class="app">
-    <header class="topbar" id="bulkTopbar" hidden>
+    <header class="topbar" id="bulkTopbar" hidden style="display:none;">
       <div class="brand">Bulk Checkout</div>
-      <nav class="nav" id="bulkNav" hidden>
+      <nav class="nav" id="bulkNav" hidden style="display:none;">
         <a href="./index.html">Search</a>
         <a href="./bulk.html">Bulk</a>
         <a href="./admin.html" data-role-min="admin">Admin</a>
@@ -43,14 +43,14 @@
         </div>
         <div>
           <label for="assetTags">Asset Tags (one per line)</label>
-          <textarea id="assetTags" placeholder="A-1001&#10;A-1002&#10;A-1003"></textarea>
+          <textarea id="assetTags" placeholder="PW063XXX&#10;PW063XXY&#10;PW063XXZ"></textarea>
         </div>
         <button class="btn primary" id="submitBulkBtn">Submit Bulk Checkout</button>
       </div>
     </section>
 
     <section class="panel" id="bulkResultsSection" hidden>
-      <div class="row row-between">
+      <div class="row" style="justify-content: space-between;">
         <h3>Results</h3>
         <button class="btn" id="clearResultsBtn">Clear</button>
       </div>
