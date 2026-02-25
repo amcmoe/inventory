@@ -7,8 +7,10 @@ const adminTopbar = qs('#adminTopbar');
 const assetAdminSection = qs('#assetAdminSection');
 const peopleAdminSection = qs('#peopleAdminSection');
 const adminNav = qs('#adminNav');
+const existingAssetExtras = qs('#existingAssetExtras');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
+let currentProfile = null;
 
 function currentManufacturerValue() {
   const selected = qs('#manufacturer').value;
@@ -41,13 +43,39 @@ function setManufacturerValue(value) {
   qs('#manufacturerCustom').hidden = false;
 }
 
+function updateEditModeState() {
+  const isExisting = Boolean(qs('#assetId').value.trim());
+  if (existingAssetExtras) {
+    existingAssetExtras.hidden = !isExisting;
+  }
+}
+
+function buildAssignmentHistory(isExisting) {
+  const currentHistory = qs('#comments').value.trim();
+  if (!isExisting) {
+    return null;
+  }
+
+  const assignTo = qs('#assignToName').value.trim();
+  if (!assignTo) {
+    return currentHistory || null;
+  }
+
+  const assignedBy = currentProfile?.display_name || 'Admin';
+  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  const entry = `${stamp} - ASSIGNED to ${assignTo} by ${assignedBy}`;
+  return currentHistory ? `${currentHistory}\n${entry}` : entry;
+}
+
 function getFormValues() {
+  const assetId = qs('#assetId').value.trim() || null;
+  const isExisting = Boolean(assetId);
   const assetTag = qs('#assetTag').value.trim() || null;
   const equipment = qs('#equipment').value.trim() || null;
   const model = qs('#model').value.trim() || null;
   const derivedDeviceName = equipment || model || assetTag || null;
   return {
-    p_id: qs('#assetId').value.trim() || null,
+    p_id: assetId,
     p_asset_tag: assetTag,
     p_serial: assetTag,
     p_equipment: equipment,
@@ -55,16 +83,16 @@ function getFormValues() {
     p_manufacturer: currentManufacturerValue(),
     p_model: qs('#model').value.trim() || null,
     p_category: qs('#category').value.trim() || null,
-    p_location: qs('#location').value.trim() || null,
+    p_location: null,
     p_building: qs('#building').value.trim() || null,
     p_room: qs('#room').value.trim() || null,
     p_service_start_date: qs('#serviceStartDate').value || null,
     p_asset_condition: qs('#assetCondition').value || null,
-    p_comments: qs('#comments').value.trim() || null,
+    p_comments: buildAssignmentHistory(isExisting),
     p_ownership: qs('#ownership').value || null,
     p_warranty_expiration_date: qs('#warrantyExpirationDate').value || null,
-    p_obsolete: qs('#obsolete').value === 'true',
-    p_status: qs('#status').value,
+    p_obsolete: isExisting ? qs('#obsolete').value === 'true' : false,
+    p_status: isExisting ? qs('#status').value : 'available',
     p_notes: qs('#notes').value.trim() || null
   };
 }
@@ -79,17 +107,18 @@ function setForm(asset) {
   setManufacturerValue(asset.manufacturer || '');
   qs('#model').value = asset.model || '';
   qs('#category').value = asset.category || '';
-  qs('#location').value = asset.location || '';
   qs('#building').value = asset.building || '';
   qs('#room').value = asset.room || '';
   qs('#serviceStartDate').value = asset.service_start_date || '';
   qs('#assetCondition').value = asset.asset_condition || '';
   qs('#comments').value = asset.comments || '';
+  qs('#assignToName').value = '';
   qs('#ownership').value = asset.ownership || '';
   qs('#warrantyExpirationDate').value = asset.warranty_expiration_date || '';
   qs('#obsolete').value = asset.obsolete ? 'true' : 'false';
   qs('#status').value = editableStatus;
   qs('#notes').value = asset.notes || '';
+  updateEditModeState();
 }
 
 async function saveAsset() {
@@ -102,6 +131,7 @@ async function saveAsset() {
   }
 
   setForm(data);
+  qs('#assignToName').value = '';
   toast('Asset saved.');
 }
 
@@ -171,8 +201,8 @@ async function init() {
     return;
   }
 
-  const profile = await getCurrentProfile();
-  if (profile.role !== ROLES.ADMIN) {
+  currentProfile = await getCurrentProfile();
+  if (currentProfile.role !== ROLES.ADMIN) {
     toast('Admin role required.', true);
     window.location.href = './index.html';
     return;
@@ -201,6 +231,7 @@ async function init() {
   qs('#savePersonBtn').addEventListener('click', createPerson);
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
+  updateEditModeState();
 }
 
 init().catch((err) => toast(err.message, true));

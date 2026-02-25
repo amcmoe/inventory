@@ -26,11 +26,8 @@
     <section class="panel" id="assetAdminSection" hidden>
       <h2>Create / Edit Asset</h2>
       <p class="muted">This form uses the admin-only RPC.</p>
+      <input id="assetId" type="hidden">
       <div class="grid cols-2">
-        <div>
-          <label for="assetId">Asset ID (leave blank to create)</label>
-          <input id="assetId" placeholder="UUID for edit mode">
-        </div>
         <div>
           <label for="equipment">Equipment</label>
           <input id="equipment">
@@ -59,10 +56,6 @@
         <div>
           <label for="category">Category</label>
           <input id="category">
-        </div>
-        <div>
-          <label for="location">Location</label>
-          <input id="location">
         </div>
         <div>
           <label for="building">Building</label>
@@ -110,26 +103,38 @@
           <label for="warrantyExpirationDate">Warranty Expiration Date</label>
           <input id="warrantyExpirationDate" type="date">
         </div>
-        <div>
-          <label for="obsolete">Obsolete?</label>
-          <select id="obsolete">
-            <option value="false">No</option>
-            <option value="true">Yes</option>
-          </select>
-        </div>
-        <div>
-          <label for="status">Status</label>
-          <select id="status">
-            <option value="available">Available</option>
-            <option value="repair">Repair</option>
-            <option value="retired">Retired</option>
-          </select>
-        </div>
-        <div>
-          <label for="comments">Assignment History</label>
-          <textarea id="comments" rows="16"></textarea>
-        </div>
       </div>
+
+      <section class="panel" id="existingAssetExtras" hidden>
+        <h3>Edit-Only Fields</h3>
+        <p class="muted">These fields are only available after loading an existing asset.</p>
+        <div class="grid cols-2">
+          <div>
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="available">Available</option>
+              <option value="repair">Repair</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+          <div>
+            <label for="obsolete">Obsolete?</label>
+            <select id="obsolete">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+          <div>
+            <label for="assignToName">Assign To (name)</label>
+            <input id="assignToName" placeholder="Enter person name">
+          </div>
+          <div>
+            <label for="comments">Assignment History</label>
+            <textarea id="comments" rows="16"></textarea>
+          </div>
+        </div>
+      </section>
+
       <div class="row">
         <button class="btn primary" id="saveAssetBtn">Save Asset</button>
         <button class="btn" id="loadByTagBtn">Load by Serial</button>
