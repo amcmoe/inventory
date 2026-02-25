@@ -33,6 +33,15 @@ function statusBadge(status) {
   return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
 }
 
+function fact(label, value, extraClass = '') {
+  return `
+    <div class="fact-item ${extraClass}">
+      <div class="fact-label">${escapeHtml(label)}</div>
+      <div class="fact-value">${value}</div>
+    </div>
+  `;
+}
+
 function inServiceFor(startDate) {
   if (!startDate) {
     return '-';
@@ -82,24 +91,49 @@ async function loadAsset() {
   const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
   const assignee = current?.people?.display_name || '-';
   const title = asset.equipment || asset.model || asset.asset_tag;
+  const assignmentHistoryHtml = asset.comments
+    ? escapeHtml(asset.comments).replaceAll('\n', '<br>')
+    : '-';
 
   assetTitle.innerHTML = `${escapeHtml(asset.asset_tag)} - ${escapeHtml(title)}`;
   assetMeta.innerHTML = `
-    <div class="meta">Status: ${statusBadge(asset.status)}</div>
-    <div class="meta">Equipment: ${escapeHtml(asset.equipment || '-')}</div>
-    <div class="meta">Serial: ${escapeHtml(asset.asset_tag)}</div>
-    <div class="meta">Manufacturer: ${escapeHtml(asset.manufacturer || '-')}</div>
-    <div class="meta">Model: ${escapeHtml(asset.model || '-')}</div>
-    <div class="meta">Category: ${escapeHtml(asset.category || '-')}</div>
-    <div class="meta">Location: ${escapeHtml(asset.location || '-')} ${asset.building ? `| Building: ${escapeHtml(asset.building)}` : ''} ${asset.room ? `| Room: ${escapeHtml(asset.room)}` : ''}</div>
-    <div class="meta">In Service Since: ${escapeHtml(asset.service_start_date || '-')} | In Service For: ${escapeHtml(inServiceFor(asset.service_start_date))}</div>
-    <div class="meta">Condition: ${escapeHtml(asset.asset_condition || '-')} | Incidents: ${incidentCount}</div>
-    <div class="meta">Ownership: ${escapeHtml(asset.ownership || '-')} | Warranty Expires: ${escapeHtml(asset.warranty_expiration_date || '-')}</div>
-    <div class="meta">Obsolete: ${asset.obsolete ? 'Yes' : 'No'}</div>
-    <div class="meta">Current Assignee: ${escapeHtml(assignee)}</div>
-    <div class="meta">Checked Out At: ${formatDateTime(current?.checked_out_at)}</div>
-    <div class="meta">Assignment History: ${(asset.comments ? escapeHtml(asset.comments).replaceAll('\n', '<br>') : '-')}</div>
-    <div class="meta">Condition Notes: ${escapeHtml(asset.notes || '-')}</div>
+    <div class="asset-summary-row">
+      <div class="mini-stat">
+        <div class="mini-stat-label">Status</div>
+        <div class="mini-stat-value">${statusBadge(asset.status)}</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Current Assignee</div>
+        <div class="mini-stat-value">${escapeHtml(assignee)}</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Incidents</div>
+        <div class="mini-stat-value">${incidentCount}</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Checked Out At</div>
+        <div class="mini-stat-value">${escapeHtml(formatDateTime(current?.checked_out_at))}</div>
+      </div>
+    </div>
+
+    <div class="fact-grid">
+      ${fact('Serial', escapeHtml(asset.asset_tag))}
+      ${fact('Equipment', escapeHtml(asset.equipment || '-'))}
+      ${fact('Manufacturer', escapeHtml(asset.manufacturer || '-'))}
+      ${fact('Model', escapeHtml(asset.model || '-'))}
+      ${fact('Category', escapeHtml(asset.category || '-'))}
+      ${fact('Building', escapeHtml(asset.building || '-'))}
+      ${fact('Room', escapeHtml(asset.room || '-'))}
+      ${fact('Condition', escapeHtml(asset.asset_condition || '-'))}
+      ${fact('In Service Since', escapeHtml(asset.service_start_date || '-'))}
+      ${fact('In Service For', escapeHtml(inServiceFor(asset.service_start_date)))}
+      ${fact('Ownership', escapeHtml(asset.ownership || '-'))}
+      ${fact('Warranty Expires', escapeHtml(asset.warranty_expiration_date || '-'))}
+      ${fact('Obsolete', asset.obsolete ? 'Yes' : 'No')}
+      ${fact('Location', escapeHtml(asset.location || '-'))}
+      ${fact('Assignment History', assignmentHistoryHtml, 'fact-span-2 fact-rich')}
+      ${fact('Condition Notes', escapeHtml(asset.notes || '-'), 'fact-span-2 fact-rich')}
+    </div>
   `;
 
   qs('#checkoutBtn').disabled = asset.status !== 'available';
@@ -131,7 +165,7 @@ async function loadHistory() {
     const assignee = tx.people?.display_name || '-';
     return `
       <div class="history-item">
-        <div class="row" style="justify-content: space-between;">
+        <div class="row row-between">
           <strong>${tx.action.toUpperCase()}</strong>
           <span class="muted">${formatDateTime(tx.occurred_at)}</span>
         </div>
@@ -199,7 +233,7 @@ async function loadDamageReports() {
 
     return `
       <div class="damage-item">
-        <div class="row" style="justify-content: space-between;">
+        <div class="row row-between">
           <strong>${escapeHtml(report.summary)}</strong>
           <span class="badge status-${escapeHtml(report.status)}">${escapeHtml(report.status)}</span>
         </div>

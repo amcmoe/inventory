@@ -37,7 +37,7 @@ async function generate() {
     container.innerHTML = `
       <div><strong>${escapeHtml(tag)}</strong></div>
       <div class="meta"><a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(url)}</a></div>
-      <canvas id="${canvasId}" style="margin-top:8px;"></canvas>
+      <canvas id="${canvasId}" class="qr-canvas"></canvas>
     `;
     output.appendChild(container);
 

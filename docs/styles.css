@@ -329,6 +329,85 @@ textarea {
   margin-top: 10px;
 }
 
+.asset-summary-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.mini-stat {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbfe, #eef6fb);
+  padding: 10px;
+}
+
+.mini-stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.mini-stat-value {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.fact-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+}
+
+.fact-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 11px;
+  box-shadow: var(--shadow-soft);
+}
+
+.fact-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.fact-value {
+  font-size: 1rem;
+  color: #22384e;
+  line-height: 1.35;
+}
+
+.fact-rich .fact-value {
+  max-height: 220px;
+  overflow: auto;
+  white-space: normal;
+  background: #f8fbff;
+  border: 1px dashed #d4e0eb;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+#assetPanel > .row:first-child {
+  margin-bottom: 10px;
+}
+
+#actionButtons {
+  margin-top: 12px;
+}
+
+#actionButtons .btn {
+  min-width: 132px;
+}
+
 .badge {
   display: inline-block;
   padding: 5px 9px;
@@ -369,6 +448,10 @@ textarea {
   align-items: center;
 }
 
+.row-between {
+  justify-content: space-between;
+}
+
 .results-head {
   margin-bottom: 8px;
 }
@@ -399,6 +482,10 @@ textarea {
   border: 1px solid var(--line);
   aspect-ratio: 1;
   object-fit: cover;
+}
+
+.qr-canvas {
+  margin-top: 8px;
 }
 
 .toast {
@@ -492,5 +579,17 @@ td {
 
   .app {
     padding: 20px;
+  }
+
+  .asset-summary-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .fact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fact-span-2 {
+    grid-column: span 2;
   }
 }
