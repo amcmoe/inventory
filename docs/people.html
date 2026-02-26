@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - People</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>IT Asset Inventory</strong>
+          <span>Team workspace</span>
+        </div>
+      </div>
+      <nav class="nav" id="peopleNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <a href="./admin.html"><span>Admin</span></a>
+        <a href="./reports.html"><span>Reports</span></a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="peopleTopbar" hidden>
+        <div>
+          <h1>People</h1>
+          <div class="subtext">Create and manage assignees.</div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="signOutBtn" type="button">Sign Out</button>
+        </div>
+      </header>
+
+      <section class="panel" id="peopleLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session and role.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="peopleMainSection" hidden>
+        <div class="panel-body">
+          <h2>Create Person</h2>
+          <div class="grid cols-2">
+            <div>
+              <label for="personName">Display Name</label>
+              <input id="personName">
+            </div>
+            <div>
+              <label for="personEmail">Email (optional)</label>
+              <input id="personEmail" type="email">
+            </div>
+            <div>
+              <label for="personEmployeeId">Employee ID (optional)</label>
+              <input id="personEmployeeId">
+            </div>
+            <div>
+              <label for="personDepartment">Department (optional)</label>
+              <input id="personDepartment">
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="savePersonBtn">Create Person</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/people.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
+</body>
+</html>
+
+
+

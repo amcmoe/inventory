@@ -51,3 +51,34 @@ export function setRoleVisibility(role) {
     el.hidden = !allowed;
   });
 }
+
+export function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+}
+
+export function bindThemeToggle() {
+  const btn = document.querySelector('#themeBtn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+}
+
+export function bindSignOut(signOutFn, redirectUrl = './index.html') {
+  const btn = document.querySelector('#signOutBtn');
+  if (!btn || typeof signOutFn !== 'function') return;
+  btn.addEventListener('click', async () => {
+    try {
+      await signOutFn();
+      window.location.href = redirectUrl;
+    } catch (err) {
+      toast(err?.message || 'Sign out failed.', true);
+    }
+  });
+}

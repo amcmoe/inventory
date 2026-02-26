@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - Reports</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>IT Asset Inventory</strong>
+          <span>Team workspace</span>
+        </div>
+      </div>
+      <nav class="nav" id="reportsNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <a href="./admin.html" data-role-min="admin"><span>Admin</span></a>
+        <a class="active" href="./reports.html"><span>Reports</span></a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="reportsTopbar" hidden>
+        <div>
+          <h1>Reports</h1>
+          <div class="subtext">Build and export asset reports (CSV, HTML, PDF).</div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="refreshReportBtn" type="button">Refresh</button>
+          <button class="btn" id="signOutBtn" type="button">Sign Out</button>
+        </div>
+      </header>
+
+      <section class="panel" id="reportsLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="reportsMainSection" hidden>
+        <div class="panel-header">
+          <div class="controls">
+            <div class="field small">
+              <select id="reportStatusFilter">
+                <option value="">All status</option>
+                <option value="available">Available</option>
+                <option value="checked_out">Checked Out</option>
+                <option value="repair">Repair</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+            <div class="field small">
+              <select id="reportTypeFilter">
+                <option value="">All types</option>
+              </select>
+            </div>
+            <div class="field">
+              <input id="reportSearch" type="search" placeholder="Search serial, model, assignee, location...">
+            </div>
+          </div>
+          <div class="controls">
+            <button class="btn" id="exportCsvBtn" type="button">Export CSV</button>
+            <button class="btn" id="exportHtmlBtn" type="button">Export HTML</button>
+            <button class="btn primary" id="exportPdfBtn" type="button">Export PDF</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table aria-label="Report data">
+            <thead>
+              <tr>
+                <th>Serial</th>
+                <th>Type</th>
+                <th>Model</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody id="reportsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./js/reports.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
+</body>
+</html>
+
+
+

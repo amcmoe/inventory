@@ -1,6 +1,6 @@
 import { supabase, ROLES, roleCanWrite, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth } from './auth.js';
-import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility } from './ui.js';
+import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
+import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
 
 const bucket = 'asset-damage-photos';
 
@@ -31,6 +31,15 @@ function getTag() {
 
 function statusBadge(status) {
   return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+}
+
+function detailPill(label, value) {
+  return `
+    <div class="detail-pill">
+      <div class="detail-label">${label}</div>
+      <div class="detail-value">${value}</div>
+    </div>
+  `;
 }
 
 function inServiceFor(startDate) {
@@ -84,21 +93,48 @@ async function loadAsset() {
 
   const title = asset.model || asset.device_name || asset.asset_tag;
   assetTitle.innerHTML = `${escapeHtml(asset.asset_tag)} - ${escapeHtml(title)}`;
+  const assignmentHistory = asset.comments
+    ? escapeHtml(asset.comments).replaceAll('\n', '<br>')
+    : '<span class="muted">No assignment history yet.</span>';
+  const conditionNotes = asset.notes
+    ? escapeHtml(asset.notes).replaceAll('\n', '<br>')
+    : '<span class="muted">No condition notes.</span>';
+
   assetMeta.innerHTML = `
-    <div class="meta">Status: ${statusBadge(asset.status)}</div>
-    <div class="meta">Serial: ${escapeHtml(asset.asset_tag)}</div>
-    <div class="meta">Manufacturer: ${escapeHtml(asset.manufacturer || '-')}</div>
-    <div class="meta">Model: ${escapeHtml(asset.model || '-')}</div>
-    <div class="meta">Equipment Type: ${escapeHtml(asset.equipment_type || '-')}</div>
-    <div class="meta">Location: ${escapeHtml(asset.location || '-')} ${asset.building ? `| Building: ${escapeHtml(asset.building)}` : ''} ${asset.room ? `| Room: ${escapeHtml(asset.room)}` : ''}</div>
-    <div class="meta">In Service Since: ${escapeHtml(asset.service_start_date || '-')} | In Service For: ${escapeHtml(inServiceFor(asset.service_start_date))}</div>
-    <div class="meta">Condition: ${escapeHtml(asset.asset_condition || '-')} | Incidents: ${incidentCount}</div>
-    <div class="meta">Ownership: ${escapeHtml(asset.ownership || '-')} | Warranty Expires: ${escapeHtml(asset.warranty_expiration_date || '-')}</div>
-    <div class="meta">Obsolete: ${asset.obsolete ? 'Yes' : 'No'}</div>
-    <div class="meta">Current Assignee: ${escapeHtml(assignee)}</div>
-    <div class="meta">Checked Out At: ${formatDateTime(current?.checked_out_at)}</div>
-    <div class="meta">Assignment History: ${(asset.comments ? escapeHtml(asset.comments).replaceAll('\n', '<br>') : '-')}</div>
-    <div class="meta">Condition Notes: ${escapeHtml(asset.notes || '-')}</div>
+    <div class="asset-detail-head">
+      <div class="detail-status-wrap">
+        <span class="detail-label">Status</span>
+        ${statusBadge(asset.status)}
+      </div>
+    </div>
+    <div class="asset-detail-grid">
+      ${detailPill('Serial', escapeHtml(asset.asset_tag))}
+      ${detailPill('Manufacturer', escapeHtml(asset.manufacturer || '-'))}
+      ${detailPill('Model', escapeHtml(asset.model || '-'))}
+      ${detailPill('Equipment Type', escapeHtml(asset.equipment_type || '-'))}
+      ${detailPill('Building', escapeHtml(asset.building || '-'))}
+      ${detailPill('Room', escapeHtml(asset.room || '-'))}
+      ${detailPill('Location', escapeHtml(asset.location || '-'))}
+      ${detailPill('In Service Since', escapeHtml(asset.service_start_date || '-'))}
+      ${detailPill('In Service For', escapeHtml(inServiceFor(asset.service_start_date)))}
+      ${detailPill('Condition', escapeHtml(asset.asset_condition || '-'))}
+      ${detailPill('Incidents', escapeHtml(String(incidentCount)))}
+      ${detailPill('Ownership', escapeHtml(asset.ownership || '-'))}
+      ${detailPill('Warranty Expires', escapeHtml(asset.warranty_expiration_date || '-'))}
+      ${detailPill('Obsolete', asset.obsolete ? 'Yes' : 'No')}
+      ${detailPill('Current Assignee', escapeHtml(assignee))}
+      ${detailPill('Checked Out At', formatDateTime(current?.checked_out_at))}
+    </div>
+    <div class="asset-detail-notes">
+      <div class="detail-block">
+        <div class="detail-label">Assignment History</div>
+        <div class="detail-text">${assignmentHistory}</div>
+      </div>
+      <div class="detail-block">
+        <div class="detail-label">Condition Notes</div>
+        <div class="detail-text">${conditionNotes}</div>
+      </div>
+    </div>
   `;
 
   qs('#checkoutBtn').disabled = asset.status !== 'available';
@@ -401,6 +437,9 @@ async function refreshAll() {
 }
 
 async function init() {
+  initTheme();
+  bindThemeToggle();
+  bindSignOut(signOut);
   if (!requireConfig()) {
     toast('Update config.js with Supabase config.', true);
     return;
@@ -465,3 +504,4 @@ async function init() {
 init().catch((err) => {
   toast(err.message, true);
 });
+

@@ -1,114 +1,173 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inventory - Search</title>
+  <title>Asset Inventory</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <div class="bg-orb orb-a"></div>
-  <div class="bg-orb orb-b"></div>
-  <div class="app">
-    <header class="topbar panel" id="indexTopbar" hidden style="display:none;">
-      <div class="brand">Inventory Command</div>
-      <nav class="nav" id="mainNav" hidden style="display:none;">
-        <a href="./index.html">Search</a>
-        <a href="./bulk.html" data-role-min="tech">Bulk</a>
-        <a href="./admin.html" data-role-min="admin">Admin</a>
-        <a href="./qr-helper.html" data-role-min="tech">QR Helper</a>
-      </nav>
-    </header>
-
-    <section class="auth-shell" id="authShell">
-      <div class="panel auth-panel" id="authPanel">
-        <h2>Sign In</h2>
-        <p class="muted">Use email magic link for fast mobile sign-in.</p>
-        <div class="grid">
-          <div>
-            <label for="emailInput">Email</label>
-            <input id="emailInput" type="email" placeholder="name@school.org" autocomplete="email">
-          </div>
-          <button class="btn primary" id="sendLinkBtn">Send Magic Link</button>
-        </div>
-        <p class="muted" id="authMessage"></p>
-      </div>
-    </section>
-
-    <section class="panel search-shell" id="searchPanel" hidden>
-      <div class="search-head">
-        <div class="search-title-wrap">
-          <p class="eyebrow">Inventory</p>
-          <h2>Asset Search</h2>
-          <div class="muted" id="userMeta"></div>
-        </div>
-        <div class="row action-row">
-          <button class="btn" id="refreshBtn">Refresh</button>
-          <button class="btn" id="signOutBtn">Sign Out</button>
-        </div>
-      </div>
-
-      <div class="stats-strip">
-        <article class="stat">
-          <div class="stat-label">Visible</div>
-          <div class="stat-value" id="statTotal">0</div>
-        </article>
-        <article class="stat">
-          <div class="stat-label">Available</div>
-          <div class="stat-value" id="statAvailable">0</div>
-        </article>
-        <article class="stat">
-          <div class="stat-label">Checked Out</div>
-          <div class="stat-value" id="statCheckedOut">0</div>
-        </article>
-        <article class="stat">
-          <div class="stat-label">Repair/Retired</div>
-          <div class="stat-value" id="statRepairRetired">0</div>
-        </article>
-      </div>
-
-      <div class="grid search-grid">
+  <section class="auth-shell" id="authShell">
+    <div class="panel auth-panel" id="authPanel">
+      <h2>Sign In</h2>
+      <p class="muted">Use email magic link for fast mobile sign-in.</p>
+      <div class="grid">
         <div>
-          <label for="searchInput">Search by serial/name/manufacturer/model/building/room</label>
-          <input id="searchInput" class="search-input" placeholder="Type serial or model...">
+          <label for="emailInput">Email</label>
+          <input id="emailInput" type="email" placeholder="name@school.org" autocomplete="email">
         </div>
-        <div class="grid cols-2">
-          <div>
-            <label for="statusFilter">Status</label>
-            <select id="statusFilter">
-              <option value="">All</option>
-              <option value="available">Available</option>
-              <option value="checked_out">Checked Out</option>
-              <option value="repair">Repair</option>
-              <option value="retired">Retired</option>
-            </select>
-          </div>
-          <div>
-            <label for="equipmentTypeFilter">Equipment Type</label>
-            <select id="equipmentTypeFilter">
-              <option value="">All</option>
-            </select>
-          </div>
-          <div>
-            <label for="locationFilter">Location</label>
-            <select id="locationFilter">
-              <option value="">All</option>
-            </select>
-          </div>
-        </div>
+        <button class="btn primary" id="sendLinkBtn">Send Magic Link</button>
       </div>
-    </section>
+      <p class="muted" id="authMessage"></p>
+    </div>
+  </section>
 
-    <section class="panel" id="resultsPanel" hidden>
-      <div class="row results-head row-between">
-        <h3>Results</h3>
-        <div class="muted" id="resultCount"></div>
+  <div class="app" id="dashboardShell" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>IT Asset Inventory</strong>
+          <span>Team workspace</span>
+        </div>
       </div>
-      <div class="asset-list" id="assetList"></div>
-    </section>
+
+      <nav class="nav" aria-label="Primary" id="mainNav" hidden>
+        <a class="active" href="./index.html"><span>Search</span></a>
+        <a href="./admin.html" data-role-min="admin"><span>Admin</span></a>
+        <a href="./reports.html"><span>Reports</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn" id="signOutBtn" type="button">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar" id="indexTopbar" hidden>
+        <div>
+          <h1>Assets</h1>
+          <div class="subtext">Search and manage devices.</div>
+          <div class="subtext" id="userMeta"></div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="refreshBtn" type="button">Refresh</button>
+        </div>
+      </div>
+
+      <section class="kpis" aria-label="Summary">
+        <div class="kpi">
+          <div class="label">Total assets</div>
+          <div class="value" id="kpiTotal">0</div>
+          <div class="hint">All tracked items</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Assigned</div>
+          <div class="value" id="kpiAssigned">0</div>
+          <div class="hint">Checked out to users</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Available</div>
+          <div class="value" id="kpiAvailable">0</div>
+          <div class="hint">Ready to deploy</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Needs attention</div>
+          <div class="value" id="kpiAttention">0</div>
+          <div class="hint">Repair / retired</div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Asset list" id="searchPanel" hidden>
+        <div class="panel-header">
+          <div class="controls">
+            <div class="field">
+              <input id="searchInput" type="search" placeholder="Search tag, serial, model, location..." autocomplete="off">
+            </div>
+            <div class="field small">
+              <select id="typeFilter">
+                <option value="">All types</option>
+              </select>
+            </div>
+            <div class="field small">
+              <select id="statusFilter">
+                <option value="">All status</option>
+                <option value="available">Available</option>
+                <option value="checked_out">Checked Out</option>
+                <option value="repair">Repair</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="startScannerBtn" type="button">QR Scanner</button>
+            <button class="btn" id="stopScannerBtn" type="button" disabled>Stop</button>
+            <button class="btn" id="clearFiltersBtn" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="scanner-stage" id="scannerStage" hidden>
+            <video id="scannerVideo" autoplay playsinline muted></video>
+            <canvas id="scannerCanvas" hidden></canvas>
+            <div class="scanner-overlay"></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table role="grid" aria-label="Assets table">
+            <thead>
+              <tr>
+                <th>Asset Tag</th>
+                <th>Serial</th>
+                <th>Type</th>
+                <th>Model</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody id="assetTbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
   </div>
 
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <aside class="drawer" id="drawer" aria-label="Asset details" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <strong id="drawerPrimary">-</strong>
+        <span id="drawerSecondary">-</span>
+      </div>
+      <button class="btn ghost" id="closeDrawerBtn" type="button" aria-label="Close details">X</button>
+    </div>
+    <div class="drawer-body">
+      <div class="detail-grid" id="drawerDetails"></div>
+      <div class="detail">
+        <div class="k">Notes</div>
+        <div class="v" id="drawerNotes">-</div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn primary" id="printLabelBtn" type="button">Print Label</button>
+      <button class="btn" id="editBtn" type="button">Edit</button>
+      <button class="btn danger" id="retireBtn" type="button">Retire</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="./config.js"></script>
+  <script src="./ui.js"></script>
   <script type="module" src="./js/index.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
 </body>
 </html>
+

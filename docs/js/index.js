@@ -1,127 +1,199 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, sendMagicLink, signOut } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
 
 const authPanel = qs('#authPanel');
 const authShell = qs('#authShell');
+const dashboardShell = qs('#dashboardShell');
 const indexTopbar = qs('#indexTopbar');
 const searchPanel = qs('#searchPanel');
-const resultsPanel = qs('#resultsPanel');
 const mainNav = qs('#mainNav');
 const authMessage = qs('#authMessage');
 const userMeta = qs('#userMeta');
-const assetList = qs('#assetList');
-const resultCount = qs('#resultCount');
-const statTotal = qs('#statTotal');
-const statAvailable = qs('#statAvailable');
-const statCheckedOut = qs('#statCheckedOut');
-const statRepairRetired = qs('#statRepairRetired');
+
+const assetTbody = qs('#assetTbody');
 
 const searchInput = qs('#searchInput');
 const statusFilter = qs('#statusFilter');
-const equipmentTypeFilter = qs('#equipmentTypeFilter');
-const locationFilter = qs('#locationFilter');
+const typeFilter = qs('#typeFilter');
+const clearFiltersBtn = qs('#clearFiltersBtn');
+const startScannerBtn = qs('#startScannerBtn');
+const stopScannerBtn = qs('#stopScannerBtn');
+const scannerStage = qs('#scannerStage');
+const scannerVideo = qs('#scannerVideo');
+const scannerCanvas = qs('#scannerCanvas');
 
 let currentProfile = null;
 let debounceTimer = null;
+let scannerStream = null;
+let scannerTimer = null;
+let scannerDetector = null;
+let lastScanned = '';
+let lastScannedAt = 0;
 
-function statusBadge(status) {
-  return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+function renderSearchPrompt() {
+  assetTbody.innerHTML = '<tr><td colspan="7" class="dim">Type a serial or model to search for assets.</td></tr>';
+  window.updateKpisFromTable?.();
 }
 
-function renderStats(assets) {
-  const available = assets.filter((a) => a.status === 'available').length;
-  const checkedOut = assets.filter((a) => a.status === 'checked_out').length;
-  const repairRetired = assets.filter((a) => a.status === 'repair' || a.status === 'retired').length;
-
-  if (statTotal) statTotal.textContent = String(assets.length);
-  if (statAvailable) statAvailable.textContent = String(available);
-  if (statCheckedOut) statCheckedOut.textContent = String(checkedOut);
-  if (statRepairRetired) statRepairRetired.textContent = String(repairRetired);
-}
-
-function renderAssets(assets) {
-  assetList.innerHTML = '';
-  resultCount.textContent = `${assets.length} asset(s)`;
-  renderStats(assets);
-
-  if (!assets.length) {
-    assetList.innerHTML = '<div class="empty-state muted">No assets found for the current filters.</div>';
-    return;
-  }
-
-  assets.forEach((asset) => {
-    const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
-    const assignee = current?.people?.display_name || '-';
-    const title = asset.model || asset.device_name || asset.asset_tag;
-    const equipmentType = asset.equipment_type || 'Unspecified Type';
-    const building = asset.building || '-';
-    const room = asset.room || '-';
-    const condition = asset.asset_condition || '-';
-    const ownership = asset.ownership || '-';
-    const statusClass = `status-${asset.status}`;
-
-    const card = document.createElement('article');
-    card.className = 'asset-card';
-    card.innerHTML = `
-      <div class="asset-hero">
-        <div class="asset-avatar" aria-hidden="true">IT</div>
-        <div class="asset-main">
-          <div class="asset-title">${escapeHtml(title)}</div>
-          <div class="asset-subtitle">${escapeHtml(equipmentType)}</div>
-          <div class="asset-serial">Serial ${escapeHtml(asset.asset_tag)}</div>
-        </div>
-        <div class="asset-side">
-          ${statusBadge(asset.status)}
-          <a class="btn primary" href="./asset.html?tag=${encodeURIComponent(asset.asset_tag)}">Open Asset</a>
-        </div>
-      </div>
-      <div class="asset-meta-grid ${escapeHtml(statusClass)}">
-        <div class="meta-pill"><span class="meta-label">Manufacturer</span><span class="meta-value">${escapeHtml(asset.manufacturer || '-')}</span></div>
-        <div class="meta-pill"><span class="meta-label">Model</span><span class="meta-value">${escapeHtml(asset.model || '-')}</span></div>
-        <div class="meta-pill"><span class="meta-label">Building</span><span class="meta-value">${escapeHtml(building)}</span></div>
-        <div class="meta-pill"><span class="meta-label">Room</span><span class="meta-value">${escapeHtml(room)}</span></div>
-        <div class="meta-pill"><span class="meta-label">Condition</span><span class="meta-value">${escapeHtml(condition)}</span></div>
-        <div class="meta-pill"><span class="meta-label">Ownership</span><span class="meta-value">${escapeHtml(ownership)}</span></div>
-        <div class="meta-pill"><span class="meta-label">Assignee</span><span class="meta-value">${escapeHtml(assignee)}</span></div>
-        <div class="meta-pill"><span class="meta-label">Location</span><span class="meta-value">${escapeHtml(asset.location || '-')}</span></div>
-      </div>
-    `;
-    assetList.appendChild(card);
-  });
+function renderEmpty() {
+  assetTbody.innerHTML = '<tr><td colspan="7" class="dim">No assets found for the current filters.</td></tr>';
+  window.updateKpisFromTable?.();
 }
 
 function fillFilterOptions(assets) {
   const equipmentTypes = [...new Set(assets.map((a) => a.equipment_type).filter(Boolean))].sort();
-  const locations = [...new Set(assets.map((a) => a.location).filter(Boolean))].sort();
+  typeFilter.innerHTML = '<option value="">All types</option>' + equipmentTypes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+}
 
-  equipmentTypeFilter.innerHTML = '<option value="">All</option>' + equipmentTypes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-  locationFilter.innerHTML = '<option value="">All</option>' + locations.map((l) => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+function renderAssets(assets) {
+  if (!assets.length) {
+    renderEmpty();
+    return;
+  }
+
+  assetTbody.innerHTML = assets.map((asset) => {
+    const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
+    const assignedTo = current?.people?.display_name || '';
+    return `
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(asset.asset_tag || '')}" data-serial="${escapeHtml(asset.serial || asset.asset_tag || '')}" data-assignee="${escapeHtml(assignedTo || '')}">
+        <td><a href="./asset.html?tag=${encodeURIComponent(asset.asset_tag)}">${escapeHtml(asset.asset_tag || '')}</a></td>
+        <td>${escapeHtml(asset.serial || asset.asset_tag || '')}</td>
+        <td>${escapeHtml(asset.equipment_type || '')}</td>
+        <td>${escapeHtml(asset.model || '')}</td>
+        <td>${escapeHtml(assignedTo)}</td>
+        <td>${escapeHtml(asset.status || '')}</td>
+        <td>${escapeHtml(asset.location || asset.building || '')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  window.enhanceAssetTable?.();
+}
+
+async function handleScannerValue(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return;
+
+  const now = Date.now();
+  if (raw === lastScanned && now - lastScannedAt < 2000) return;
+  lastScanned = raw;
+  lastScannedAt = now;
+
+  let tag = raw;
+  try {
+    const url = new URL(raw);
+    const queryTag = url.searchParams.get('tag');
+    if (queryTag) {
+      tag = queryTag.trim();
+    }
+  } catch {
+    // raw tag, no URL parse needed
+  }
+
+  if (!tag) return;
+  searchInput.value = tag;
+  await loadAssets();
+  toast(`Scanned: ${tag}`);
+}
+
+async function scanFrame() {
+  if (!scannerVideo || scannerVideo.readyState < 2) return;
+
+  if (scannerDetector) {
+    const codes = await scannerDetector.detect(scannerVideo);
+    if (codes?.length && codes[0].rawValue) {
+      await handleScannerValue(codes[0].rawValue);
+    }
+    return;
+  }
+
+  if (!window.jsQR) return;
+  const width = scannerVideo.videoWidth || 640;
+  const height = scannerVideo.videoHeight || 480;
+  scannerCanvas.width = width;
+  scannerCanvas.height = height;
+  const ctx = scannerCanvas.getContext('2d');
+  ctx.drawImage(scannerVideo, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const code = window.jsQR(imageData.data, width, height, { inversionAttempts: 'dontInvert' });
+  if (code?.data) {
+    await handleScannerValue(code.data);
+  }
+}
+
+function stopScanner() {
+  if (scannerTimer) {
+    window.clearInterval(scannerTimer);
+    scannerTimer = null;
+  }
+  if (scannerStream) {
+    scannerStream.getTracks().forEach((t) => t.stop());
+    scannerStream = null;
+  }
+  if (scannerVideo) {
+    scannerVideo.srcObject = null;
+  }
+  if (scannerStage) {
+    scannerStage.hidden = true;
+  }
+  if (startScannerBtn) startScannerBtn.disabled = false;
+  if (stopScannerBtn) stopScannerBtn.disabled = true;
+}
+
+async function startScanner() {
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    scannerVideo.srcObject = scannerStream;
+    await scannerVideo.play();
+
+    if ('BarcodeDetector' in window) {
+      scannerDetector = new window.BarcodeDetector({
+        formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e']
+      });
+    } else {
+      scannerDetector = null;
+    }
+
+    if (scannerStage) scannerStage.hidden = false;
+    if (startScannerBtn) startScannerBtn.disabled = true;
+    if (stopScannerBtn) stopScannerBtn.disabled = false;
+
+    if (scannerTimer) window.clearInterval(scannerTimer);
+    scannerTimer = window.setInterval(() => {
+      scanFrame().catch((err) => toast(err.message, true));
+    }, 250);
+  } catch (err) {
+    toast(`Camera error: ${err.message}`, true);
+  }
 }
 
 async function loadAssets() {
+  const term = searchInput.value.trim();
+  if (!term) {
+    renderSearchPrompt();
+    return;
+  }
+
   let query = supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, asset_condition, ownership, status, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, asset_condition, ownership, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
     .order('asset_tag', { ascending: true })
     .limit(200);
 
-  const term = searchInput.value.trim();
   const status = statusFilter.value;
-  const equipmentType = equipmentTypeFilter.value;
-  const location = locationFilter.value;
+  const equipmentType = typeFilter.value;
 
-  if (term) {
-    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
-  }
+  query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
+
   if (status) {
     query = query.eq('status', status);
   }
   if (equipmentType) {
     query = query.eq('equipment_type', equipmentType);
-  }
-  if (location) {
-    query = query.eq('location', location);
   }
 
   const { data, error } = await query;
@@ -133,7 +205,7 @@ async function loadAssets() {
 }
 
 function bindSearch() {
-  [searchInput, statusFilter, equipmentTypeFilter, locationFilter].forEach((el) => {
+  [searchInput, statusFilter, typeFilter].forEach((el) => {
     el.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(loadAssets, 220);
@@ -144,21 +216,16 @@ function bindSearch() {
 
 async function initAuthedUI(session) {
   authPanel.hidden = true;
-  if (authShell) authShell.hidden = true;
-  if (indexTopbar) {
-    indexTopbar.hidden = false;
-    indexTopbar.style.display = '';
-  }
+  authShell.hidden = true;
+  dashboardShell.hidden = false;
+  indexTopbar.hidden = false;
   searchPanel.hidden = false;
-  resultsPanel.hidden = false;
   mainNav.hidden = false;
-  mainNav.style.display = '';
   window.scrollTo(0, 0);
 
   try {
     currentProfile = await getCurrentProfile();
   } catch (err) {
-    // Fallback so the page remains usable even if profile lookup fails.
     currentProfile = {
       role: 'viewer',
       display_name: session.user?.email || 'User'
@@ -167,12 +234,11 @@ async function initAuthedUI(session) {
   }
 
   setRoleVisibility(currentProfile.role || 'viewer');
-
   userMeta.textContent = `${currentProfile.display_name || session.user.email} (${currentProfile.role || 'viewer'})`;
 
   const { data, error } = await supabase
     .from('assets')
-    .select('equipment_type, location')
+    .select('equipment_type')
     .order('equipment_type', { ascending: true })
     .limit(500);
 
@@ -182,10 +248,12 @@ async function initAuthedUI(session) {
     toast(`Asset metadata load failed: ${error.message}`, true);
   }
 
-  await loadAssets();
+  renderSearchPrompt();
 }
 
 async function init() {
+  initTheme();
+  bindThemeToggle();
   if (!requireConfig()) {
     authMessage.textContent = 'Update config.js with Supabase URL and anon key.';
     return;
@@ -204,17 +272,17 @@ async function init() {
       toast(err.message, true);
     }
   });
-
-  qs('#signOutBtn').addEventListener('click', async () => {
-    try {
-      await signOut();
-      window.location.reload();
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
+  bindSignOut(signOut, './index.html');
 
   qs('#refreshBtn').addEventListener('click', loadAssets);
+  startScannerBtn?.addEventListener('click', startScanner);
+  stopScannerBtn?.addEventListener('click', stopScanner);
+  clearFiltersBtn?.addEventListener('click', () => {
+    searchInput.value = '';
+    statusFilter.value = '';
+    typeFilter.value = '';
+    renderSearchPrompt();
+  });
   bindSearch();
 
   const session = await getSession();
@@ -225,23 +293,22 @@ async function init() {
   supabase.auth.onAuthStateChange(async (_event, sessionData) => {
     if (sessionData) {
       await initAuthedUI(sessionData);
-      window.scrollTo(0, 0);
     } else {
       authPanel.hidden = false;
-      if (authShell) authShell.hidden = false;
-      if (indexTopbar) {
-        indexTopbar.hidden = true;
-        indexTopbar.style.display = 'none';
-      }
+      authShell.hidden = false;
+      dashboardShell.hidden = true;
+      indexTopbar.hidden = true;
       searchPanel.hidden = true;
-      resultsPanel.hidden = true;
       mainNav.hidden = true;
-      mainNav.style.display = 'none';
-      assetList.innerHTML = '';
+      assetTbody.innerHTML = '';
+      stopScanner();
     }
   });
+
+  window.addEventListener('beforeunload', stopScanner);
 }
 
 init().catch((err) => {
   toast(err.message, true);
 });
+

@@ -1,15 +1,26 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth } from './auth.js';
-import { qs, toast } from './ui.js';
+import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
+import { qs, toast, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
 const assetAdminSection = qs('#assetAdminSection');
-const peopleAdminSection = qs('#peopleAdminSection');
+const bulkCreateSection = qs('#bulkCreateSection');
 const adminNav = qs('#adminNav');
 const editOnlyFields = document.querySelectorAll('[data-edit-only]');
+const bulkStartScannerBtn = qs('#bulkStartScannerBtn');
+const bulkStopScannerBtn = qs('#bulkStopScannerBtn');
+const bulkScannerStage = qs('#bulkScannerStage');
+const bulkScannerVideo = qs('#bulkScannerVideo');
+const bulkScannerCanvas = qs('#bulkScannerCanvas');
+const bulkSerialCount = qs('#bulkSerialCount');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
+let bulkScannerStream = null;
+let bulkScannerTimer = null;
+let bulkScannerDetector = null;
+let lastBulkScan = '';
+let lastBulkScanAt = 0;
 
 function currentManufacturerValue() {
   const selected = qs('#manufacturer').value;
@@ -142,33 +153,186 @@ async function loadByTag() {
   }
 }
 
-async function createPerson() {
-  const payload = {
-    p_display_name: qs('#personName').value.trim(),
-    p_email: qs('#personEmail').value.trim() || null,
-    p_employee_id: qs('#personEmployeeId').value.trim() || null,
-    p_department: qs('#personDepartment').value.trim() || null
-  };
+async function bulkCreateAssets() {
+  const lines = (qs('#bulkSerials').value || '')
+    .split(/\r?\n/)
+    .map((v) => v.trim())
+    .filter(Boolean);
 
-  if (!payload.p_display_name) {
-    toast('Display name is required.', true);
+  if (!lines.length) {
+    toast('Paste at least one serial number.', true);
     return;
   }
 
-  const { error } = await supabase.rpc('admin_create_person', payload);
-  if (error) {
-    toast(error.message, true);
+  const serials = [...new Set(lines)];
+  const base = getFormValues();
+
+  if (!base.p_model) {
+    toast('Model is required for bulk create.', true);
+    return;
+  }
+  if (!base.p_equipment_type) {
+    toast('Equipment Type is required for bulk create.', true);
     return;
   }
 
-  qs('#personName').value = '';
-  qs('#personEmail').value = '';
-  qs('#personEmployeeId').value = '';
-  qs('#personDepartment').value = '';
-  toast('Person created.');
+  let success = 0;
+  const errors = [];
+
+  for (const serial of serials) {
+    const payload = {
+      ...base,
+      p_id: null,
+      p_asset_tag: serial,
+      p_serial: serial,
+      p_device_name: base.p_model || serial,
+      p_status: 'available',
+      p_obsolete: false,
+      p_comments: null
+    };
+
+    const { error } = await supabase.rpc('admin_upsert_asset', payload);
+    if (error) {
+      errors.push(`${serial}: ${error.message}`);
+    } else {
+      success += 1;
+    }
+  }
+
+  if (errors.length) {
+    console.error('Bulk create errors:', errors);
+    toast(`Created ${success}/${serials.length}. Check console for errors.`, true);
+  } else {
+    toast(`Created ${success} assets.`);
+  }
+}
+
+function appendBulkSerial(value) {
+  const serial = String(value || '').trim();
+  if (!serial) return;
+  const current = (qs('#bulkSerials').value || '')
+    .split(/\r?\n/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (current.includes(serial)) {
+    return;
+  }
+  current.push(serial);
+  const field = qs('#bulkSerials');
+  field.value = `${current.join('\n')}\n`;
+  field.scrollTop = field.scrollHeight;
+  field.selectionStart = field.value.length;
+  field.selectionEnd = field.value.length;
+  updateBulkSerialCount();
+  toast(`Scanned ${serial}`);
+}
+
+function updateBulkSerialCount() {
+  const total = (qs('#bulkSerials').value || '')
+    .split(/\r?\n/)
+    .map((v) => v.trim())
+    .filter(Boolean).length;
+  if (bulkSerialCount) {
+    bulkSerialCount.textContent = String(total);
+  }
+}
+
+function extractScannedSerial(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return (url.searchParams.get('tag') || raw).trim();
+  } catch {
+    return raw;
+  }
+}
+
+async function handleBulkScan(rawValue) {
+  const now = Date.now();
+  if (!rawValue || (rawValue === lastBulkScan && now - lastBulkScanAt < 1500)) {
+    return;
+  }
+  lastBulkScan = rawValue;
+  lastBulkScanAt = now;
+  const serial = extractScannedSerial(rawValue);
+  appendBulkSerial(serial);
+}
+
+async function bulkScanFrame() {
+  if (!bulkScannerVideo || bulkScannerVideo.readyState < 2) return;
+
+  if (bulkScannerDetector) {
+    const codes = await bulkScannerDetector.detect(bulkScannerVideo);
+    if (codes?.length && codes[0].rawValue) {
+      await handleBulkScan(codes[0].rawValue);
+    }
+    return;
+  }
+
+  if (!window.jsQR) return;
+  const width = bulkScannerVideo.videoWidth || 640;
+  const height = bulkScannerVideo.videoHeight || 480;
+  bulkScannerCanvas.width = width;
+  bulkScannerCanvas.height = height;
+  const ctx = bulkScannerCanvas.getContext('2d');
+  ctx.drawImage(bulkScannerVideo, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const code = window.jsQR(imageData.data, width, height, { inversionAttempts: 'dontInvert' });
+  if (code?.data) {
+    await handleBulkScan(code.data);
+  }
+}
+
+function stopBulkScanner() {
+  if (bulkScannerTimer) {
+    window.clearInterval(bulkScannerTimer);
+    bulkScannerTimer = null;
+  }
+  if (bulkScannerStream) {
+    bulkScannerStream.getTracks().forEach((t) => t.stop());
+    bulkScannerStream = null;
+  }
+  if (bulkScannerVideo) bulkScannerVideo.srcObject = null;
+  if (bulkScannerStage) bulkScannerStage.hidden = true;
+  if (bulkStartScannerBtn) bulkStartScannerBtn.disabled = false;
+  if (bulkStopScannerBtn) bulkStopScannerBtn.disabled = true;
+}
+
+async function startBulkScanner() {
+  try {
+    bulkScannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    bulkScannerVideo.srcObject = bulkScannerStream;
+    await bulkScannerVideo.play();
+
+    if ('BarcodeDetector' in window) {
+      bulkScannerDetector = new window.BarcodeDetector({
+        formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e']
+      });
+    } else {
+      bulkScannerDetector = null;
+    }
+
+    bulkScannerStage.hidden = false;
+    bulkStartScannerBtn.disabled = true;
+    bulkStopScannerBtn.disabled = false;
+
+    if (bulkScannerTimer) window.clearInterval(bulkScannerTimer);
+    bulkScannerTimer = window.setInterval(() => {
+      bulkScanFrame().catch((err) => toast(err.message, true));
+    }, 250);
+  } catch (err) {
+    toast(`Camera error: ${err.message}`, true);
+  }
 }
 
 async function init() {
+  initTheme();
+  bindThemeToggle();
+  bindSignOut(signOut);
   if (!requireConfig()) {
     toast('Update config.js with Supabase config.', true);
     return;
@@ -196,8 +360,8 @@ async function init() {
   if (assetAdminSection) {
     assetAdminSection.hidden = false;
   }
-  if (peopleAdminSection) {
-    peopleAdminSection.hidden = false;
+  if (bulkCreateSection) {
+    bulkCreateSection.hidden = false;
   }
   if (adminNav) {
     adminNav.hidden = false;
@@ -206,10 +370,20 @@ async function init() {
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
-  qs('#savePersonBtn').addEventListener('click', createPerson);
+  qs('#bulkCreateBtn').addEventListener('click', bulkCreateAssets);
+  qs('#clearBulkSerialsBtn').addEventListener('click', () => {
+    qs('#bulkSerials').value = '';
+    updateBulkSerialCount();
+  });
+  qs('#bulkSerials').addEventListener('input', updateBulkSerialCount);
+  bulkStartScannerBtn?.addEventListener('click', startBulkScanner);
+  bulkStopScannerBtn?.addEventListener('click', stopBulkScanner);
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
   setEditMode(false);
+  updateBulkSerialCount();
+  window.addEventListener('beforeunload', stopBulkScanner);
 }
 
 init().catch((err) => toast(err.message, true));
+

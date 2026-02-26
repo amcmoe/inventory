@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - QR Scanner</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>IT Asset Inventory</strong>
+          <span>Team workspace</span>
+        </div>
+      </div>
+      <nav class="nav" id="scannerNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <a href="./admin.html" data-role-min="admin"><span>Admin</span></a>
+        <a href="./reports.html"><span>Reports</span></a>
+        <a class="active" href="./qr-scanner.html"><span>QR Scanner</span></a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="scannerTopbar" hidden>
+        <div>
+          <h1>QR Scanner</h1>
+          <div class="subtext">Scan an inventory QR code to open matching asset.</div>
+        </div>
+      </header>
+
+      <section class="panel" id="scannerLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="scannerMainSection" hidden>
+        <div class="panel-body">
+          <div class="controls">
+            <button class="btn primary" id="startScannerBtn" type="button">Start Camera</button>
+            <button class="btn" id="stopScannerBtn" type="button" disabled>Stop</button>
+          </div>
+
+          <div class="scanner-stage">
+            <video id="scannerVideo" autoplay playsinline muted></video>
+            <canvas id="scannerCanvas" hidden></canvas>
+            <div class="scanner-overlay"></div>
+          </div>
+
+          <div class="grid">
+            <div>
+              <label for="manualTag">Manual Serial / Tag</label>
+              <div class="row">
+                <input id="manualTag" placeholder="PW063XXX">
+                <button class="btn" id="manualLookupBtn" type="button">Find</button>
+              </div>
+            </div>
+            <div class="detail">
+              <div class="k">Last Scan</div>
+              <div class="v" id="lastScanValue">No scan yet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="scannerResultSection" hidden>
+        <div class="panel-body" id="scannerResultBody"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./js/qr-scanner.js"></script>
+</body>
+</html>

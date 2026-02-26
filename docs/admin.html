@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,152 +8,187 @@
 </head>
 <body>
   <div class="app">
-    <header class="topbar" id="adminTopbar" hidden style="display:none;">
-      <div class="brand">Admin</div>
-      <nav class="nav" id="adminNav" hidden style="display:none;">
-        <a href="./index.html">Search</a>
-        <a href="./bulk.html">Bulk</a>
-        <a href="./admin.html">Admin</a>
-        <a href="./qr-helper.html">QR Helper</a>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>IT Asset Inventory</strong>
+          <span>Team workspace</span>
+        </div>
+      </div>
+      <nav class="nav" id="adminNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <a class="active" href="./admin.html"><span>Admin</span></a>
+        <a href="./reports.html"><span>Reports</span></a>
       </nav>
-    </header>
+    </aside>
 
-    <section class="panel" id="adminLoadingPanel">
-      <h2>Checking Access</h2>
-      <p class="muted">Please wait while we verify your session and role.</p>
-    </section>
+    <main class="main">
+      <header class="topbar" id="adminTopbar" hidden>
+        <div>
+          <h1>Admin</h1>
+          <div class="subtext">Create and maintain assets and people.</div>
+        </div>
+        <div class="controls">
+          <a class="btn" href="./people.html">Manage People</a>
+          <button class="btn" id="signOutBtn" type="button">Sign Out</button>
+        </div>
+      </header>
 
-    <section class="panel" id="assetAdminSection" hidden>
-      <h2>Create / Edit Asset</h2>
-      <p class="muted">This form uses the admin-only RPC.</p>
-      <input id="assetId" type="hidden">
-      <div class="grid cols-2">
-        <div>
-          <label for="assetTag">Serial #</label>
-          <input id="assetTag" placeholder="PW063XXX">
+      <section class="panel" id="adminLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session and role.</p>
         </div>
-        <div>
-          <label for="manufacturer">Manufacturer</label>
-          <select id="manufacturer">
-            <option value="">Select manufacturer</option>
-            <option value="Apple">Apple</option>
-            <option value="Dell">Dell</option>
-            <option value="Lenovo">Lenovo</option>
-            <option value="HP">HP</option>
-            <option value="Beelink">Beelink</option>
-            <option value="__custom__">Add new...</option>
-          </select>
-          <input id="manufacturerCustom" placeholder="Enter new manufacturer" hidden>
-        </div>
-        <div>
-          <label for="model">Model</label>
-          <input id="model">
-        </div>
-        <div>
-          <label for="equipmentType">Equipment Type</label>
-          <input id="equipmentType" placeholder="Laptop, Chromebook, Tablet">
-        </div>
-        <div>
-          <label for="location">Location</label>
-          <input id="location">
-        </div>
-        <div>
-          <label for="building">Building</label>
-          <select id="building">
-            <option value="">Select building</option>
-            <option value="Boiling Springs High School">Boiling Springs High School</option>
-            <option value="Yellow Breeches Middle School">Yellow Breeches Middle School</option>
-            <option value="Iron Forge Elementary School">Iron Forge Elementary School</option>
-            <option value="W.G. Rice Elementary School">W.G. Rice Elementary School</option>
-          </select>
-        </div>
-        <div>
-          <label for="room">Room</label>
-          <input id="room">
-        </div>
-        <div>
-          <label for="serviceStartDate">In Service Since</label>
-          <input id="serviceStartDate" type="date">
-        </div>
-        <div>
-          <label for="assetCondition">Condition</label>
-          <select id="assetCondition">
-            <option value="">Unspecified</option>
-            <option value="Excellent">Excellent</option>
-            <option value="Good">Good</option>
-            <option value="Fair">Fair</option>
-            <option value="Poor">Poor</option>
-            <option value="Damaged">Damaged</option>
-            <option value="Needs Repair">Needs Repair</option>
-          </select>
-        </div>
-        <div>
-          <label for="notes">Condition Notes</label>
-          <textarea id="notes"></textarea>
-        </div>
-        <div>
-          <label for="ownership">Owned or Leased?</label>
-          <select id="ownership">
-            <option value="">Unspecified</option>
-            <option value="owned">Owned</option>
-            <option value="leased">Leased</option>
-          </select>
-        </div>
-        <div>
-          <label for="warrantyExpirationDate">Warranty Expiration Date</label>
-          <input id="warrantyExpirationDate" type="date">
-        </div>
-        <div data-edit-only hidden>
-          <label for="obsolete">Obsolete?</label>
-          <select id="obsolete">
-            <option value="false">No</option>
-            <option value="true">Yes</option>
-          </select>
-        </div>
-        <div data-edit-only hidden>
-          <label for="status">Status</label>
-          <select id="status">
-            <option value="available">Available</option>
-            <option value="repair">Repair</option>
-            <option value="retired">Retired</option>
-          </select>
-        </div>
-        <div data-edit-only hidden>
-          <label for="comments">Assignment History</label>
-          <textarea id="comments" rows="16"></textarea>
-        </div>
-      </div>
-      <div class="row">
-        <button class="btn primary" id="saveAssetBtn">Save Asset</button>
-        <button class="btn" id="loadByTagBtn">Load by Serial</button>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel" id="peopleAdminSection" hidden>
-      <h3>Create Person</h3>
-      <div class="grid cols-2">
-        <div>
-          <label for="personName">Display Name</label>
-          <input id="personName">
+      <section class="panel" id="assetAdminSection" hidden>
+        <div class="panel-body">
+          <h2>Create / Edit Asset</h2>
+          <p class="muted">This form uses the admin-only RPC.</p>
+          <input id="assetId" type="hidden">
+          <div class="grid cols-2">
+            <div>
+              <label for="assetTag">Serial #</label>
+              <input id="assetTag" placeholder="PW063XXX">
+            </div>
+            <div>
+              <label for="manufacturer">Manufacturer</label>
+              <select id="manufacturer">
+                <option value="">Select manufacturer</option>
+                <option value="Apple">Apple</option>
+                <option value="Dell">Dell</option>
+                <option value="Lenovo">Lenovo</option>
+                <option value="HP">HP</option>
+                <option value="Beelink">Beelink</option>
+                <option value="__custom__">Add new...</option>
+              </select>
+              <input id="manufacturerCustom" placeholder="Enter new manufacturer" hidden>
+            </div>
+            <div>
+              <label for="model">Model</label>
+              <input id="model">
+            </div>
+            <div>
+              <label for="equipmentType">Equipment Type</label>
+              <input id="equipmentType" placeholder="Laptop, Chromebook, Tablet">
+            </div>
+            <div>
+              <label for="location">Location</label>
+              <input id="location">
+            </div>
+            <div>
+              <label for="building">Building</label>
+              <select id="building">
+                <option value="">Select building</option>
+                <option value="Boiling Springs High School">Boiling Springs High School</option>
+                <option value="Yellow Breeches Middle School">Yellow Breeches Middle School</option>
+                <option value="Iron Forge Elementary School">Iron Forge Elementary School</option>
+                <option value="W.G. Rice Elementary School">W.G. Rice Elementary School</option>
+              </select>
+            </div>
+            <div>
+              <label for="room">Room</label>
+              <input id="room">
+            </div>
+            <div>
+              <label for="serviceStartDate">In Service Since</label>
+              <input id="serviceStartDate" type="date">
+            </div>
+            <div>
+              <label for="assetCondition">Condition</label>
+              <select id="assetCondition">
+                <option value="">Unspecified</option>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Poor">Poor</option>
+                <option value="Damaged">Damaged</option>
+                <option value="Needs Repair">Needs Repair</option>
+              </select>
+            </div>
+            <div>
+              <label for="notes">Condition Notes</label>
+              <textarea id="notes"></textarea>
+            </div>
+            <div>
+              <label for="ownership">Owned or Leased?</label>
+              <select id="ownership">
+                <option value="">Unspecified</option>
+                <option value="owned">Owned</option>
+                <option value="leased">Leased</option>
+              </select>
+            </div>
+            <div>
+              <label for="warrantyExpirationDate">Warranty Expiration Date</label>
+              <input id="warrantyExpirationDate" type="date">
+            </div>
+            <div data-edit-only hidden>
+              <label for="obsolete">Obsolete?</label>
+              <select id="obsolete">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </div>
+            <div data-edit-only hidden>
+              <label for="status">Status</label>
+              <select id="status">
+                <option value="available">Available</option>
+                <option value="repair">Repair</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+            <div data-edit-only hidden>
+              <label for="comments">Assignment History</label>
+              <textarea id="comments" rows="16"></textarea>
+            </div>
+          </div>
+          <div class="row form-actions">
+            <button class="btn primary" id="saveAssetBtn">Save Asset</button>
+            <button class="btn" id="loadByTagBtn">Load by Serial</button>
+          </div>
         </div>
-        <div>
-          <label for="personEmail">Email (optional)</label>
-          <input id="personEmail" type="email">
+      </section>
+
+      <section class="panel" id="bulkCreateSection" hidden>
+        <div class="panel-body">
+          <h3>Bulk Create Assets</h3>
+          <p class="muted">Use the same shared values above, then paste serial numbers (one per line).</p>
+          <div class="grid">
+            <div>
+              <label for="bulkSerials">Serial Numbers</label>
+              <textarea id="bulkSerials" rows="10" placeholder="PW063AAA&#10;PW063AAB&#10;PW063AAC"></textarea>
+              <div class="muted">Scanned: <span id="bulkSerialCount">0</span> serials</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="bulkStartScannerBtn" type="button">QR Scanner</button>
+              <button class="btn" id="bulkStopScannerBtn" type="button" disabled>Stop</button>
+            </div>
+            <div class="scanner-stage" id="bulkScannerStage" hidden>
+              <video id="bulkScannerVideo" autoplay playsinline muted></video>
+              <canvas id="bulkScannerCanvas" hidden></canvas>
+              <div class="scanner-overlay"></div>
+            </div>
+            <div class="row">
+              <button class="btn primary" id="bulkCreateBtn">Bulk Create</button>
+              <button class="btn" id="clearBulkSerialsBtn">Clear</button>
+            </div>
+          </div>
         </div>
-        <div>
-          <label for="personEmployeeId">Employee ID (optional)</label>
-          <input id="personEmployeeId">
-        </div>
-        <div>
-          <label for="personDepartment">Department (optional)</label>
-          <input id="personDepartment">
-        </div>
-      </div>
-      <button class="btn primary" id="savePersonBtn">Create Person</button>
-    </section>
+      </section>
+    </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="./config.js"></script>
   <script type="module" src="./js/admin.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
 </body>
 </html>
+
+
+
+
+
