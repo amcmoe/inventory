@@ -163,9 +163,15 @@
             <div class="row" id="bulkScannerControls">
               <button class="btn" id="bulkStartScannerBtn" type="button">QR Scanner</button>
               <button class="btn" id="bulkStopScannerBtn" type="button" disabled>Stop</button>
+              <label class="scan-toggle">
+                <input id="bulkScanSoundToggle" type="checkbox" checked>
+                <span>Scan Sound</span>
+              </label>
             </div>
             <div class="scanner-stage" id="bulkScannerStage" hidden>
               <video id="bulkScannerVideo" autoplay playsinline muted></video>
+              <canvas id="bulkScannerFreeze" class="scanner-freeze-canvas" hidden aria-hidden="true"></canvas>
+              <canvas id="bulkScannerOverlay" class="scanner-guide-canvas" aria-hidden="true"></canvas>
               <canvas id="bulkScannerCanvas" hidden></canvas>
               <div class="scanner-overlay"></div>
             </div>

@@ -12,8 +12,12 @@ const bulkStartScannerBtn = qs('#bulkStartScannerBtn');
 const bulkStopScannerBtn = qs('#bulkStopScannerBtn');
 const bulkScannerStage = qs('#bulkScannerStage');
 const bulkScannerVideo = qs('#bulkScannerVideo');
+const bulkScannerFreeze = qs('#bulkScannerFreeze');
+const bulkScannerOverlay = qs('#bulkScannerOverlay');
 const bulkScannerCanvas = qs('#bulkScannerCanvas');
 const bulkSerialCount = qs('#bulkSerialCount');
+const bulkSerialsField = qs('#bulkSerials');
+const bulkScanSoundToggle = qs('#bulkScanSoundToggle');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 let bulkScannerStream = null;
@@ -22,6 +26,155 @@ let bulkScannerDetector = null;
 let lastBulkScan = '';
 let lastBulkScanAt = 0;
 let bulkScannerFullscreen = false;
+let bulkFreezeUntil = 0;
+let bulkFreezeTimer = null;
+let bulkAudioCtx = null;
+
+function syncBulkScannerHeight() {
+  if (!bulkSerialsField || !bulkScannerStage || bulkScannerStage.hidden) return;
+  const targetHeight = Math.max(220, Math.round(bulkSerialsField.getBoundingClientRect().height));
+  bulkScannerStage.style.height = `${targetHeight}px`;
+}
+
+function clearBulkOverlay() {
+  if (!bulkScannerOverlay) return;
+  const ctx = bulkScannerOverlay.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, bulkScannerOverlay.width, bulkScannerOverlay.height);
+}
+
+function clearBulkFreezeFrame() {
+  if (!bulkScannerFreeze) return;
+  bulkScannerFreeze.hidden = true;
+  const ctx = bulkScannerFreeze.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, bulkScannerFreeze.width, bulkScannerFreeze.height);
+}
+
+function ensureBulkAudioContext() {
+  if (!bulkAudioCtx) {
+    bulkAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (bulkAudioCtx.state === 'suspended') {
+    bulkAudioCtx.resume().catch(() => {});
+  }
+}
+
+function playScanChime() {
+  if (!bulkScanSoundToggle?.checked) return;
+  if (!bulkAudioCtx) return;
+  const now = bulkAudioCtx.currentTime;
+  const gain = bulkAudioCtx.createGain();
+  gain.connect(bulkAudioCtx.destination);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+  const oscA = bulkAudioCtx.createOscillator();
+  oscA.type = 'sine';
+  oscA.frequency.setValueAtTime(880, now);
+  oscA.frequency.exponentialRampToValueAtTime(1046, now + 0.12);
+  oscA.connect(gain);
+  oscA.start(now);
+  oscA.stop(now + 0.14);
+
+  const oscB = bulkAudioCtx.createOscillator();
+  oscB.type = 'sine';
+  oscB.frequency.setValueAtTime(1318, now + 0.1);
+  oscB.connect(gain);
+  oscB.start(now + 0.1);
+  oscB.stop(now + 0.24);
+}
+
+function showBulkFreezeFrame(durationMs = 1200) {
+  if (!bulkScannerVideo || !bulkScannerFreeze || !bulkScannerStage) return;
+  const displayW = bulkScannerStage.clientWidth;
+  const displayH = bulkScannerStage.clientHeight;
+  if (!displayW || !displayH) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.round(displayW * dpr);
+  const targetH = Math.round(displayH * dpr);
+  if (bulkScannerFreeze.width !== targetW || bulkScannerFreeze.height !== targetH) {
+    bulkScannerFreeze.width = targetW;
+    bulkScannerFreeze.height = targetH;
+  }
+
+  const ctx = bulkScannerFreeze.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, displayW, displayH);
+
+  const videoW = bulkScannerVideo.videoWidth || 640;
+  const videoH = bulkScannerVideo.videoHeight || 480;
+  const scale = Math.max(displayW / videoW, displayH / videoH);
+  const drawW = videoW * scale;
+  const drawH = videoH * scale;
+  const offsetX = (displayW - drawW) / 2;
+  const offsetY = (displayH - drawH) / 2;
+
+  ctx.drawImage(bulkScannerVideo, offsetX, offsetY, drawW, drawH);
+  bulkScannerFreeze.hidden = false;
+  bulkFreezeUntil = Date.now() + durationMs;
+  if (bulkFreezeTimer) {
+    window.clearTimeout(bulkFreezeTimer);
+  }
+  bulkFreezeTimer = window.setTimeout(() => {
+    bulkFreezeTimer = null;
+    clearBulkFreezeFrame();
+  }, durationMs);
+}
+
+function drawBulkOverlay(polygons) {
+  if (!bulkScannerOverlay || !bulkScannerStage || !bulkScannerVideo) return;
+  const displayW = bulkScannerStage.clientWidth;
+  const displayH = bulkScannerStage.clientHeight;
+  if (!displayW || !displayH) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.round(displayW * dpr);
+  const targetH = Math.round(displayH * dpr);
+  if (bulkScannerOverlay.width !== targetW || bulkScannerOverlay.height !== targetH) {
+    bulkScannerOverlay.width = targetW;
+    bulkScannerOverlay.height = targetH;
+  }
+
+  const ctx = bulkScannerOverlay.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, displayW, displayH);
+
+  if (!polygons?.length) return;
+
+  const videoW = bulkScannerVideo.videoWidth || 640;
+  const videoH = bulkScannerVideo.videoHeight || 480;
+  const scale = Math.max(displayW / videoW, displayH / videoH);
+  const drawW = videoW * scale;
+  const drawH = videoH * scale;
+  const offsetX = (displayW - drawW) / 2;
+  const offsetY = (displayH - drawH) / 2;
+
+  ctx.strokeStyle = '#22c55e';
+  ctx.shadowColor = 'rgba(34,197,94,0.55)';
+  ctx.shadowBlur = 8;
+  ctx.lineWidth = 3;
+
+  polygons.forEach((poly) => {
+    if (!poly || poly.length < 2) return;
+    ctx.beginPath();
+    poly.forEach((pt, i) => {
+      const x = (pt.x * scale) + offsetX;
+      const y = (pt.y * scale) + offsetY;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.closePath();
+    ctx.stroke();
+  });
+}
 
 function currentManufacturerValue() {
   const selected = qs('#manufacturer').value;
@@ -258,6 +411,8 @@ async function handleBulkScan(rawValue) {
   lastBulkScanAt = now;
   const serial = extractScannedSerial(rawValue);
   appendBulkSerial(serial);
+  playScanChime();
+  showBulkFreezeFrame();
 }
 
 async function tryEnterLandscapeScannerMode() {
@@ -317,9 +472,15 @@ async function exitLandscapeScannerMode() {
 
 async function bulkScanFrame() {
   if (!bulkScannerVideo || bulkScannerVideo.readyState < 2) return;
+  if (Date.now() < bulkFreezeUntil) return;
+  syncBulkScannerHeight();
 
   if (bulkScannerDetector) {
     const codes = await bulkScannerDetector.detect(bulkScannerVideo);
+    const polygons = (codes || [])
+      .map((code) => code.cornerPoints)
+      .filter((points) => Array.isArray(points) && points.length >= 4);
+    drawBulkOverlay(polygons);
     if (codes?.length && codes[0].rawValue) {
       await handleBulkScan(codes[0].rawValue);
     }
@@ -336,7 +497,15 @@ async function bulkScanFrame() {
   const imageData = ctx.getImageData(0, 0, width, height);
   const code = window.jsQR(imageData.data, width, height, { inversionAttempts: 'dontInvert' });
   if (code?.data) {
+    const loc = code.location;
+    if (loc) {
+      drawBulkOverlay([[loc.topLeftCorner, loc.topRightCorner, loc.bottomRightCorner, loc.bottomLeftCorner]]);
+    } else {
+      clearBulkOverlay();
+    }
     await handleBulkScan(code.data);
+  } else {
+    clearBulkOverlay();
   }
 }
 
@@ -350,14 +519,23 @@ function stopBulkScanner() {
     bulkScannerStream = null;
   }
   if (bulkScannerVideo) bulkScannerVideo.srcObject = null;
+  if (bulkScannerStage) bulkScannerStage.style.height = '';
   if (bulkScannerStage) bulkScannerStage.hidden = true;
   if (bulkStartScannerBtn) bulkStartScannerBtn.disabled = false;
   if (bulkStopScannerBtn) bulkStopScannerBtn.disabled = true;
+  clearBulkOverlay();
+  clearBulkFreezeFrame();
+  bulkFreezeUntil = 0;
+  if (bulkFreezeTimer) {
+    window.clearTimeout(bulkFreezeTimer);
+    bulkFreezeTimer = null;
+  }
   exitLandscapeScannerMode();
 }
 
 async function startBulkScanner() {
   try {
+    ensureBulkAudioContext();
     await tryEnterLandscapeScannerMode();
     bulkScannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
@@ -375,6 +553,7 @@ async function startBulkScanner() {
     }
 
     bulkScannerStage.hidden = false;
+    syncBulkScannerHeight();
     bulkStartScannerBtn.disabled = true;
     bulkStopScannerBtn.disabled = false;
 
@@ -435,12 +614,27 @@ async function init() {
     updateBulkSerialCount();
   });
   qs('#bulkSerials').addEventListener('input', updateBulkSerialCount);
+  qs('#bulkSerials').addEventListener('input', syncBulkScannerHeight);
+  if (bulkScanSoundToggle) {
+    const saved = localStorage.getItem('bulkScanSoundEnabled');
+    if (saved !== null) {
+      bulkScanSoundToggle.checked = saved === '1';
+    }
+    bulkScanSoundToggle.addEventListener('change', () => {
+      localStorage.setItem('bulkScanSoundEnabled', bulkScanSoundToggle.checked ? '1' : '0');
+      if (bulkScanSoundToggle.checked) {
+        ensureBulkAudioContext();
+      }
+    });
+  }
   bulkStartScannerBtn?.addEventListener('click', startBulkScanner);
   bulkStopScannerBtn?.addEventListener('click', stopBulkScanner);
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
   setEditMode(false);
   updateBulkSerialCount();
+  window.addEventListener('resize', syncBulkScannerHeight);
+  window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);
 }
 
