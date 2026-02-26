@@ -160,7 +160,7 @@
               <textarea id="bulkSerials" rows="10" placeholder="PW063AAA&#10;PW063AAB&#10;PW063AAC"></textarea>
               <div class="muted">Scanned: <span id="bulkSerialCount">0</span> serials</div>
             </div>
-            <div class="row">
+            <div class="row" id="bulkScannerControls">
               <button class="btn" id="bulkStartScannerBtn" type="button">QR Scanner</button>
               <button class="btn" id="bulkStopScannerBtn" type="button" disabled>Stop</button>
             </div>
@@ -169,7 +169,7 @@
               <canvas id="bulkScannerCanvas" hidden></canvas>
               <div class="scanner-overlay"></div>
             </div>
-            <div class="row">
+            <div class="row" id="bulkCreateActions">
               <button class="btn primary" id="bulkCreateBtn">Bulk Create</button>
               <button class="btn" id="clearBulkSerialsBtn">Clear</button>
             </div>
