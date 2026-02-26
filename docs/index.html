@@ -88,8 +88,26 @@
       <section class="panel" aria-label="Asset list" id="searchPanel" hidden>
         <div class="panel-header">
           <div class="controls">
-            <div class="field">
-              <input id="searchInput" type="search" placeholder="Search tag, serial, model, location..." autocomplete="off">
+            <div class="field search-field" id="searchField">
+              <input id="searchInput" type="search" placeholder="Search serial, model, location..." autocomplete="off">
+              <button class="bulk-icon-btn search-inline-scan-btn" id="scannerToggleBtn" type="button" aria-label="Start scanner" title="QR Scanner">
+                <svg class="icon-scan" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 9V6a2 2 0 0 1 2-2h3" />
+                  <path d="M20 9V6a2 2 0 0 0-2-2h-3" />
+                  <path d="M4 15v3a2 2 0 0 0 2 2h3" />
+                  <path d="M20 15v3a2 2 0 0 1-2 2h-3" />
+                  <path d="M5 12h14" />
+                </svg>
+                <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                </svg>
+              </button>
+              <div class="scanner-stage" id="scannerStage" hidden>
+                <video id="scannerVideo" autoplay playsinline muted></video>
+                <canvas id="scannerCanvas" hidden></canvas>
+                <div class="scanner-overlay"></div>
+                <div class="scanner-hint" id="searchScannerHint">Scan QR/barcode to search</div>
+              </div>
             </div>
             <div class="field small">
               <select id="typeFilter">
@@ -108,27 +126,7 @@
           </div>
 
           <div class="controls">
-            <button class="bulk-icon-btn" id="scannerToggleBtn" type="button" aria-label="Start scanner" title="QR Scanner">
-              <svg class="icon-scan" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 9V6a2 2 0 0 1 2-2h3" />
-                <path d="M20 9V6a2 2 0 0 0-2-2h-3" />
-                <path d="M4 15v3a2 2 0 0 0 2 2h3" />
-                <path d="M20 15v3a2 2 0 0 1-2 2h-3" />
-                <path d="M5 12h14" />
-              </svg>
-              <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="7" y="7" width="10" height="10" rx="1.5" />
-              </svg>
-            </button>
             <button class="btn" id="clearFiltersBtn" type="button">Clear</button>
-          </div>
-        </div>
-
-        <div class="panel-body">
-          <div class="scanner-stage" id="scannerStage" hidden>
-            <video id="scannerVideo" autoplay playsinline muted></video>
-            <canvas id="scannerCanvas" hidden></canvas>
-            <div class="scanner-overlay"></div>
           </div>
         </div>
 
@@ -136,7 +134,6 @@
           <table role="grid" aria-label="Assets table">
             <thead>
               <tr>
-                <th>Asset Tag</th>
                 <th>Serial</th>
                 <th>Type</th>
                 <th>Model</th>

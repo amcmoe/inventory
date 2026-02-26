@@ -14,6 +14,7 @@ const userMeta = qs('#userMeta');
 const assetTbody = qs('#assetTbody');
 
 const searchInput = qs('#searchInput');
+const searchField = qs('#searchField');
 const statusFilter = qs('#statusFilter');
 const typeFilter = qs('#typeFilter');
 const clearFiltersBtn = qs('#clearFiltersBtn');
@@ -74,12 +75,12 @@ function startAutoRefresh() {
 }
 
 function renderSearchPrompt() {
-  assetTbody.innerHTML = '<tr><td colspan="7" class="dim">Type a serial or model to search for assets.</td></tr>';
+  assetTbody.innerHTML = '<tr><td colspan="6" class="dim">Type a serial or model to search for assets.</td></tr>';
   window.updateKpisFromTable?.();
 }
 
 function renderEmpty() {
-  assetTbody.innerHTML = '<tr><td colspan="7" class="dim">No assets found for the current filters.</td></tr>';
+  assetTbody.innerHTML = '<tr><td colspan="6" class="dim">No assets found for the current filters.</td></tr>';
   window.updateKpisFromTable?.();
 }
 
@@ -97,10 +98,11 @@ function renderAssets(assets) {
   assetTbody.innerHTML = assets.map((asset) => {
     const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
     const assignedTo = current?.people?.display_name || '';
+    const serial = asset.serial || asset.asset_tag || '';
+    const lookupTag = asset.asset_tag || serial;
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(asset.asset_tag || '')}" data-serial="${escapeHtml(asset.serial || asset.asset_tag || '')}" data-assignee="${escapeHtml(assignedTo || '')}">
-        <td><a href="./asset.html?tag=${encodeURIComponent(asset.asset_tag)}">${escapeHtml(asset.asset_tag || '')}</a></td>
-        <td>${escapeHtml(asset.serial || asset.asset_tag || '')}</td>
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-assignee="${escapeHtml(assignedTo || '')}">
+        <td><a href="./asset.html?tag=${encodeURIComponent(lookupTag)}">${escapeHtml(serial)}</a></td>
         <td>${escapeHtml(asset.equipment_type || '')}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
@@ -179,6 +181,12 @@ function stopScanner() {
   if (scannerStage) {
     scannerStage.hidden = true;
   }
+  if (searchField) {
+    searchField.classList.remove('scanner-active');
+  }
+  if (searchPanel) {
+    searchPanel.classList.remove('scanner-open');
+  }
   scannerRunning = false;
   syncScannerToggleButton();
 }
@@ -201,6 +209,12 @@ async function startScanner() {
     }
 
     if (scannerStage) scannerStage.hidden = false;
+    if (searchField) {
+      searchField.classList.add('scanner-active');
+    }
+    if (searchPanel) {
+      searchPanel.classList.add('scanner-open');
+    }
     scannerRunning = true;
     syncScannerToggleButton();
 
@@ -324,6 +338,7 @@ async function init() {
     toggleScanner().catch((err) => toast(err.message, true));
   });
   clearFiltersBtn?.addEventListener('click', () => {
+    stopScanner();
     searchInput.value = '';
     statusFilter.value = '';
     typeFilter.value = '';

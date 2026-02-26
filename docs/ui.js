@@ -189,16 +189,15 @@ function enhanceAssetTable() {
       tr.classList.add("selected");
 
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
-      // Columns: Tag, Serial, Type, Model, AssignedTo, Status, Location
-      const [tag, serial, type, model, assignedTo, status, location] = cells;
-      currentRowData = { tag, serial, type, model, assignedTo, status, location };
+      // Columns: Serial, Type, Model, AssignedTo, Status, Location
+      const [serial, type, model, assignedTo, status, location] = cells;
+      currentRowData = { serial, type, model, assignedTo, status, location };
 
-      if (drawerPrimary) drawerPrimary.textContent = tag || "Asset";
+      if (drawerPrimary) drawerPrimary.textContent = serial || "Asset";
       if (drawerSecondary) drawerSecondary.textContent = `${type || "—"} • ${model || "—"}`;
 
       if (drawerDetails) {
         drawerDetails.innerHTML = `
-          <div class="detail"><div class="k">Asset Tag</div><div class="v mono">${escapeHtml(tag || "—")}</div></div>
           <div class="detail"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "—")}</div></div>
           <div class="detail"><div class="k">Type</div><div class="v">${escapeHtml(type || "—")}</div></div>
           <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(model || "—")}</div></div>
@@ -216,18 +215,18 @@ function enhanceAssetTable() {
 
     // Convert status column to badge, if not already
     const tds = tr.querySelectorAll("td");
-    const statusTd = tds[5];
+    const statusTd = tds[4];
     if (statusTd && !statusTd.querySelector(".badge")) {
       const raw = statusTd.textContent.trim();
       statusTd.innerHTML = statusBadge(raw);
     }
 
     // Make serial look monospaced
-    const serialTd = tds[1];
+    const serialTd = tds[0];
     if (serialTd) serialTd.classList.add("mono");
 
     // Make location dimmer
-    const locTd = tds[6];
+    const locTd = tds[5];
     if (locTd) locTd.classList.add("dim");
   });
 
@@ -246,8 +245,8 @@ function applyFilters() {
     const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.toLowerCase());
     const rowText = cells.join(" | ");
 
-    const rowType = cells[2] || "";
-    const rowStatus = cells[5] || "";
+    const rowType = cells[1] || "";
+    const rowStatus = cells[4] || "";
 
     const matchQ = !q || rowText.includes(q);
     const matchType = !type || rowType.includes(type.toLowerCase());
@@ -275,10 +274,10 @@ function updateKpisFromTable() {
   const visible = rows.filter((r) => r.style.display !== "none");
 
   const total = visible.length;
-  const assigned = visible.filter((r) => (r.querySelectorAll("td")[5]?.textContent || "").toLowerCase().includes("assigned")).length;
-  const available = visible.filter((r) => (r.querySelectorAll("td")[5]?.textContent || "").toLowerCase().includes("available")).length;
+  const assigned = visible.filter((r) => (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase().includes("assigned")).length;
+  const available = visible.filter((r) => (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase().includes("available")).length;
   const attention = visible.filter((r) => {
-    const s = (r.querySelectorAll("td")[5]?.textContent || "").toLowerCase();
+    const s = (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase();
     return s.includes("repair") || s.includes("maintenance") || s.includes("retired");
   }).length;
 

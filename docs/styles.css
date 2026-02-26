@@ -419,6 +419,104 @@ textarea {
   color: var(--text);
 }
 
+#searchField {
+  position: relative;
+  width: min(100%, 360px);
+  flex: 0 0 min(100%, 360px);
+  padding-right: 54px;
+}
+
+#searchField input {
+  width: 100%;
+  min-width: 220px;
+}
+
+#searchField .search-inline-scan-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  border-radius: 10px;
+  z-index: 5;
+}
+
+#searchField .search-inline-scan-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+#searchField #scannerStage {
+  margin: 0;
+  width: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+#searchField.scanner-active {
+  padding: 6px;
+  min-height: 230px;
+  height: 230px;
+  align-items: stretch;
+}
+
+#searchField.scanner-active #searchInput {
+  display: none;
+}
+
+#searchField.scanner-active #scannerStage {
+  position: absolute;
+  inset: 6px;
+  border-radius: 10px;
+}
+
+#searchField .scanner-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(0, 0, 0, 0.55);
+  color: #f4f7ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#searchPanel .panel-header > .controls:first-child {
+  flex-wrap: nowrap;
+}
+
+#searchPanel .panel-header > .controls:first-child .field.small {
+  min-width: 175px;
+}
+
+#searchPanel.scanner-open .panel-header {
+  align-items: flex-start;
+}
+
+#searchPanel.scanner-open .panel-header > .controls:first-child {
+  flex-wrap: wrap;
+}
+
+#searchPanel.scanner-open #searchField {
+  width: 100%;
+  max-width: 100%;
+  flex: 1 0 100%;
+}
+
+#searchPanel.scanner-open #searchField.scanner-active {
+  height: 260px;
+  min-height: 260px;
+}
+
 .btn {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
@@ -926,6 +1024,22 @@ textarea {
   display: block;
 }
 
+.bulk-clear-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bulk-clear-confirm span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .scan-float-chip {
   position: fixed;
   z-index: 300;
@@ -1009,18 +1123,11 @@ select optgroup {
   color: #111827;
 }
 
-/* Search page scanner should stay compact (bulk scanner has its own layout rules) */
-#searchPanel #scannerStage {
-  width: min(100%, 430px);
-  min-height: 220px;
-  max-height: 280px;
-}
-
-#searchPanel #scannerStage video {
-  max-height: 280px;
-}
-
 @media (max-width: 980px) {
+  #searchPanel .panel-header > .controls:first-child {
+    flex-wrap: wrap;
+  }
+
   .theme-toggle-fab {
     left: 10px;
     bottom: 10px;

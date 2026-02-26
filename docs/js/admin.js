@@ -17,6 +17,9 @@ const bulkScannerCanvas = qs('#bulkScannerCanvas');
 const bulkSerialCount = qs('#bulkSerialCount');
 const bulkSerialsField = qs('#bulkSerials');
 const bulkScanSoundBtn = qs('#bulkScanSoundBtn');
+const bulkClearConfirm = qs('#bulkClearConfirm');
+const confirmClearBulkYes = qs('#confirmClearBulkYes');
+const confirmClearBulkNo = qs('#confirmClearBulkNo');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 let bulkScannerStream = null;
@@ -527,6 +530,14 @@ function updateBulkSerialCount() {
   }
 }
 
+function hideBulkClearConfirm() {
+  if (bulkClearConfirm) bulkClearConfirm.hidden = true;
+}
+
+function showBulkClearConfirm() {
+  if (bulkClearConfirm) bulkClearConfirm.hidden = false;
+}
+
 function extractScannedSerial(rawValue) {
   const raw = String(rawValue || '').trim();
   if (!raw) return '';
@@ -771,11 +782,19 @@ async function init() {
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
   qs('#bulkCreateBtn').addEventListener('click', bulkCreateAssets);
   qs('#clearBulkSerialsBtn').addEventListener('click', () => {
+    const hasSerials = (qs('#bulkSerials').value || '').trim().length > 0;
+    if (!hasSerials) return;
+    showBulkClearConfirm();
+  });
+  confirmClearBulkYes?.addEventListener('click', () => {
     qs('#bulkSerials').value = '';
     updateBulkSerialCount();
+    hideBulkClearConfirm();
   });
+  confirmClearBulkNo?.addEventListener('click', hideBulkClearConfirm);
   qs('#bulkSerials').addEventListener('input', updateBulkSerialCount);
   qs('#bulkSerials').addEventListener('input', syncBulkScannerHeight);
+  qs('#bulkSerials').addEventListener('input', hideBulkClearConfirm);
   const saved = localStorage.getItem('bulkScanSoundEnabled');
   if (saved !== null) {
     bulkScanSoundEnabled = saved === '1';
