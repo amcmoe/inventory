@@ -798,8 +798,7 @@ select optgroup {
   width: 7px;
   height: 7px;
   border-radius: 3px;
-  background: transparent;
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+  display: none;
 }
 
 [data-theme="light"] .theme-toggle-fab {
@@ -810,6 +809,38 @@ select optgroup {
   .theme-toggle-fab {
     left: 10px;
     bottom: 10px;
+  }
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  body.bulk-scan-active .bulk-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 12px;
+  }
+
+  body.bulk-scan-active .bulk-grid > .row:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  body.bulk-scan-active #bulkSerialsPanel {
+    grid-column: 1;
+  }
+
+  body.bulk-scan-active #bulkScannerStage {
+    grid-column: 2;
+    min-height: 260px;
+    margin-top: 0;
+  }
+
+  body.bulk-scan-active #bulkScannerStage video {
+    min-height: 260px;
+    max-height: 62vh;
+    object-fit: cover;
+  }
+
+  body.bulk-scan-active .bulk-grid > .row:last-of-type {
+    grid-column: 1 / -1;
   }
 }
 

@@ -21,6 +21,7 @@ let bulkScannerTimer = null;
 let bulkScannerDetector = null;
 let lastBulkScan = '';
 let lastBulkScanAt = 0;
+let bulkScannerFullscreen = false;
 
 function currentManufacturerValue() {
   const selected = qs('#manufacturer').value;
@@ -259,6 +260,61 @@ async function handleBulkScan(rawValue) {
   appendBulkSerial(serial);
 }
 
+async function tryEnterLandscapeScannerMode() {
+  document.body.classList.add('bulk-scan-active');
+  if (!window.matchMedia('(max-width: 980px)').matches) {
+    return;
+  }
+
+  if (screen.orientation?.lock) {
+    try {
+      await screen.orientation.lock('landscape');
+      return;
+    } catch {
+      // Continue with fullscreen fallback below.
+    }
+  }
+
+  if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+    try {
+      await document.documentElement.requestFullscreen();
+      bulkScannerFullscreen = true;
+      if (screen.orientation?.lock) {
+        try {
+          await screen.orientation.lock('landscape');
+        } catch {
+          toast('Rotate device to landscape for split scan view.');
+        }
+      } else {
+        toast('Rotate device to landscape for split scan view.');
+      }
+    } catch {
+      toast('Rotate device to landscape for split scan view.');
+    }
+  } else if (!window.matchMedia('(orientation: landscape)').matches) {
+    toast('Rotate device to landscape for split scan view.');
+  }
+}
+
+async function exitLandscapeScannerMode() {
+  document.body.classList.remove('bulk-scan-active');
+  if (screen.orientation?.unlock) {
+    try {
+      screen.orientation.unlock();
+    } catch {
+      // noop
+    }
+  }
+  if (bulkScannerFullscreen && document.fullscreenElement) {
+    try {
+      await document.exitFullscreen();
+    } catch {
+      // noop
+    }
+  }
+  bulkScannerFullscreen = false;
+}
+
 async function bulkScanFrame() {
   if (!bulkScannerVideo || bulkScannerVideo.readyState < 2) return;
 
@@ -297,10 +353,12 @@ function stopBulkScanner() {
   if (bulkScannerStage) bulkScannerStage.hidden = true;
   if (bulkStartScannerBtn) bulkStartScannerBtn.disabled = false;
   if (bulkStopScannerBtn) bulkStopScannerBtn.disabled = true;
+  exitLandscapeScannerMode();
 }
 
 async function startBulkScanner() {
   try {
+    await tryEnterLandscapeScannerMode();
     bulkScannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
       audio: false
@@ -325,6 +383,7 @@ async function startBulkScanner() {
       bulkScanFrame().catch((err) => toast(err.message, true));
     }, 250);
   } catch (err) {
+    await exitLandscapeScannerMode();
     toast(`Camera error: ${err.message}`, true);
   }
 }
