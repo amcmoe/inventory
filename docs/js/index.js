@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, sendMagicLink, signOut } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const authPanel = qs('#authPanel');
 const authShell = qs('#authShell');
@@ -17,8 +17,7 @@ const searchInput = qs('#searchInput');
 const statusFilter = qs('#statusFilter');
 const typeFilter = qs('#typeFilter');
 const clearFiltersBtn = qs('#clearFiltersBtn');
-const startScannerBtn = qs('#startScannerBtn');
-const stopScannerBtn = qs('#stopScannerBtn');
+const scannerToggleBtn = qs('#scannerToggleBtn');
 const scannerStage = qs('#scannerStage');
 const scannerVideo = qs('#scannerVideo');
 const scannerCanvas = qs('#scannerCanvas');
@@ -30,6 +29,49 @@ let scannerTimer = null;
 let scannerDetector = null;
 let lastScanned = '';
 let lastScannedAt = 0;
+let scannerRunning = false;
+let autoRefreshTimer = null;
+let autoRefreshCount = 0;
+const AUTO_REFRESH_MS = 2 * 60 * 1000;
+const AUTO_REFRESH_MAX = 20;
+
+function syncScannerToggleButton() {
+  if (!scannerToggleBtn) return;
+  scannerToggleBtn.classList.toggle('is-running', scannerRunning);
+  scannerToggleBtn.setAttribute('aria-label', scannerRunning ? 'Stop scanner' : 'Start scanner');
+  scannerToggleBtn.title = scannerRunning ? 'Stop' : 'QR Scanner';
+}
+
+async function toggleScanner() {
+  if (scannerRunning) {
+    stopScanner();
+    return;
+  }
+  await startScanner();
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    window.clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshCount = 0;
+  autoRefreshTimer = window.setInterval(async () => {
+    if (document.hidden) return;
+    if (autoRefreshCount >= AUTO_REFRESH_MAX) {
+      stopAutoRefresh();
+      toast('Auto-refresh paused (session cap reached).');
+      return;
+    }
+    if (!searchInput.value.trim()) return;
+    autoRefreshCount += 1;
+    await loadAssets();
+  }, AUTO_REFRESH_MS);
+}
 
 function renderSearchPrompt() {
   assetTbody.innerHTML = '<tr><td colspan="7" class="dim">Type a serial or model to search for assets.</td></tr>';
@@ -137,8 +179,8 @@ function stopScanner() {
   if (scannerStage) {
     scannerStage.hidden = true;
   }
-  if (startScannerBtn) startScannerBtn.disabled = false;
-  if (stopScannerBtn) stopScannerBtn.disabled = true;
+  scannerRunning = false;
+  syncScannerToggleButton();
 }
 
 async function startScanner() {
@@ -159,14 +201,16 @@ async function startScanner() {
     }
 
     if (scannerStage) scannerStage.hidden = false;
-    if (startScannerBtn) startScannerBtn.disabled = true;
-    if (stopScannerBtn) stopScannerBtn.disabled = false;
+    scannerRunning = true;
+    syncScannerToggleButton();
 
     if (scannerTimer) window.clearInterval(scannerTimer);
     scannerTimer = window.setInterval(() => {
       scanFrame().catch((err) => toast(err.message, true));
     }, 250);
   } catch (err) {
+    scannerRunning = false;
+    syncScannerToggleButton();
     toast(`Camera error: ${err.message}`, true);
   }
 }
@@ -234,6 +278,7 @@ async function initAuthedUI(session) {
   }
 
   setRoleVisibility(currentProfile.role || 'viewer');
+  initAdminNav();
   userMeta.textContent = `${currentProfile.display_name || session.user.email} (${currentProfile.role || 'viewer'})`;
 
   const { data, error } = await supabase
@@ -249,6 +294,7 @@ async function initAuthedUI(session) {
   }
 
   renderSearchPrompt();
+  startAutoRefresh();
 }
 
 async function init() {
@@ -274,9 +320,9 @@ async function init() {
   });
   bindSignOut(signOut, './index.html');
 
-  qs('#refreshBtn').addEventListener('click', loadAssets);
-  startScannerBtn?.addEventListener('click', startScanner);
-  stopScannerBtn?.addEventListener('click', stopScanner);
+  scannerToggleBtn?.addEventListener('click', () => {
+    toggleScanner().catch((err) => toast(err.message, true));
+  });
   clearFiltersBtn?.addEventListener('click', () => {
     searchInput.value = '';
     statusFilter.value = '';
@@ -302,10 +348,19 @@ async function init() {
       mainNav.hidden = true;
       assetTbody.innerHTML = '';
       stopScanner();
+      stopAutoRefresh();
     }
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !autoRefreshTimer) {
+      startAutoRefresh();
+    }
+  });
+
+  syncScannerToggleButton();
   window.addEventListener('beforeunload', stopScanner);
+  window.addEventListener('beforeunload', stopAutoRefresh);
 }
 
 init().catch((err) => {

@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
-import { qs, toast, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
+import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
@@ -8,8 +8,7 @@ const assetAdminSection = qs('#assetAdminSection');
 const bulkCreateSection = qs('#bulkCreateSection');
 const adminNav = qs('#adminNav');
 const editOnlyFields = document.querySelectorAll('[data-edit-only]');
-const bulkStartScannerBtn = qs('#bulkStartScannerBtn');
-const bulkStopScannerBtn = qs('#bulkStopScannerBtn');
+const bulkScannerToggleBtn = qs('#bulkScannerToggleBtn');
 const bulkScannerStage = qs('#bulkScannerStage');
 const bulkScannerVideo = qs('#bulkScannerVideo');
 const bulkScannerFreeze = qs('#bulkScannerFreeze');
@@ -17,7 +16,7 @@ const bulkScannerOverlay = qs('#bulkScannerOverlay');
 const bulkScannerCanvas = qs('#bulkScannerCanvas');
 const bulkSerialCount = qs('#bulkSerialCount');
 const bulkSerialsField = qs('#bulkSerials');
-const bulkScanSoundToggle = qs('#bulkScanSoundToggle');
+const bulkScanSoundBtn = qs('#bulkScanSoundBtn');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 let bulkScannerStream = null;
@@ -29,6 +28,23 @@ let bulkScannerFullscreen = false;
 let bulkFreezeUntil = 0;
 let bulkFreezeTimer = null;
 let bulkAudioCtx = null;
+let bulkScannerRunning = false;
+let bulkScanSoundEnabled = true;
+
+function syncBulkScannerToggleLabel() {
+  if (!bulkScannerToggleBtn) return;
+  bulkScannerToggleBtn.classList.toggle('is-running', bulkScannerRunning);
+  bulkScannerToggleBtn.setAttribute('aria-label', bulkScannerRunning ? 'Stop scanner' : 'Start scanner');
+  bulkScannerToggleBtn.title = bulkScannerRunning ? 'Stop' : 'QR Scanner';
+}
+
+function syncBulkSoundButton() {
+  if (!bulkScanSoundBtn) return;
+  bulkScanSoundBtn.classList.toggle('is-muted', !bulkScanSoundEnabled);
+  bulkScanSoundBtn.setAttribute('aria-pressed', bulkScanSoundEnabled ? 'true' : 'false');
+  bulkScanSoundBtn.setAttribute('aria-label', bulkScanSoundEnabled ? 'Scan sound on' : 'Scan sound off');
+  bulkScanSoundBtn.title = bulkScanSoundEnabled ? 'Scan Sound: On' : 'Scan Sound: Off';
+}
 
 function syncBulkScannerHeight() {
   if (!bulkSerialsField || !bulkScannerStage || bulkScannerStage.hidden) return;
@@ -41,6 +57,60 @@ function clearBulkOverlay() {
   const ctx = bulkScannerOverlay.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, bulkScannerOverlay.width, bulkScannerOverlay.height);
+}
+
+function toPolygonArray(points) {
+  if (!Array.isArray(points) || points.length < 4) return [];
+  return points.map((pt) => ({ x: Number(pt.x) || 0, y: Number(pt.y) || 0 }));
+}
+
+function detectLabelCandidateFromFrame(imageData, width, height) {
+  if (!imageData?.data || !width || !height) return null;
+  const step = 4;
+  const data = imageData.data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let brightCount = 0;
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const luma = (r * 0.299) + (g * 0.587) + (b * 0.114);
+      const sat = max - min;
+      if (luma > 205 && sat < 28) {
+        brightCount += 1;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (!brightCount) return null;
+  const sampledTotal = Math.ceil(width / step) * Math.ceil(height / step);
+  const ratio = brightCount / sampledTotal;
+  if (ratio < 0.02 || ratio > 0.45) return null;
+
+  const boxW = maxX - minX;
+  const boxH = maxY - minY;
+  if (boxW < width * 0.15 || boxH < height * 0.1) return null;
+  const aspect = boxW / Math.max(1, boxH);
+  if (aspect < 1.2 || aspect > 4.8) return null;
+
+  return [
+    { x: minX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: maxY },
+    { x: minX, y: maxY }
+  ];
 }
 
 function clearBulkFreezeFrame() {
@@ -61,7 +131,7 @@ function ensureBulkAudioContext() {
 }
 
 function playScanChime() {
-  if (!bulkScanSoundToggle?.checked) return;
+  if (!bulkScanSoundEnabled) return;
   if (!bulkAudioCtx) return;
   const now = bulkAudioCtx.currentTime;
   const gain = bulkAudioCtx.createGain();
@@ -86,7 +156,7 @@ function playScanChime() {
   oscB.stop(now + 0.24);
 }
 
-function showBulkFreezeFrame(durationMs = 1200) {
+function showBulkFreezeFrame(durationMs = 1200, readText = '', successPoly = null) {
   if (!bulkScannerVideo || !bulkScannerFreeze || !bulkScannerStage) return;
   const displayW = bulkScannerStage.clientWidth;
   const displayH = bulkScannerStage.clientHeight;
@@ -114,6 +184,36 @@ function showBulkFreezeFrame(durationMs = 1200) {
   const offsetY = (displayH - drawH) / 2;
 
   ctx.drawImage(bulkScannerVideo, offsetX, offsetY, drawW, drawH);
+  if (Array.isArray(successPoly) && successPoly.length >= 4) {
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = 'rgba(34,197,94,0.6)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    successPoly.forEach((pt, idx) => {
+      const x = (pt.x * scale) + offsetX;
+      const y = (pt.y * scale) + offsetY;
+      if (idx === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  if (readText) {
+    const text = `Read: ${readText}`;
+    ctx.font = '600 16px ui-sans-serif, system-ui, sans-serif';
+    const textWidth = ctx.measureText(text).width;
+    const padX = 10;
+    const boxW = Math.min(displayW - 20, textWidth + (padX * 2));
+    const boxH = 30;
+    const boxX = 10;
+    const boxY = displayH - boxH - 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, boxX + padX, boxY + 20);
+  }
   bulkScannerFreeze.hidden = false;
   bulkFreezeUntil = Date.now() + durationMs;
   if (bulkFreezeTimer) {
@@ -125,7 +225,7 @@ function showBulkFreezeFrame(durationMs = 1200) {
   }, durationMs);
 }
 
-function drawBulkOverlay(polygons) {
+function drawBulkOverlay(polygons, color = '#22c55e') {
   if (!bulkScannerOverlay || !bulkScannerStage || !bulkScannerVideo) return;
   const displayW = bulkScannerStage.clientWidth;
   const displayH = bulkScannerStage.clientHeight;
@@ -154,10 +254,11 @@ function drawBulkOverlay(polygons) {
   const offsetX = (displayW - drawW) / 2;
   const offsetY = (displayH - drawH) / 2;
 
-  ctx.strokeStyle = '#22c55e';
-  ctx.shadowColor = 'rgba(34,197,94,0.55)';
+  const isWarn = color === '#facc15';
+  ctx.strokeStyle = color;
+  ctx.shadowColor = isWarn ? 'rgba(250,204,21,0.45)' : 'rgba(34,197,94,0.55)';
   ctx.shadowBlur = 8;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
 
   polygons.forEach((poly) => {
     if (!poly || poly.length < 2) return;
@@ -174,6 +275,40 @@ function drawBulkOverlay(polygons) {
     ctx.closePath();
     ctx.stroke();
   });
+}
+
+async function animateScanToTextarea(serial) {
+  if (!bulkScannerStage || !bulkSerialsField || !serial) return;
+  const stageRect = bulkScannerStage.getBoundingClientRect();
+  const fieldRect = bulkSerialsField.getBoundingClientRect();
+  if (!stageRect.width || !fieldRect.width) return;
+
+  const chip = document.createElement('div');
+  chip.className = 'scan-float-chip';
+  chip.textContent = serial;
+  document.body.appendChild(chip);
+  const chipRect = chip.getBoundingClientRect();
+
+  const startX = stageRect.left + ((stageRect.width - chipRect.width) / 2);
+  const startY = stageRect.top + ((stageRect.height - chipRect.height) / 2);
+  const endX = fieldRect.left + ((fieldRect.width - chipRect.width) / 2);
+  const endY = fieldRect.top + ((fieldRect.height - chipRect.height) / 2);
+
+  chip.style.left = `${startX}px`;
+  chip.style.top = `${startY}px`;
+  chip.style.opacity = '0';
+
+  await chip.animate(
+    [
+      { transform: 'translate(0, 0) scale(0.92)', opacity: 0 },
+      { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 0.24 },
+      { transform: `translate(${endX - startX}px, ${endY - startY}px) scale(0.97)`, opacity: 1, offset: 0.88 },
+      { transform: `translate(${endX - startX}px, ${endY - startY}px) scale(0.9)`, opacity: 0 }
+    ],
+    { duration: 1280, easing: 'cubic-bezier(.2,.74,.18,1)', fill: 'forwards' }
+  ).finished.catch(() => {});
+
+  chip.remove();
 }
 
 function currentManufacturerValue() {
@@ -369,7 +504,7 @@ function appendBulkSerial(value) {
     .map((v) => v.trim())
     .filter(Boolean);
   if (current.includes(serial)) {
-    return;
+    return false;
   }
   current.push(serial);
   const field = qs('#bulkSerials');
@@ -379,6 +514,7 @@ function appendBulkSerial(value) {
   field.selectionEnd = field.value.length;
   updateBulkSerialCount();
   toast(`Scanned ${serial}`);
+  return true;
 }
 
 function updateBulkSerialCount() {
@@ -402,7 +538,7 @@ function extractScannedSerial(rawValue) {
   }
 }
 
-async function handleBulkScan(rawValue) {
+async function handleBulkScan(rawValue, successPoly = null) {
   const now = Date.now();
   if (!rawValue || (rawValue === lastBulkScan && now - lastBulkScanAt < 1500)) {
     return;
@@ -410,9 +546,10 @@ async function handleBulkScan(rawValue) {
   lastBulkScan = rawValue;
   lastBulkScanAt = now;
   const serial = extractScannedSerial(rawValue);
-  appendBulkSerial(serial);
+  showBulkFreezeFrame(1200, serial, successPoly);
   playScanChime();
-  showBulkFreezeFrame();
+  await animateScanToTextarea(serial);
+  appendBulkSerial(serial);
 }
 
 async function tryEnterLandscapeScannerMode() {
@@ -475,19 +612,6 @@ async function bulkScanFrame() {
   if (Date.now() < bulkFreezeUntil) return;
   syncBulkScannerHeight();
 
-  if (bulkScannerDetector) {
-    const codes = await bulkScannerDetector.detect(bulkScannerVideo);
-    const polygons = (codes || [])
-      .map((code) => code.cornerPoints)
-      .filter((points) => Array.isArray(points) && points.length >= 4);
-    drawBulkOverlay(polygons);
-    if (codes?.length && codes[0].rawValue) {
-      await handleBulkScan(codes[0].rawValue);
-    }
-    return;
-  }
-
-  if (!window.jsQR) return;
   const width = bulkScannerVideo.videoWidth || 640;
   const height = bulkScannerVideo.videoHeight || 480;
   bulkScannerCanvas.width = width;
@@ -495,17 +619,41 @@ async function bulkScanFrame() {
   const ctx = bulkScannerCanvas.getContext('2d');
   ctx.drawImage(bulkScannerVideo, 0, 0, width, height);
   const imageData = ctx.getImageData(0, 0, width, height);
+
+  if (bulkScannerDetector) {
+    const codes = await bulkScannerDetector.detect(bulkScannerVideo);
+    const polygons = (codes || [])
+      .map((code) => toPolygonArray(code.cornerPoints))
+      .filter((points) => Array.isArray(points) && points.length >= 4);
+    if (polygons.length) {
+      drawBulkOverlay(polygons, '#22c55e');
+    } else {
+      const candidate = detectLabelCandidateFromFrame(imageData, width, height);
+      if (candidate) drawBulkOverlay([candidate], '#facc15');
+      else clearBulkOverlay();
+    }
+    if (codes?.length && codes[0].rawValue) {
+      await handleBulkScan(codes[0].rawValue, polygons[0] || null);
+    }
+    return;
+  }
+
+  if (!window.jsQR) return;
   const code = window.jsQR(imageData.data, width, height, { inversionAttempts: 'dontInvert' });
   if (code?.data) {
     const loc = code.location;
+    let poly = null;
     if (loc) {
-      drawBulkOverlay([[loc.topLeftCorner, loc.topRightCorner, loc.bottomRightCorner, loc.bottomLeftCorner]]);
+      poly = toPolygonArray([loc.topLeftCorner, loc.topRightCorner, loc.bottomRightCorner, loc.bottomLeftCorner]);
+      drawBulkOverlay([poly], '#22c55e');
     } else {
       clearBulkOverlay();
     }
-    await handleBulkScan(code.data);
+    await handleBulkScan(code.data, poly);
   } else {
-    clearBulkOverlay();
+    const candidate = detectLabelCandidateFromFrame(imageData, width, height);
+    if (candidate) drawBulkOverlay([candidate], '#facc15');
+    else clearBulkOverlay();
   }
 }
 
@@ -521,8 +669,8 @@ function stopBulkScanner() {
   if (bulkScannerVideo) bulkScannerVideo.srcObject = null;
   if (bulkScannerStage) bulkScannerStage.style.height = '';
   if (bulkScannerStage) bulkScannerStage.hidden = true;
-  if (bulkStartScannerBtn) bulkStartScannerBtn.disabled = false;
-  if (bulkStopScannerBtn) bulkStopScannerBtn.disabled = true;
+  bulkScannerRunning = false;
+  syncBulkScannerToggleLabel();
   clearBulkOverlay();
   clearBulkFreezeFrame();
   bulkFreezeUntil = 0;
@@ -535,7 +683,9 @@ function stopBulkScanner() {
 
 async function startBulkScanner() {
   try {
-    ensureBulkAudioContext();
+    if (bulkScanSoundEnabled) {
+      ensureBulkAudioContext();
+    }
     await tryEnterLandscapeScannerMode();
     bulkScannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
@@ -554,17 +704,27 @@ async function startBulkScanner() {
 
     bulkScannerStage.hidden = false;
     syncBulkScannerHeight();
-    bulkStartScannerBtn.disabled = true;
-    bulkStopScannerBtn.disabled = false;
+    bulkScannerRunning = true;
+    syncBulkScannerToggleLabel();
 
     if (bulkScannerTimer) window.clearInterval(bulkScannerTimer);
     bulkScannerTimer = window.setInterval(() => {
       bulkScanFrame().catch((err) => toast(err.message, true));
     }, 250);
   } catch (err) {
+    bulkScannerRunning = false;
+    syncBulkScannerToggleLabel();
     await exitLandscapeScannerMode();
     toast(`Camera error: ${err.message}`, true);
   }
+}
+
+async function toggleBulkScanner() {
+  if (bulkScannerRunning) {
+    stopBulkScanner();
+    return;
+  }
+  await startBulkScanner();
 }
 
 async function init() {
@@ -605,6 +765,7 @@ async function init() {
     adminNav.hidden = false;
     adminNav.style.display = '';
   }
+  initAdminNav();
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
@@ -615,24 +776,27 @@ async function init() {
   });
   qs('#bulkSerials').addEventListener('input', updateBulkSerialCount);
   qs('#bulkSerials').addEventListener('input', syncBulkScannerHeight);
-  if (bulkScanSoundToggle) {
-    const saved = localStorage.getItem('bulkScanSoundEnabled');
-    if (saved !== null) {
-      bulkScanSoundToggle.checked = saved === '1';
-    }
-    bulkScanSoundToggle.addEventListener('change', () => {
-      localStorage.setItem('bulkScanSoundEnabled', bulkScanSoundToggle.checked ? '1' : '0');
-      if (bulkScanSoundToggle.checked) {
-        ensureBulkAudioContext();
-      }
-    });
+  const saved = localStorage.getItem('bulkScanSoundEnabled');
+  if (saved !== null) {
+    bulkScanSoundEnabled = saved === '1';
   }
-  bulkStartScannerBtn?.addEventListener('click', startBulkScanner);
-  bulkStopScannerBtn?.addEventListener('click', stopBulkScanner);
+  syncBulkSoundButton();
+  bulkScanSoundBtn?.addEventListener('click', () => {
+    bulkScanSoundEnabled = !bulkScanSoundEnabled;
+    localStorage.setItem('bulkScanSoundEnabled', bulkScanSoundEnabled ? '1' : '0');
+    syncBulkSoundButton();
+    if (bulkScanSoundEnabled) {
+      ensureBulkAudioContext();
+    }
+  });
+  bulkScannerToggleBtn?.addEventListener('click', () => {
+    toggleBulkScanner().catch((err) => toast(err.message, true));
+  });
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
   setEditMode(false);
   updateBulkSerialCount();
+  syncBulkScannerToggleLabel();
   window.addEventListener('resize', syncBulkScannerHeight);
   window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);

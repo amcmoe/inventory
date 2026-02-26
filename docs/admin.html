@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inventory - Admin</title>
+  <title>Inventory - Asset Management</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -18,7 +18,16 @@
       </div>
       <nav class="nav" id="adminNav" hidden>
         <a href="./index.html"><span>Search</span></a>
-        <a class="active" href="./admin.html"><span>Admin</span></a>
+        <div class="nav-group nav-group-admin is-pinned" data-role-min="admin" data-open-default="true">
+          <button class="nav-group-toggle" type="button" aria-expanded="true">
+            <span>Admin</span>
+            <span class="nav-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem active" href="./admin.html"><span>Asset Management</span></a>
+            <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+          </div>
+        </div>
         <a href="./reports.html"><span>Reports</span></a>
       </nav>
     </aside>
@@ -26,12 +35,11 @@
     <main class="main">
       <header class="topbar" id="adminTopbar" hidden>
         <div>
-          <h1>Admin</h1>
-          <div class="subtext">Create and maintain assets and people.</div>
+          <h1>Asset Management</h1>
+          <div class="subtext">Create and maintain assets.</div>
         </div>
         <div class="controls">
-          <a class="btn" href="./people.html">Manage People</a>
-          <button class="btn" id="signOutBtn" type="button">Sign Out</button>
+          <button class="btn" id="signOutBtn" type="button">Log Out</button>
         </div>
       </header>
 
@@ -151,7 +159,34 @@
       </section>
 
       <section class="panel" id="bulkCreateSection" hidden>
-        <div class="panel-body">
+        <div class="panel-body bulk-create-body">
+          <div class="bulk-tools">
+            <button class="bulk-icon-btn" id="bulkScannerToggleBtn" type="button" aria-label="Start scanner" title="QR Scanner">
+              <svg class="icon-scan" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 9V6a2 2 0 0 1 2-2h3" />
+                <path d="M20 9V6a2 2 0 0 0-2-2h-3" />
+                <path d="M4 15v3a2 2 0 0 0 2 2h3" />
+                <path d="M20 15v3a2 2 0 0 1-2 2h-3" />
+                <path d="M5 12h14" />
+              </svg>
+              <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5" />
+              </svg>
+            </button>
+            <button class="bulk-icon-btn" id="bulkScanSoundBtn" type="button" aria-label="Scan sound on" aria-pressed="true" title="Scan Sound">
+              <svg class="icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 10h4l5-4v12l-5-4H4z" />
+                <path d="M16 9a4 4 0 0 1 0 6" />
+                <path d="M18.5 7a7 7 0 0 1 0 10" />
+              </svg>
+              <svg class="icon-sound-off" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 10h4l5-4v12l-5-4H4z" />
+                <path d="M16 9a4 4 0 0 1 0 6" />
+                <path d="M18.5 7a7 7 0 0 1 0 10" />
+                <path d="M6 19L20 5" />
+              </svg>
+            </button>
+          </div>
           <h3>Bulk Create Assets</h3>
           <p class="muted">Use the same shared values above, then paste serial numbers (one per line).</p>
           <div class="grid bulk-grid">
@@ -159,14 +194,6 @@
               <label for="bulkSerials">Serial Numbers</label>
               <textarea id="bulkSerials" rows="10" placeholder="PW063AAA&#10;PW063AAB&#10;PW063AAC"></textarea>
               <div class="muted">Scanned: <span id="bulkSerialCount">0</span> serials</div>
-            </div>
-            <div class="row" id="bulkScannerControls">
-              <button class="btn" id="bulkStartScannerBtn" type="button">QR Scanner</button>
-              <button class="btn" id="bulkStopScannerBtn" type="button" disabled>Stop</button>
-              <label class="scan-toggle">
-                <input id="bulkScanSoundToggle" type="checkbox" checked>
-                <span>Scan Sound</span>
-              </label>
             </div>
             <div class="scanner-stage" id="bulkScannerStage" hidden>
               <video id="bulkScannerVideo" autoplay playsinline muted></video>

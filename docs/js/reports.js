@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const reportsTopbar = qs('#reportsTopbar');
 const reportsNav = qs('#reportsNav');
@@ -172,6 +172,7 @@ async function init() {
 
   const profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
+  initAdminNav();
 
   reportsLoadingPanel.hidden = true;
   reportsTopbar.hidden = false;

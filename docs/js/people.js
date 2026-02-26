@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
-import { qs, toast, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
+import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
 const peopleTopbar = qs('#peopleTopbar');
@@ -57,6 +57,7 @@ async function init() {
   if (peopleLoadingPanel) peopleLoadingPanel.hidden = true;
   if (peopleTopbar) peopleTopbar.hidden = false;
   if (peopleNav) peopleNav.hidden = false;
+  initAdminNav();
   if (peopleMainSection) peopleMainSection.hidden = false;
 
   qs('#savePersonBtn').addEventListener('click', createPerson);

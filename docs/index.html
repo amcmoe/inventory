@@ -34,13 +34,20 @@
 
       <nav class="nav" aria-label="Primary" id="mainNav" hidden>
         <a class="active" href="./index.html"><span>Search</span></a>
-        <a href="./admin.html" data-role-min="admin"><span>Admin</span></a>
+        <div class="nav-group nav-group-admin" data-role-min="admin">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span>Admin</span>
+            <span class="nav-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
+            <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+          </div>
+        </div>
         <a href="./reports.html"><span>Reports</span></a>
       </nav>
 
-      <div class="sidebar-footer">
-        <button class="btn" id="signOutBtn" type="button">Sign Out</button>
-      </div>
+      <div class="sidebar-footer"></div>
     </aside>
 
     <main class="main">
@@ -51,7 +58,7 @@
           <div class="subtext" id="userMeta"></div>
         </div>
         <div class="controls">
-          <button class="btn" id="refreshBtn" type="button">Refresh</button>
+          <button class="btn" id="signOutBtn" type="button">Log Out</button>
         </div>
       </div>
 
@@ -101,8 +108,18 @@
           </div>
 
           <div class="controls">
-            <button class="btn" id="startScannerBtn" type="button">QR Scanner</button>
-            <button class="btn" id="stopScannerBtn" type="button" disabled>Stop</button>
+            <button class="bulk-icon-btn" id="scannerToggleBtn" type="button" aria-label="Start scanner" title="QR Scanner">
+              <svg class="icon-scan" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 9V6a2 2 0 0 1 2-2h3" />
+                <path d="M20 9V6a2 2 0 0 0-2-2h-3" />
+                <path d="M4 15v3a2 2 0 0 0 2 2h3" />
+                <path d="M20 15v3a2 2 0 0 1-2 2h-3" />
+                <path d="M5 12h14" />
+              </svg>
+              <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5" />
+              </svg>
+            </button>
             <button class="btn" id="clearFiltersBtn" type="button">Clear</button>
           </div>
         </div>

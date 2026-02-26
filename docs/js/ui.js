@@ -82,3 +82,39 @@ export function bindSignOut(signOutFn, redirectUrl = './index.html') {
     }
   });
 }
+
+export function initAdminNav() {
+  const groups = document.querySelectorAll('.nav-group-admin');
+  if (!groups.length) return;
+
+  const saved = localStorage.getItem('adminNavPinned');
+  groups.forEach((group) => {
+    const toggle = group.querySelector('.nav-group-toggle');
+    if (!toggle || toggle.dataset.bound === '1') return;
+    toggle.dataset.bound = '1';
+
+    const defaultOpen = group.getAttribute('data-open-default') === 'true' || group.classList.contains('is-pinned');
+    const pinned = saved === null ? defaultOpen : saved === '1';
+    group.classList.toggle('is-pinned', pinned);
+    toggle.setAttribute('aria-expanded', pinned ? 'true' : 'false');
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      const nextPinned = !group.classList.contains('is-pinned');
+      group.classList.toggle('is-pinned', nextPinned);
+      toggle.setAttribute('aria-expanded', nextPinned ? 'true' : 'false');
+      localStorage.setItem('adminNavPinned', nextPinned ? '1' : '0');
+    });
+
+    group.addEventListener('mouseenter', () => {
+      if (!group.classList.contains('is-pinned')) {
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    });
+    group.addEventListener('mouseleave', () => {
+      if (!group.classList.contains('is-pinned')) {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+}
