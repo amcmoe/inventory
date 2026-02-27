@@ -1184,6 +1184,10 @@ textarea {
   background: rgba(34, 197, 94, 0.1);
 }
 
+.remote-badge.flash {
+  animation: remote-badge-flash 680ms ease;
+}
+
 .remote-badge.is-off {
   color: var(--muted);
 }
@@ -1192,6 +1196,21 @@ textarea {
   color: #fbbf24;
   border-color: rgba(251, 191, 36, 0.35);
   background: rgba(251, 191, 36, 0.1);
+}
+
+@keyframes remote-badge-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+    transform: scale(1);
+  }
+  35% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 980px) {

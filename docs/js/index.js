@@ -59,6 +59,7 @@ let remoteSessionExpiresAt = null;
 let remotePairPollTimer = null;
 let remoteExpireTimer = null;
 let remoteChannel = null;
+let remoteStatusTimer = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 
 function syncScannerToggleButton() {
@@ -442,6 +443,10 @@ function clearRemoteTimers() {
     window.clearInterval(remoteExpireTimer);
     remoteExpireTimer = null;
   }
+  if (remoteStatusTimer) {
+    window.clearInterval(remoteStatusTimer);
+    remoteStatusTimer = null;
+  }
 }
 
 async function stopRemoteSubscription() {
@@ -469,6 +474,44 @@ function setRemoteBadge(state = 'off', text = '') {
   else if (state === 'expired') remoteBadge.classList.add('is-expired');
   else remoteBadge.classList.add('is-off');
   remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
+}
+
+function flashRemoteBadge() {
+  if (!remoteBadge) return;
+  remoteBadge.classList.remove('flash');
+  // Force reflow so repeated connects retrigger animation.
+  void remoteBadge.offsetWidth;
+  remoteBadge.classList.add('flash');
+}
+
+async function syncRemoteSessionState() {
+  if (!remoteSessionId) return;
+  const { data, error } = await supabase
+    .from('scan_sessions')
+    .select('status, expires_at')
+    .eq('id', remoteSessionId)
+    .maybeSingle();
+  if (error || !data) return;
+  if (data.status !== 'active') {
+    remoteSessionId = null;
+    remoteSessionExpiresAt = null;
+    clearPersistedRemoteSession();
+    await stopRemoteSubscription();
+    setRemoteBadge('off', 'Remote Scanner: Idle');
+    pairStatus.textContent = 'Session ended.';
+    pairMeta.textContent = '';
+    clearRemoteTimers();
+    return;
+  }
+  remoteSessionExpiresAt = data.expires_at;
+}
+
+function startRemoteStatusMonitor() {
+  if (!remoteSessionId) return;
+  if (remoteStatusTimer) window.clearInterval(remoteStatusTimer);
+  remoteStatusTimer = window.setInterval(() => {
+    syncRemoteSessionState().catch(() => {});
+  }, 2500);
 }
 
 function updatePairMeta() {
@@ -540,9 +583,12 @@ async function waitForPairedSession(pairingId) {
       pairStatus.textContent = 'Phone paired. Remote scanner active.';
       persistRemoteSession();
       setRemoteBadge('on', 'Remote Scanner: Connected');
+      flashRemoteBadge();
       clearRemoteTimers();
       startRemoteExpiryTicker();
+      startRemoteStatusMonitor();
       await subscribeRemoteScans(remoteSessionId);
+      setPairModalOpen(false);
     } catch {
       // keep polling
     }
@@ -625,6 +671,7 @@ async function restoreGlobalRemoteSession() {
     pairStatus.textContent = 'Remote scanner active (global session).';
     setRemoteBadge('on', 'Remote Scanner: Connected');
     startRemoteExpiryTicker();
+    startRemoteStatusMonitor();
     await subscribeRemoteScans(id);
   } catch {
     clearPersistedRemoteSession();
