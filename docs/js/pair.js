@@ -253,12 +253,12 @@ function showFreezeFrame(readText = '', durationMs = 1000) {
 
 function updateCountdown() {
   if (!sessionExpiresAt) {
-    pairCountdown.textContent = '--:--';
+    pairCountdown.textContent = '--:-- remaining';
     return;
   }
   const remaining = new Date(sessionExpiresAt).getTime() - Date.now();
   if (remaining <= 0) {
-    pairCountdown.textContent = '00:00';
+    pairCountdown.textContent = '00:00 remaining';
     pairState.textContent = 'Session expired';
     stopCamera();
     scanStartBtn.disabled = true;
@@ -270,7 +270,7 @@ function updateCountdown() {
   }
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
-  pairCountdown.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  pairCountdown.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} remaining`;
 }
 
 function startCountdown() {
@@ -512,7 +512,7 @@ async function endSessionFromPhone() {
   scanPauseBtn.disabled = true;
   scanEndSessionBtn.disabled = true;
   pairState.textContent = 'Session ended';
-  pairCountdown.textContent = '--:--';
+  pairCountdown.textContent = '--:-- remaining';
   stopAll();
   updateScanButtons();
 }

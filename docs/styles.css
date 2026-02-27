@@ -1187,6 +1187,27 @@ textarea {
   text-overflow: ellipsis;
 }
 
+.pair-session-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.pair-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.pair-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
 .remote-badge {
   display: inline-flex;
   align-items: center;
