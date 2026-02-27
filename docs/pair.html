@@ -16,6 +16,7 @@
           <button class="btn primary" id="pairStartBtn" type="button">Scan Pair QR</button>
           <button class="btn" id="scanStartBtn" type="button" disabled>Start Barcode Scan</button>
           <button class="btn" id="scanStopBtn" type="button" disabled>Stop</button>
+          <button class="btn danger" id="scanEndSessionBtn" type="button" disabled>End Session</button>
         </div>
         <div class="detail" style="margin-top:10px;">
           <div class="k">Session</div>
@@ -24,6 +25,8 @@
         </div>
         <div class="scanner-stage" id="pairScannerStage" hidden>
           <video id="pairScannerVideo" autoplay playsinline muted></video>
+          <canvas id="pairScannerFreeze" class="scanner-freeze-canvas" hidden aria-hidden="true"></canvas>
+          <canvas id="pairScannerOverlay" class="scanner-guide-canvas" aria-hidden="true"></canvas>
           <canvas id="pairScannerCanvas" hidden></canvas>
           <div class="scanner-overlay"></div>
         </div>

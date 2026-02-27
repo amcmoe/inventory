@@ -29,6 +29,7 @@ const pairStatus = qs('#pairStatus');
 const pairMeta = qs('#pairMeta');
 const pairRegenerateBtn = qs('#pairRegenerateBtn');
 const pairEndSessionBtn = qs('#pairEndSessionBtn');
+const remoteBadge = qs('#remoteBadge');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 let bulkScannerStream = null;
@@ -48,6 +49,7 @@ let remoteSessionExpiresAt = null;
 let remotePairPollTimer = null;
 let remoteExpireTimer = null;
 let remoteChannel = null;
+const REMOTE_SESSION_KEY = 'remoteScanSession';
 
 function syncBulkScannerToggleLabel() {
   if (!bulkScannerToggleBtn) return;
@@ -777,6 +779,27 @@ async function stopRemoteSubscription() {
   remoteChannel = null;
 }
 
+function persistRemoteSession() {
+  if (!remoteSessionId || !remoteSessionExpiresAt) return;
+  localStorage.setItem(REMOTE_SESSION_KEY, JSON.stringify({
+    scan_session_id: remoteSessionId,
+    expires_at: remoteSessionExpiresAt
+  }));
+}
+
+function clearPersistedRemoteSession() {
+  localStorage.removeItem(REMOTE_SESSION_KEY);
+}
+
+function setRemoteBadge(state = 'off', text = '') {
+  if (!remoteBadge) return;
+  remoteBadge.classList.remove('is-on', 'is-off', 'is-expired');
+  if (state === 'on') remoteBadge.classList.add('is-on');
+  else if (state === 'expired') remoteBadge.classList.add('is-expired');
+  else remoteBadge.classList.add('is-off');
+  remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
+}
+
 function updatePairMeta() {
   if (!pairMeta) return;
   if (!remoteSessionExpiresAt) {
@@ -802,9 +825,10 @@ function startRemoteExpiryTicker() {
     if (!remoteSessionExpiresAt) return;
     if (new Date(remoteSessionExpiresAt).getTime() <= Date.now()) {
       pairStatus.textContent = 'Session expired.';
-      pairEndSessionBtn.disabled = true;
       clearRemoteTimers();
       stopRemoteSubscription().catch(() => {});
+      clearPersistedRemoteSession();
+      setRemoteBadge('expired', 'Remote Scanner: Expired');
     }
   }, 1000);
 }
@@ -841,7 +865,8 @@ async function waitForPairedSession(pairingId) {
       remoteSessionId = data.id;
       remoteSessionExpiresAt = data.expires_at;
       pairStatus.textContent = 'Phone paired. Remote scanner active.';
-      pairEndSessionBtn.disabled = false;
+      persistRemoteSession();
+      setRemoteBadge('on', 'Remote Scanner: Connected');
       clearRemoteTimers();
       startRemoteExpiryTicker();
       await subscribeRemoteScans(remoteSessionId);
@@ -854,7 +879,6 @@ async function waitForPairedSession(pairingId) {
 async function generatePairingQr() {
   pairStatus.textContent = 'Generating pairing QR...';
   pairMeta.textContent = '';
-  pairEndSessionBtn.disabled = true;
   const { data, error } = await supabase.functions.invoke('pairing-create', {
     body: { context: 'bulk', ttl_seconds: 45 }
   });
@@ -901,10 +925,38 @@ async function endRemoteSession() {
   remoteSessionId = null;
   remoteSessionExpiresAt = null;
   pairStatus.textContent = 'Session ended.';
-  pairEndSessionBtn.disabled = true;
   pairMeta.textContent = '';
   clearRemoteTimers();
   await stopRemoteSubscription();
+  clearPersistedRemoteSession();
+  setRemoteBadge('off', 'Remote Scanner: Idle');
+}
+
+async function restoreGlobalRemoteSession() {
+  const raw = localStorage.getItem(REMOTE_SESSION_KEY);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const id = String(parsed.scan_session_id || '').trim();
+    const exp = String(parsed.expires_at || '').trim();
+    if (!id || !exp) {
+      clearPersistedRemoteSession();
+      return;
+    }
+    if (new Date(exp).getTime() <= Date.now()) {
+      clearPersistedRemoteSession();
+      return;
+    }
+    remoteSessionId = id;
+    remoteSessionExpiresAt = exp;
+    pairStatus.textContent = 'Remote scanner active (global session).';
+    setRemoteBadge('on', 'Remote Scanner: Connected');
+    startRemoteExpiryTicker();
+    await subscribeRemoteScans(id);
+  } catch {
+    clearPersistedRemoteSession();
+    setRemoteBadge('off', 'Remote Scanner: Idle');
+  }
 }
 
 async function init() {
@@ -993,13 +1045,20 @@ async function init() {
     generatePairingQr().catch((err) => toast(err.message, true));
   });
   pairEndSessionBtn?.addEventListener('click', () => {
-    endRemoteSession().catch((err) => toast(err.message, true));
+    (async () => {
+      if (remoteSessionId) {
+        await endRemoteSession();
+      }
+      setPairModalOpen(false);
+    })().catch((err) => toast(err.message, true));
   });
+  setRemoteBadge('off', 'Remote Scanner: Idle');
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
   setEditMode(false);
   updateBulkSerialCount();
   syncBulkScannerToggleLabel();
+  restoreGlobalRemoteSession().catch((err) => toast(err.message, true));
   const prefillTag = new URLSearchParams(window.location.search).get('tag');
   if (prefillTag) {
     qs('#assetTag').value = prefillTag.trim();

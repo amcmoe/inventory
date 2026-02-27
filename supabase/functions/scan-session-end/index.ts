@@ -8,6 +8,8 @@ const corsHeaders = {
 
 type ScanSessionEndBody = {
   scan_session_id?: string;
+  pairing_id?: string;
+  challenge?: string;
 };
 
 Deno.serve(async (req) => {
@@ -26,27 +28,21 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const authHeader = req.headers.get('Authorization') ?? '';
-    const authedClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    const { data: userData, error: userError } = await authedClient.auth.getUser();
-    if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     const body = (await req.json()) as ScanSessionEndBody;
     const scanSessionId = body.scan_session_id?.trim();
     if (!scanSessionId) {
       throw new Error('scan_session_id is required');
     }
 
+    const authedClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: userData } = await authedClient.auth.getUser();
+
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: session, error: readError } = await admin
       .from('scan_sessions')
-      .select('id, created_by_user_id, status')
+      .select('id, created_by_user_id, status, pairing_challenge_id')
       .eq('id', scanSessionId)
       .single();
     if (readError || !session) {
@@ -55,9 +51,32 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    if (session.created_by_user_id !== userData.user.id) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
+
+    const authedUserId = userData?.user?.id ?? null;
+    let allowed = false;
+
+    if (authedUserId && session.created_by_user_id === authedUserId) {
+      allowed = true;
+    }
+
+    if (!allowed) {
+      const pairingId = body.pairing_id?.trim();
+      const challenge = body.challenge?.trim();
+      if (pairingId && challenge) {
+        const { data: pairing, error: pairingError } = await admin
+          .from('pairing_challenges')
+          .select('id, challenge')
+          .eq('id', pairingId)
+          .single();
+        if (!pairingError && pairing && pairing.id === session.pairing_challenge_id && pairing.challenge === challenge) {
+          allowed = true;
+        }
+      }
+    }
+
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -82,4 +101,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

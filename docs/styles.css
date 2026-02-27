@@ -1164,9 +1164,42 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+.remote-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted-2);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+}
+
+.remote-badge.is-on {
+  color: #93e8b0;
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.remote-badge.is-off {
+  color: var(--muted);
+}
+
+.remote-badge.is-expired {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.1);
+}
+
 @media (max-width: 980px) {
   .remote-scan-btn {
     display: none !important;
+  }
+  .remote-badge {
+    display: none;
   }
 }
 
