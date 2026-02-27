@@ -32,6 +32,18 @@ Deno.serve(async (req) => {
     if (!scanSessionId || !barcode) {
       throw new Error('scan_session_id and barcode are required');
     }
+    if (barcode.length > 128) {
+      return new Response(JSON.stringify({ error: 'barcode exceeds 128 characters' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    if (/[\u0000-\u001f\u007f]/.test(barcode)) {
+      return new Response(JSON.stringify({ error: 'barcode contains invalid control characters' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const { data: session, error: sessionError } = await admin
       .from('scan_sessions')
@@ -85,4 +97,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

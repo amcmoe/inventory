@@ -137,6 +137,13 @@ function renderAssets(assets) {
   window.enhanceAssetTable?.();
 }
 
+function sanitizeFilterTerm(term) {
+  return String(term || '')
+    .replace(/[,%()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function handleScannerValue(rawValue) {
   const raw = String(rawValue || '').trim();
   if (!raw) return;
@@ -252,7 +259,7 @@ async function startScanner() {
 }
 
 async function loadAssets() {
-  const term = searchInput.value.trim();
+  const term = sanitizeFilterTerm(searchInput.value);
   if (!term) {
     renderSearchPrompt();
     return;
@@ -792,6 +799,12 @@ async function init() {
       assetTbody.innerHTML = '';
       stopScanner();
       stopAutoRefresh();
+      remoteSessionId = null;
+      remoteSessionExpiresAt = null;
+      clearRemoteTimers();
+      clearPersistedRemoteSession();
+      stopRemoteSubscription().catch(() => {});
+      setRemoteBadge('off', 'Remote Scanner: Idle');
     }
   });
 

@@ -487,24 +487,28 @@ async function bulkCreateAssets() {
   let success = 0;
   const errors = [];
 
-  for (const serial of serials) {
-    const payload = {
-      ...base,
-      p_id: null,
-      p_asset_tag: serial,
-      p_serial: serial,
-      p_device_name: base.p_model || serial,
-      p_status: 'available',
-      p_obsolete: false,
-      p_comments: null
-    };
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < serials.length; i += BATCH_SIZE) {
+    const batch = serials.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map(async (serial) => {
+      const payload = {
+        ...base,
+        p_id: null,
+        p_asset_tag: serial,
+        p_serial: serial,
+        p_device_name: base.p_model || serial,
+        p_status: 'available',
+        p_obsolete: false,
+        p_comments: null
+      };
+      const { error } = await supabase.rpc('admin_upsert_asset', payload);
+      return { serial, error };
+    }));
 
-    const { error } = await supabase.rpc('admin_upsert_asset', payload);
-    if (error) {
-      errors.push(`${serial}: ${error.message}`);
-    } else {
-      success += 1;
-    }
+    results.forEach(({ serial, error }) => {
+      if (error) errors.push(`${serial}: ${error.message}`);
+      else success += 1;
+    });
   }
 
   if (errors.length) {

@@ -32,20 +32,28 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as PairingConsumeBody;
     const pairingId = body.pairing_id?.trim();
     const challenge = body.challenge?.trim();
+    const bodyDeviceId = body.device_id?.trim() || null;
+    const safeDeviceId = bodyDeviceId && /^[0-9a-fA-F-]{36}$/.test(bodyDeviceId) ? bodyDeviceId : null;
     if (!pairingId || !challenge) {
       throw new Error('pairing_id and challenge are required');
     }
 
-    // Single-use consume gate.
-    const { data: consumed, error: consumeError } = await admin
+    // Single-use consume gate with optional device binding check applied before consume.
+    let consumeQuery = admin
       .from('pairing_challenges')
       .update({ consumed_at: new Date().toISOString() })
       .eq('id', pairingId)
       .eq('challenge', challenge)
       .is('consumed_at', null)
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', new Date().toISOString());
+
+    if (safeDeviceId) {
+      consumeQuery = consumeQuery.or(`device_id.is.null,device_id.eq.${safeDeviceId}`);
+    }
+
+    const { data: consumed, error: consumeError } = await consumeQuery
       .select('id, created_by_user_id, device_id, context, context_ref')
-      .single();
+      .maybeSingle();
 
     if (consumeError || !consumed) {
       return new Response(JSON.stringify({ error: 'Pairing invalid, expired, or already used' }), {
@@ -54,7 +62,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (consumed.device_id && body.device_id && consumed.device_id !== body.device_id) {
+    if (consumed.device_id && safeDeviceId && consumed.device_id !== safeDeviceId) {
       return new Response(JSON.stringify({ error: 'Pairing is restricted to a different scanner device' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -68,7 +76,7 @@ Deno.serve(async (req) => {
       .from('scan_sessions')
       .insert({
         created_by_user_id: consumed.created_by_user_id,
-        device_id: consumed.device_id || body.device_id || null,
+        device_id: consumed.device_id || safeDeviceId || null,
         pairing_challenge_id: consumed.id,
         context: consumed.context,
         context_ref: consumed.context_ref,
@@ -96,4 +104,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

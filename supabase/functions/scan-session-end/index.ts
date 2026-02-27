@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: session, error: readError } = await admin
       .from('scan_sessions')
-      .select('id, created_by_user_id, status, pairing_challenge_id')
+      .select('id, created_by_user_id, status, expires_at, pairing_challenge_id')
       .eq('id', scanSessionId)
       .single();
     if (readError || !session) {
@@ -65,10 +65,19 @@ Deno.serve(async (req) => {
       if (pairingId && challenge) {
         const { data: pairing, error: pairingError } = await admin
           .from('pairing_challenges')
-          .select('id, challenge')
+          .select('id, challenge, consumed_at')
           .eq('id', pairingId)
+          .eq('challenge', challenge)
           .single();
-        if (!pairingError && pairing && pairing.id === session.pairing_challenge_id && pairing.challenge === challenge) {
+        const sessionExpiryMs = new Date(session.expires_at).getTime();
+        if (
+          !pairingError &&
+          pairing &&
+          pairing.id === session.pairing_challenge_id &&
+          Boolean(pairing.consumed_at) &&
+          Number.isFinite(sessionExpiryMs) &&
+          Date.now() <= (sessionExpiryMs + (5 * 60 * 1000))
+        ) {
           allowed = true;
         }
       }

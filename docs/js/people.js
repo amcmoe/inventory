@@ -17,6 +17,13 @@ const inviteAppUserBtn = qs('#inviteAppUserBtn');
 let assigneeDebounce = null;
 let selectedAssigneeId = null;
 
+function sanitizeFilterTerm(term) {
+  return String(term || '')
+    .replace(/[,%()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function setInviteVisibility(visible) {
   if (!inviteAppUserBtn) return;
   const hasEmail = Boolean(appUserEmailInput?.value.trim());
@@ -132,7 +139,7 @@ function renderAssignees(rows) {
 }
 
 async function loadAssignees() {
-  const term = qs('#assigneeSearchInput').value.trim();
+  const term = sanitizeFilterTerm(qs('#assigneeSearchInput').value);
   let query = supabase
     .from('people')
     .select('id, display_name, email, employee_id, department')

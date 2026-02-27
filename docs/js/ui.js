@@ -56,14 +56,16 @@ export function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') {
     document.documentElement.setAttribute('data-theme', saved);
+    return;
   }
+  document.documentElement.setAttribute('data-theme', 'light');
 }
 
 export function bindThemeToggle() {
   const btn = document.querySelector('#themeBtn');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
