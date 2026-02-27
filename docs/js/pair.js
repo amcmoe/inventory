@@ -2,7 +2,7 @@ import { qs, toast, initTheme, bindThemeToggle } from './ui.js';
 
 const pairStartBtn = qs('#pairStartBtn');
 const scanStartBtn = qs('#scanStartBtn');
-const scanStopBtn = qs('#scanStopBtn');
+const scanPauseBtn = qs('#scanPauseBtn');
 const scanEndSessionBtn = qs('#scanEndSessionBtn');
 const pairState = qs('#pairState');
 const pairCountdown = qs('#pairCountdown');
@@ -16,7 +16,7 @@ const canvas = qs('#pairScannerCanvas');
 let stream = null;
 let detector = null;
 let timer = null;
-let mode = 'idle'; // idle | pairing | scanning
+let mode = 'idle'; // idle | pairing | scanning | paused
 let lastRead = '';
 let lastReadAt = 0;
 let scanSessionId = null;
@@ -30,6 +30,16 @@ let freezeTimer = null;
 
 function appConfig() {
   return window.APP_CONFIG || {};
+}
+
+function updateScanButtons() {
+  const hasSession = Boolean(scanSessionId);
+  const cameraOpen = !stage.hidden;
+  scanStartBtn.hidden = !(hasSession && !cameraOpen);
+  scanStartBtn.disabled = !hasSession;
+  scanPauseBtn.hidden = !cameraOpen;
+  scanPauseBtn.disabled = !cameraOpen;
+  scanEndSessionBtn.disabled = !hasSession;
 }
 
 function ensureAudioContext() {
@@ -239,9 +249,10 @@ function updateCountdown() {
     pairState.textContent = 'Session expired';
     stopCamera();
     scanStartBtn.disabled = true;
-    scanStopBtn.disabled = true;
+    scanPauseBtn.disabled = true;
     scanEndSessionBtn.disabled = true;
     mode = 'idle';
+    updateScanButtons();
     return;
   }
   const mins = Math.floor(remaining / 60000);
@@ -300,6 +311,7 @@ function stopCamera() {
   clearOverlay();
   clearFreeze();
   freezeUntil = 0;
+  updateScanButtons();
 }
 
 async function startCamera() {
@@ -318,6 +330,7 @@ async function startCamera() {
     detector = null;
   }
   stage.hidden = false;
+  updateScanButtons();
   if (timer) window.clearInterval(timer);
   timer = window.setInterval(() => scanFrame().catch((err) => toast(err.message, true)), 220);
 }
@@ -332,12 +345,11 @@ async function consumePairing(pairing) {
   scanSessionId = session.scan_session_id;
   sessionExpiresAt = session.expires_at;
   pairState.textContent = `Paired (${session.context})`;
-  pairHint.textContent = 'Pairing complete. Scan barcodes now.';
-  scanStartBtn.disabled = false;
-  scanStopBtn.disabled = false;
-  scanEndSessionBtn.disabled = false;
+  pairHint.textContent = 'Pairing complete. Scanning is active.';
+  if (!stream) await startCamera();
   mode = 'scanning';
   startCountdown();
+  updateScanButtons();
   toast('Phone paired.');
 }
 
@@ -424,9 +436,8 @@ async function startPairMode() {
   mode = 'pairing';
   pairState.textContent = 'Waiting for pairing QR...';
   pairHint.textContent = 'Point at the pairing QR shown on desktop.';
-  scanStartBtn.disabled = true;
-  scanStopBtn.disabled = false;
   await startCamera();
+  updateScanButtons();
 }
 
 async function startScanMode() {
@@ -438,12 +449,22 @@ async function startScanMode() {
   pairState.textContent = 'Scanner active';
   pairHint.textContent = 'Scanning barcodes to desktop session.';
   if (!stream) await startCamera();
+  updateScanButtons();
+}
+
+function pauseScanning() {
+  if (!scanSessionId) return;
+  mode = 'paused';
+  stopCamera();
+  pairHint.textContent = 'Scanning paused. Tap Start Scanning to resume.';
+  updateScanButtons();
 }
 
 function stopAll() {
   mode = 'idle';
   stopCamera();
-  pairHint.textContent = 'Tap “Scan Pair QR” and point camera at the desktop pairing code.';
+  pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
+  updateScanButtons();
 }
 
 async function endSessionFromPhone() {
@@ -472,11 +493,12 @@ async function endSessionFromPhone() {
   activePairingId = null;
   activePairingChallenge = null;
   scanStartBtn.disabled = true;
-  scanStopBtn.disabled = true;
+  scanPauseBtn.disabled = true;
   scanEndSessionBtn.disabled = true;
   pairState.textContent = 'Session ended';
   pairCountdown.textContent = '--:--';
   stopAll();
+  updateScanButtons();
 }
 
 function init() {
@@ -488,11 +510,12 @@ function init() {
   scanStartBtn?.addEventListener('click', () => {
     startScanMode().catch((err) => toast(err.message, true));
   });
-  scanStopBtn?.addEventListener('click', stopAll);
+  scanPauseBtn?.addEventListener('click', pauseScanning);
   scanEndSessionBtn?.addEventListener('click', () => {
     endSessionFromPhone().catch((err) => toast(err.message, true));
   });
   window.addEventListener('beforeunload', stopCamera);
+  updateScanButtons();
 }
 
 init();
