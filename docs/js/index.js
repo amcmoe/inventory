@@ -583,12 +583,12 @@ async function waitForPairedSession(pairingId) {
       pairStatus.textContent = 'Phone paired. Remote scanner active.';
       persistRemoteSession();
       setRemoteBadge('on', 'Remote Scanner: Connected');
-      flashRemoteBadge();
       clearRemoteTimers();
       startRemoteExpiryTicker();
       startRemoteStatusMonitor();
       await subscribeRemoteScans(remoteSessionId);
       setPairModalOpen(false);
+      window.setTimeout(() => flashRemoteBadge(), 220);
     } catch {
       // keep polling
     }

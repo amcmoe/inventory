@@ -23,12 +23,13 @@
           <div class="v" id="pairState">Not paired</div>
           <div class="v muted" id="pairCountdown">--:--</div>
         </div>
-        <div class="scanner-stage" id="pairScannerStage" hidden>
+        <div class="scanner-stage pair-scanner-stage" id="pairScannerStage" hidden>
           <video id="pairScannerVideo" autoplay playsinline muted></video>
           <canvas id="pairScannerFreeze" class="scanner-freeze-canvas" hidden aria-hidden="true"></canvas>
           <canvas id="pairScannerOverlay" class="scanner-guide-canvas" aria-hidden="true"></canvas>
           <canvas id="pairScannerCanvas" hidden></canvas>
           <div class="scanner-overlay"></div>
+          <div class="pair-last-pill" id="pairLastScanPill" hidden>Last: -</div>
         </div>
         <div class="muted" id="pairHint">Tap “Scan Pair QR” and point camera at the desktop pairing code.</div>
       </div>

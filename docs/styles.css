@@ -1164,6 +1164,29 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+.pair-scanner-stage {
+  min-height: 180px;
+  height: min(46vh, 320px);
+}
+
+.pair-last-pill {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 4;
+  max-width: calc(100% - 20px);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 168, 255, 0.35);
+  background: rgba(6, 10, 18, 0.76);
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .remote-badge {
   display: inline-flex;
   align-items: center;

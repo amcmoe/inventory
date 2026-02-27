@@ -8,6 +8,7 @@ const pairState = qs('#pairState');
 const pairCountdown = qs('#pairCountdown');
 const pairHint = qs('#pairHint');
 const stage = qs('#pairScannerStage');
+const pairLastScanPill = qs('#pairLastScanPill');
 const video = qs('#pairScannerVideo');
 const freezeCanvas = qs('#pairScannerFreeze');
 const overlayCanvas = qs('#pairScannerOverlay');
@@ -39,7 +40,19 @@ function updateScanButtons() {
   scanStartBtn.disabled = !hasSession;
   scanPauseBtn.hidden = !cameraOpen;
   scanPauseBtn.disabled = !cameraOpen;
+  scanEndSessionBtn.hidden = !hasSession;
   scanEndSessionBtn.disabled = !hasSession;
+}
+
+function updateLastScanPill(value = '') {
+  if (!pairLastScanPill) return;
+  const text = String(value || '').trim();
+  if (!text || stage.hidden) {
+    pairLastScanPill.hidden = true;
+    return;
+  }
+  pairLastScanPill.textContent = `Last: ${text}`;
+  pairLastScanPill.hidden = false;
 }
 
 function ensureAudioContext() {
@@ -311,6 +324,7 @@ function stopCamera() {
   clearOverlay();
   clearFreeze();
   freezeUntil = 0;
+  updateLastScanPill('');
   updateScanButtons();
 }
 
@@ -330,6 +344,7 @@ async function startCamera() {
     detector = null;
   }
   stage.hidden = false;
+  updateLastScanPill(lastRead);
   updateScanButtons();
   if (timer) window.clearInterval(timer);
   timer = window.setInterval(() => scanFrame().catch((err) => toast(err.message, true)), 220);
@@ -365,6 +380,7 @@ async function handleRead(raw) {
   if (text === lastRead && now - lastReadAt < 1200) return;
   lastRead = text;
   lastReadAt = now;
+  updateLastScanPill(text);
   showFreezeFrame(text, 1000);
   playScanChime();
 
