@@ -364,17 +364,17 @@ function getFormValues() {
     p_manufacturer: currentManufacturerValue(),
     p_model: model,
     p_equipment_type: qs('#equipmentType').value.trim() || null,
-    p_location: qs('#location').value.trim() || null,
+    p_location: null,
     p_building: qs('#building').value.trim() || null,
     p_room: qs('#room').value.trim() || null,
     p_service_start_date: qs('#serviceStartDate').value || null,
-    p_asset_condition: qs('#assetCondition').value || null,
+    p_asset_condition: null,
     p_comments: qs('#comments').value.trim() || null,
     p_ownership: qs('#ownership').value || null,
     p_warranty_expiration_date: qs('#warrantyExpirationDate').value || null,
     p_obsolete: qs('#obsolete').value === 'true',
     p_status: qs('#status').value,
-    p_notes: qs('#notes').value.trim() || null
+    p_notes: null
   };
 }
 
@@ -387,17 +387,14 @@ function setForm(asset) {
   setManufacturerValue(asset.manufacturer || '');
   qs('#model').value = asset.model || '';
   qs('#equipmentType').value = asset.equipment_type || '';
-  qs('#location').value = asset.location || '';
   qs('#building').value = asset.building || '';
   qs('#room').value = asset.room || '';
   qs('#serviceStartDate').value = asset.service_start_date || '';
-  qs('#assetCondition').value = asset.asset_condition || '';
   qs('#comments').value = asset.comments || '';
   qs('#ownership').value = asset.ownership || '';
   qs('#warrantyExpirationDate').value = asset.warranty_expiration_date || '';
   qs('#obsolete').value = asset.obsolete ? 'true' : 'false';
   qs('#status').value = editableStatus;
-  qs('#notes').value = asset.notes || '';
   setEditMode(Boolean(asset.id));
 }
 
@@ -816,6 +813,11 @@ async function init() {
   setEditMode(false);
   updateBulkSerialCount();
   syncBulkScannerToggleLabel();
+  const prefillTag = new URLSearchParams(window.location.search).get('tag');
+  if (prefillTag) {
+    qs('#assetTag').value = prefillTag.trim();
+    await loadByTag();
+  }
   window.addEventListener('resize', syncBulkScannerHeight);
   window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);

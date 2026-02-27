@@ -35,8 +35,8 @@
     <main class="main">
       <header class="topbar" id="peopleTopbar" hidden>
         <div>
-          <h1>People</h1>
-          <div class="subtext">Create and manage assignees.</div>
+          <h1>User Management</h1>
+          <div class="subtext">Manage app access users and assignees.</div>
         </div>
         <div class="controls">
           <button class="btn" id="signOutBtn" type="button">Log Out</button>
@@ -51,28 +51,88 @@
       </section>
 
       <section class="panel" id="peopleMainSection" hidden>
-        <div class="panel-body">
-          <h2>Create Person</h2>
+        <div class="panel-body app-users-panel">
+          <div class="app-users-head">
+            <h2>Application Access Users</h2>
+            <button class="bulk-icon-btn app-refresh-btn" id="refreshAppUsersBtn" type="button" aria-label="Refresh app users" title="Refresh app users">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            </button>
+          </div>
+          <p class="muted">Create or edit users who can access this inventory application.</p>
           <div class="grid cols-2">
             <div>
-              <label for="personName">Display Name</label>
-              <input id="personName">
+              <label for="appUserEmail">User Email</label>
+              <input id="appUserEmail" type="email" placeholder="name@school.org">
             </div>
             <div>
-              <label for="personEmail">Email (optional)</label>
-              <input id="personEmail" type="email">
+              <label for="appUserRole">Role</label>
+              <select id="appUserRole">
+                <option value="viewer">Viewer</option>
+                <option value="tech">Tech</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
             <div>
-              <label for="personEmployeeId">Employee ID (optional)</label>
-              <input id="personEmployeeId">
-            </div>
-            <div>
-              <label for="personDepartment">Department (optional)</label>
-              <input id="personDepartment">
+              <label for="appUserName">Display Name (optional)</label>
+              <input id="appUserName">
             </div>
           </div>
-          <div class="row">
-            <button class="btn primary" id="savePersonBtn">Create Person</button>
+          <div class="row app-users-actions">
+            <button class="btn primary" id="saveAppUserBtn" type="button">Save App User</button>
+            <button class="btn" id="inviteAppUserBtn" type="button" hidden>Send Invite</button>
+          </div>
+          <div class="muted app-user-help" id="appUserHelp">Tip: User must have signed in at least once (or be invited in Supabase Auth) before role can be assigned.</div>
+          <div class="table-wrap app-users-table-wrap">
+            <table role="grid" aria-label="Application access users">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Display Name</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="appUsersTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="assigneeSection" hidden>
+        <div class="panel-body assignees-panel">
+          <h2>Assignees</h2>
+          <p class="muted">Look up assignees and edit display names.</p>
+          <div class="grid cols-2 assignees-search-block">
+            <div>
+              <label for="assigneeSearchInput">Search Assignees</label>
+              <input id="assigneeSearchInput" type="search" placeholder="Type name, email, employee ID...">
+            </div>
+          </div>
+          <div class="table-wrap assignees-table-wrap">
+            <table role="grid" aria-label="Assignees">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Employee ID</th>
+                  <th>Department</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="assigneesTbody"></tbody>
+            </table>
+          </div>
+          <div class="grid cols-2 assignees-edit-block">
+            <div>
+              <label for="editAssigneeName">Selected Assignee Name</label>
+              <input id="editAssigneeName" placeholder="Select an assignee from the table">
+            </div>
+          </div>
+          <div class="row assignees-save-row">
+            <button class="btn primary" id="saveAssigneeNameBtn" type="button">Save Assignee Name</button>
           </div>
         </div>
       </section>

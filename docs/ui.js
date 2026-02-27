@@ -1,4 +1,4 @@
-// ui.js - modern UI interactions (drawer, theme, selection, toasts)
+// ui.js - search page UI interactions (drawer, theme, table helpers, toasts)
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -6,29 +6,25 @@ const drawer = $("#drawer");
 const overlay = $("#drawerOverlay");
 const closeDrawerBtn = $("#closeDrawerBtn");
 const toastEl = $("#toast");
-
 const themeBtn = $("#themeBtn");
 
 const searchInput = $("#searchInput");
-const typeFilter = $("#typeFilter");
 const statusFilter = $("#statusFilter");
 const clearFiltersBtn = $("#clearFiltersBtn");
-
 const assetTbody = $("#assetTbody");
 
-// KPI elements
 const kpiTotal = $("#kpiTotal");
 const kpiAssigned = $("#kpiAssigned");
 const kpiAvailable = $("#kpiAvailable");
 const kpiAttention = $("#kpiAttention");
 const navCount = $("#navCount");
 
-// Drawer content elements
 const drawerPrimary = $("#drawerPrimary");
 const drawerSecondary = $("#drawerSecondary");
 const drawerDetails = $("#drawerDetails");
 const drawerNotes = $("#drawerNotes");
 const printLabelBtn = $("#printLabelBtn");
+const editBtn = $("#editBtn");
 
 let currentRowData = null;
 
@@ -52,7 +48,6 @@ function closeDrawer() {
   overlay.classList.remove("open");
   drawer.classList.remove("open");
   drawer.setAttribute("aria-hidden", "true");
-  // unselect rows
   document.querySelectorAll("tbody tr.selected").forEach((tr) => tr.classList.remove("selected"));
 }
 
@@ -60,9 +55,7 @@ overlay?.addEventListener("click", closeDrawer);
 closeDrawerBtn?.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDrawer();
-  // Quick focus search: press "k"
   if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey && !e.altKey) {
-    // Avoid hijacking typing inside inputs
     const tag = document.activeElement?.tagName?.toLowerCase();
     if (tag !== "input" && tag !== "textarea" && tag !== "select") {
       e.preventDefault();
@@ -72,7 +65,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Theme toggle with localStorage
 function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   localStorage.setItem("theme", theme);
@@ -88,7 +80,6 @@ themeBtn?.addEventListener("click", () => {
   if (saved) setTheme(saved);
 })();
 
-// Build a badge from status
 function statusBadge(status) {
   const s = String(status || "").toLowerCase();
   let cls = "info";
@@ -96,8 +87,7 @@ function statusBadge(status) {
   else if (s.includes("assigned") || s.includes("in service") || s.includes("checked_out")) cls = "info";
   else if (s.includes("repair") || s.includes("maintenance")) cls = "warn";
   else if (s.includes("retire")) cls = "danger";
-
-  return `<span class="badge ${cls}"><span class="dot"></span>${escapeHtml(status || "—")}</span>`;
+  return `<span class="badge ${cls}"><span class="dot"></span>${escapeHtml(status || "-")}</span>`;
 }
 
 function escapeHtml(str) {
@@ -120,16 +110,12 @@ async function qrDataUrl(value) {
 async function printCurrentLabel(printWin) {
   if (!currentRowData?.serial) {
     showToast("Select an asset first");
-    if (printWin && !printWin.closed) {
-      printWin.close();
-    }
+    if (printWin && !printWin.closed) printWin.close();
     return;
   }
-
   const qrUrl = await qrDataUrl(currentRowData.serial);
   const assignee = currentRowData.assignedTo || "Unassigned";
   const serial = currentRowData.serial;
-
   const html = `
 <!doctype html>
 <html>
@@ -143,10 +129,9 @@ async function printCurrentLabel(printWin) {
     .actions button { border: 1px solid #111; background: #fff; color: #111; border-radius: 8px; padding: 6px 10px; font-weight: 600; cursor: pointer; }
     .label-preview { display: inline-block; padding: 10px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.14); }
     .label-size { font-size: 12px; color: #333; margin-bottom: 8px; font-weight: 600; }
-    .label { width: 2.5in; height: 1.5in; box-sizing: border-box; border: 1.5px solid #111; border-radius: 9px; padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: #fff; }
+    .label { width: 2.125in; height: 1in; box-sizing: border-box; border: 1.5px solid #111; border-radius: 9px; padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: #fff; }
     .assignee-title { font-size: 12px; font-weight: 800; line-height: 1.15; margin-bottom: 4px; }
     .org { font-size: 11px; font-weight: 700; }
-    .meta { font-size: 10.5px; margin-top: 4px; line-height: 1.25; }
     .serial { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; font-weight: 700; margin-top: 6px; }
     img { width: 74px; height: 74px; }
     @media print { .actions { display: none; } .page { padding: 0; background: #fff; } .label-preview { box-shadow: none; padding: 0; } .label-size { display: none; } }
@@ -159,7 +144,7 @@ async function printCurrentLabel(printWin) {
       <button type="button" onclick="window.close()">Close</button>
     </div>
     <div class="label-preview">
-      <div class="label-size">Label Preview (2.5in x 1.5in)</div>
+      <div class="label-size">Label Preview (2 1/8in x 1in)</div>
       <div class="label">
         <div>
           <div class="assignee-title">${escapeHtml(assignee)}</div>
@@ -177,56 +162,46 @@ async function printCurrentLabel(printWin) {
   printWin.document.close();
 }
 
-// Hook: call this after you render rows from Supabase
-// It upgrades status cells into nice badges and attaches click handlers.
 function enhanceAssetTable() {
   if (!assetTbody) return;
   const rows = Array.from(assetTbody.querySelectorAll("tr"));
   rows.forEach((tr) => {
-    // Make row clickable for drawer
     tr.addEventListener("click", () => {
       rows.forEach((r) => r.classList.remove("selected"));
       tr.classList.add("selected");
 
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
-      // Columns: Serial, Type, Model, AssignedTo, Status, Location
-      const [serial, type, model, assignedTo, status, location] = cells;
-      currentRowData = { serial, type, model, assignedTo, status, location };
+      const [serial, model, assignedTo, status, location] = cells;
+      const assetTag = tr.dataset.assetTag || serial || "";
+      const room = tr.dataset.room || "";
+      currentRowData = { serial, assetTag, model, assignedTo, status, location, room };
 
       if (drawerPrimary) drawerPrimary.textContent = serial || "Asset";
-      if (drawerSecondary) drawerSecondary.textContent = `${type || "—"} • ${model || "—"}`;
-
+      if (drawerSecondary) drawerSecondary.textContent = model || "-";
       if (drawerDetails) {
         drawerDetails.innerHTML = `
-          <div class="detail"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "—")}</div></div>
-          <div class="detail"><div class="k">Type</div><div class="v">${escapeHtml(type || "—")}</div></div>
-          <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(model || "—")}</div></div>
-          <div class="detail"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "—")}</div></div>
+          <div class="detail"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "-")}</div></div>
+          <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(model || "-")}</div></div>
+          <div class="detail"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
           <div class="detail"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
-          <div class="detail"><div class="k">Location</div><div class="v">${escapeHtml(location || "—")}</div></div>
-          <div class="detail"><div class="k">Last Updated</div><div class="v dim">—</div></div>
+          <div class="detail"><div class="k">Location</div><div class="v">${escapeHtml(location || "-")}</div></div>
+          <div class="detail"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
         `;
       }
-
-      if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "—";
-
+      if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";
+      window.dispatchEvent(new CustomEvent("asset-row-selected", { detail: currentRowData }));
       openDrawer();
     });
 
-    // Convert status column to badge, if not already
     const tds = tr.querySelectorAll("td");
-    const statusTd = tds[4];
+    const statusTd = tds[3];
     if (statusTd && !statusTd.querySelector(".badge")) {
       const raw = statusTd.textContent.trim();
       statusTd.innerHTML = statusBadge(raw);
     }
-
-    // Make serial look monospaced
     const serialTd = tds[0];
     if (serialTd) serialTd.classList.add("mono");
-
-    // Make location dimmer
-    const locTd = tds[5];
+    const locTd = tds[4];
     if (locTd) locTd.classList.add("dim");
   });
 
@@ -236,51 +211,38 @@ function enhanceAssetTable() {
 function applyFilters() {
   if (!assetTbody) return;
   const q = (searchInput?.value || "").toLowerCase().trim();
-  const type = typeFilter?.value || "";
   const status = statusFilter?.value || "";
-
   const rows = Array.from(assetTbody.querySelectorAll("tr"));
-
   rows.forEach((tr) => {
     const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.toLowerCase());
     const rowText = cells.join(" | ");
-
-    const rowType = cells[1] || "";
-    const rowStatus = cells[4] || "";
-
+    const rowStatus = cells[3] || "";
     const matchQ = !q || rowText.includes(q);
-    const matchType = !type || rowType.includes(type.toLowerCase());
     const matchStatus = !status || rowStatus.includes(status.toLowerCase());
-
-    tr.style.display = (matchQ && matchType && matchStatus) ? "" : "none";
+    tr.style.display = (matchQ && matchStatus) ? "" : "none";
   });
 }
 
 searchInput?.addEventListener("input", () => applyFilters());
-typeFilter?.addEventListener("change", () => applyFilters());
 statusFilter?.addEventListener("change", () => applyFilters());
 clearFiltersBtn?.addEventListener("click", () => {
   if (searchInput) searchInput.value = "";
-  if (typeFilter) typeFilter.value = "";
   if (statusFilter) statusFilter.value = "";
   applyFilters();
   showToast("Filters cleared");
 });
 
-// KPI counts based on what's currently in the DOM
 function updateKpisFromTable() {
   if (!assetTbody) return;
   const rows = Array.from(assetTbody.querySelectorAll("tr"));
   const visible = rows.filter((r) => r.style.display !== "none");
-
   const total = visible.length;
-  const assigned = visible.filter((r) => (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase().includes("assigned")).length;
-  const available = visible.filter((r) => (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase().includes("available")).length;
+  const assigned = visible.filter((r) => (r.querySelectorAll("td")[3]?.textContent || "").toLowerCase().includes("assigned")).length;
+  const available = visible.filter((r) => (r.querySelectorAll("td")[3]?.textContent || "").toLowerCase().includes("available")).length;
   const attention = visible.filter((r) => {
-    const s = (r.querySelectorAll("td")[4]?.textContent || "").toLowerCase();
+    const s = (r.querySelectorAll("td")[3]?.textContent || "").toLowerCase();
     return s.includes("repair") || s.includes("maintenance") || s.includes("retired");
   }).length;
-
   if (kpiTotal) kpiTotal.textContent = total.toLocaleString();
   if (kpiAssigned) kpiAssigned.textContent = assigned.toLocaleString();
   if (kpiAvailable) kpiAvailable.textContent = available.toLocaleString();
@@ -292,9 +254,7 @@ window.enhanceAssetTable = enhanceAssetTable;
 window.updateKpisFromTable = updateKpisFromTable;
 
 document.addEventListener("DOMContentLoaded", () => {
-  if (assetTbody?.children?.length) {
-    enhanceAssetTable();
-  }
+  if (assetTbody?.children?.length) enhanceAssetTable();
 });
 
 printLabelBtn?.addEventListener("click", () => {
@@ -303,15 +263,20 @@ printLabelBtn?.addEventListener("click", () => {
     showToast("Pop-up blocked. Allow pop-ups to print.");
     return;
   }
-
   printWin.document.open();
   printWin.document.write("<!doctype html><html><body style='font-family:Arial,sans-serif;padding:16px;'>Preparing label...</body></html>");
   printWin.document.close();
-
   printCurrentLabel(printWin).catch((err) => {
     showToast(err.message);
-    if (!printWin.closed) {
-      printWin.close();
-    }
+    if (!printWin.closed) printWin.close();
   });
+});
+
+editBtn?.addEventListener("click", () => {
+  const assetTag = currentRowData?.assetTag || currentRowData?.serial;
+  if (!assetTag) {
+    showToast("Select an asset first");
+    return;
+  }
+  window.location.href = `./admin.html?tag=${encodeURIComponent(assetTag)}`;
 });

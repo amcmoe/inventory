@@ -16,12 +16,17 @@ const assetTbody = qs('#assetTbody');
 const searchInput = qs('#searchInput');
 const searchField = qs('#searchField');
 const statusFilter = qs('#statusFilter');
-const typeFilter = qs('#typeFilter');
 const clearFiltersBtn = qs('#clearFiltersBtn');
 const scannerToggleBtn = qs('#scannerToggleBtn');
 const scannerStage = qs('#scannerStage');
 const scannerVideo = qs('#scannerVideo');
 const scannerCanvas = qs('#scannerCanvas');
+const drawerAssigneeEditor = qs('#drawerAssigneeEditor');
+const drawerAssigneeSearch = qs('#drawerAssigneeSearch');
+const drawerAssigneeSuggestions = qs('#drawerAssigneeSuggestions');
+const drawerAssigneeSelected = qs('#drawerAssigneeSelected');
+const drawerSetAssigneeBtn = qs('#drawerSetAssigneeBtn');
+const drawerCreatePersonBtn = qs('#drawerCreatePersonBtn');
 
 let currentProfile = null;
 let debounceTimer = null;
@@ -35,6 +40,9 @@ let autoRefreshTimer = null;
 let autoRefreshCount = 0;
 const AUTO_REFRESH_MS = 2 * 60 * 1000;
 const AUTO_REFRESH_MAX = 20;
+let selectedAsset = null;
+let selectedPerson = null;
+let personSearchDebounce = null;
 
 function syncScannerToggleButton() {
   if (!scannerToggleBtn) return;
@@ -75,18 +83,13 @@ function startAutoRefresh() {
 }
 
 function renderSearchPrompt() {
-  assetTbody.innerHTML = '<tr><td colspan="6" class="dim">Type a serial or model to search for assets.</td></tr>';
+  assetTbody.innerHTML = '<tr><td colspan="5" class="dim">Type a serial or model to search for assets.</td></tr>';
   window.updateKpisFromTable?.();
 }
 
 function renderEmpty() {
-  assetTbody.innerHTML = '<tr><td colspan="6" class="dim">No assets found for the current filters.</td></tr>';
+  assetTbody.innerHTML = '<tr><td colspan="5" class="dim">No assets found for the current filters.</td></tr>';
   window.updateKpisFromTable?.();
-}
-
-function fillFilterOptions(assets) {
-  const equipmentTypes = [...new Set(assets.map((a) => a.equipment_type).filter(Boolean))].sort();
-  typeFilter.innerHTML = '<option value="">All types</option>' + equipmentTypes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 }
 
 function renderAssets(assets) {
@@ -100,14 +103,14 @@ function renderAssets(assets) {
     const assignedTo = current?.people?.display_name || '';
     const serial = asset.serial || asset.asset_tag || '';
     const lookupTag = asset.asset_tag || serial;
+    const locationLabel = asset.location || asset.building || '';
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-assignee="${escapeHtml(assignedTo || '')}">
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-location="${escapeHtml(locationLabel)}" data-room="${escapeHtml(asset.room || '')}">
         <td><a href="./asset.html?tag=${encodeURIComponent(lookupTag)}">${escapeHtml(serial)}</a></td>
-        <td>${escapeHtml(asset.equipment_type || '')}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
         <td>${escapeHtml(asset.status || '')}</td>
-        <td>${escapeHtml(asset.location || asset.building || '')}</td>
+        <td>${escapeHtml(locationLabel)}</td>
       </tr>
     `;
   }).join('');
@@ -243,15 +246,11 @@ async function loadAssets() {
     .limit(200);
 
   const status = statusFilter.value;
-  const equipmentType = typeFilter.value;
 
   query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
 
   if (status) {
     query = query.eq('status', status);
-  }
-  if (equipmentType) {
-    query = query.eq('equipment_type', equipmentType);
   }
 
   const { data, error } = await query;
@@ -263,7 +262,7 @@ async function loadAssets() {
 }
 
 function bindSearch() {
-  [searchInput, statusFilter, typeFilter].forEach((el) => {
+  [searchInput, statusFilter].forEach((el) => {
     el.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(loadAssets, 220);
@@ -295,20 +294,116 @@ async function initAuthedUI(session) {
   initAdminNav();
   userMeta.textContent = `${currentProfile.display_name || session.user.email} (${currentProfile.role || 'viewer'})`;
 
-  const { data, error } = await supabase
-    .from('assets')
-    .select('equipment_type')
-    .order('equipment_type', { ascending: true })
-    .limit(500);
-
-  if (!error && data) {
-    fillFilterOptions(data);
-  } else if (error) {
-    toast(`Asset metadata load failed: ${error.message}`, true);
-  }
-
   renderSearchPrompt();
   startAutoRefresh();
+}
+
+async function searchPeople(term) {
+  if (!drawerAssigneeSuggestions) return;
+  if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+  if (!term || term.length < 2) {
+    drawerAssigneeSuggestions.hidden = true;
+    return;
+  }
+  const { data, error } = await supabase
+    .from('people')
+    .select('id, display_name, email, employee_id')
+    .ilike('display_name', `%${term}%`)
+    .order('display_name', { ascending: true })
+    .limit(8);
+  if (error) {
+    toast(error.message, true);
+    return;
+  }
+  if (!data?.length) {
+    drawerAssigneeSuggestions.innerHTML = '<div class="suggestion muted">No match found.</div>';
+    drawerAssigneeSuggestions.hidden = false;
+    if (drawerCreatePersonBtn && currentProfile?.role === 'admin') {
+      drawerCreatePersonBtn.hidden = false;
+    }
+    return;
+  }
+  drawerAssigneeSuggestions.innerHTML = data.map((person) => `
+    <div class="suggestion" data-person-id="${person.id}">
+      <strong>${escapeHtml(person.display_name)}</strong><br>
+      <span class="muted">${escapeHtml(person.email || person.employee_id || '-')}</span>
+    </div>
+  `).join('');
+  drawerAssigneeSuggestions.hidden = false;
+  drawerAssigneeSuggestions.querySelectorAll('.suggestion[data-person-id]').forEach((node) => {
+    node.addEventListener('click', () => {
+      const person = data.find((p) => p.id === node.getAttribute('data-person-id'));
+      if (!person) return;
+      selectedPerson = person;
+      drawerAssigneeSearch.value = person.display_name;
+      drawerAssigneeSelected.textContent = `Selected: ${person.display_name}`;
+      drawerAssigneeSuggestions.hidden = true;
+    });
+  });
+}
+
+async function createPersonFromDrawer() {
+  if (currentProfile?.role !== 'admin') {
+    toast('Admin role required.', true);
+    return;
+  }
+  const displayNameSeed = drawerAssigneeSearch?.value.trim() || '';
+  const name = window.prompt('New person display name:', displayNameSeed);
+  if (!name) return;
+  const email = window.prompt('Email (optional):') || null;
+  const employeeId = window.prompt('Employee ID (optional):') || null;
+  const department = window.prompt('Department (optional):') || null;
+
+  const { data, error } = await supabase.rpc('admin_create_person', {
+    p_display_name: name,
+    p_email: email,
+    p_employee_id: employeeId,
+    p_department: department
+  });
+  if (error) {
+    toast(error.message, true);
+    return;
+  }
+
+  selectedPerson = data;
+  if (drawerAssigneeSearch) drawerAssigneeSearch.value = data.display_name || name;
+  if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = `Selected: ${data.display_name || name}`;
+  if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
+  if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+  toast('Person created.');
+}
+
+async function setAssigneeFromDrawer() {
+  if (!selectedAsset?.assetTag) {
+    toast('Select an asset first.', true);
+    return;
+  }
+  if (!selectedPerson?.id) {
+    toast('Select an assignee first.', true);
+    return;
+  }
+  if (selectedAsset.status === 'checked_out') {
+    const { error: checkinError } = await supabase.rpc('checkin_asset', {
+      p_asset_tag: selectedAsset.assetTag,
+      p_notes: 'Reassigned from search drawer'
+    });
+    if (checkinError) {
+      toast(checkinError.message, true);
+      return;
+    }
+  }
+  const { error: checkoutError } = await supabase.rpc('checkout_asset', {
+    p_asset_tag: selectedAsset.assetTag,
+    p_assignee_person_id: selectedPerson.id,
+    p_due_date: null,
+    p_notes: 'Assigned from search drawer'
+  });
+  if (checkoutError) {
+    toast(checkoutError.message, true);
+    return;
+  }
+  toast('Assignee updated.');
+  await loadAssets();
 }
 
 async function init() {
@@ -341,8 +436,41 @@ async function init() {
     stopScanner();
     searchInput.value = '';
     statusFilter.value = '';
-    typeFilter.value = '';
     renderSearchPrompt();
+  });
+  drawerAssigneeSearch?.addEventListener('input', (event) => {
+    selectedPerson = null;
+    drawerAssigneeSelected.textContent = 'No assignee selected';
+    window.clearTimeout(personSearchDebounce);
+    personSearchDebounce = window.setTimeout(() => {
+      searchPeople(event.target.value.trim()).catch((err) => toast(err.message, true));
+    }, 180);
+  });
+  drawerSetAssigneeBtn?.addEventListener('click', () => {
+    setAssigneeFromDrawer().catch((err) => toast(err.message, true));
+  });
+  drawerCreatePersonBtn?.addEventListener('click', () => {
+    createPersonFromDrawer().catch((err) => toast(err.message, true));
+  });
+  window.addEventListener('asset-row-selected', (event) => {
+    const detail = event.detail || {};
+    selectedAsset = {
+      assetTag: detail.assetTag || detail.serial || '',
+      status: detail.status || '',
+      assignee: detail.assignedTo || ''
+    };
+    selectedPerson = null;
+    if (drawerAssigneeSearch) drawerAssigneeSearch.value = '';
+    if (drawerAssigneeSelected) {
+      drawerAssigneeSelected.textContent = detail.assignedTo
+        ? `Current: ${detail.assignedTo}`
+        : 'Current: Unassigned';
+    }
+    if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
+    if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+    if (drawerAssigneeEditor) {
+      drawerAssigneeEditor.hidden = !(currentProfile && (currentProfile.role === 'admin' || currentProfile.role === 'tech'));
+    }
   });
   bindSearch();
 

@@ -952,6 +952,74 @@ textarea {
   margin-top: 12px;
 }
 
+.app-users-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.app-users-head h2 {
+  margin: 0;
+}
+
+.app-refresh-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.app-refresh-btn.is-spinning svg {
+  animation: app-refresh-spin 0.6s linear;
+}
+
+@keyframes app-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.app-users-actions {
+  margin-top: 12px;
+  margin-bottom: 10px;
+}
+
+.app-user-help {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.app-users-table-wrap {
+  margin-top: 0;
+}
+
+#assigneeSection {
+  margin-top: 14px;
+}
+
+.assignees-panel > h2 {
+  margin: 0 0 8px;
+}
+
+.assignees-search-block {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.assignees-table-wrap {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.assignees-edit-block {
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+
+.assignees-save-row {
+  margin-top: 2px;
+}
+
 .bulk-create-body {
   position: relative;
 }

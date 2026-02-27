@@ -110,11 +110,6 @@
               </div>
             </div>
             <div class="field small">
-              <select id="typeFilter">
-                <option value="">All types</option>
-              </select>
-            </div>
-            <div class="field small">
               <select id="statusFilter">
                 <option value="">All status</option>
                 <option value="available">Available</option>
@@ -135,7 +130,6 @@
             <thead>
               <tr>
                 <th>Serial</th>
-                <th>Type</th>
                 <th>Model</th>
                 <th>Assigned To</th>
                 <th>Status</th>
@@ -163,6 +157,18 @@
       <div class="detail">
         <div class="k">Notes</div>
         <div class="v" id="drawerNotes">-</div>
+      </div>
+      <div class="detail" id="drawerAssigneeEditor" hidden>
+        <div class="k">Change Assignee</div>
+        <div class="v">
+          <input id="drawerAssigneeSearch" type="search" placeholder="Type person name...">
+          <div id="drawerAssigneeSuggestions" class="suggestions" hidden></div>
+          <div class="muted" id="drawerAssigneeSelected">No assignee selected</div>
+          <div class="row">
+            <button class="btn" id="drawerSetAssigneeBtn" type="button">Set Assignee</button>
+            <button class="btn" id="drawerCreatePersonBtn" type="button" hidden>Create Person</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="drawer-footer">
