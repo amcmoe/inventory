@@ -9,6 +9,7 @@ const bulkCreateSection = qs('#bulkCreateSection');
 const adminNav = qs('#adminNav');
 const editOnlyFields = document.querySelectorAll('[data-edit-only]');
 const bulkScannerToggleBtn = qs('#bulkScannerToggleBtn');
+const bulkRemoteScanBtn = qs('#bulkRemoteScanBtn');
 const bulkScannerStage = qs('#bulkScannerStage');
 const bulkScannerVideo = qs('#bulkScannerVideo');
 const bulkScannerFreeze = qs('#bulkScannerFreeze');
@@ -20,6 +21,14 @@ const bulkScanSoundBtn = qs('#bulkScanSoundBtn');
 const bulkClearConfirm = qs('#bulkClearConfirm');
 const confirmClearBulkYes = qs('#confirmClearBulkYes');
 const confirmClearBulkNo = qs('#confirmClearBulkNo');
+const pairModalOverlay = qs('#pairModalOverlay');
+const pairModal = qs('#pairModal');
+const pairModalCloseBtn = qs('#pairModalCloseBtn');
+const pairQrCanvas = qs('#pairQrCanvas');
+const pairStatus = qs('#pairStatus');
+const pairMeta = qs('#pairMeta');
+const pairRegenerateBtn = qs('#pairRegenerateBtn');
+const pairEndSessionBtn = qs('#pairEndSessionBtn');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 let bulkScannerStream = null;
@@ -33,6 +42,12 @@ let bulkFreezeTimer = null;
 let bulkAudioCtx = null;
 let bulkScannerRunning = false;
 let bulkScanSoundEnabled = true;
+let remotePairingId = null;
+let remoteSessionId = null;
+let remoteSessionExpiresAt = null;
+let remotePairPollTimer = null;
+let remoteExpireTimer = null;
+let remoteChannel = null;
 
 function syncBulkScannerToggleLabel() {
   if (!bulkScannerToggleBtn) return;
@@ -735,6 +750,149 @@ async function toggleBulkScanner() {
   await startBulkScanner();
 }
 
+function isDesktopMode() {
+  return window.matchMedia('(min-width: 981px)').matches;
+}
+
+function setPairModalOpen(open) {
+  if (!pairModal || !pairModalOverlay) return;
+  pairModal.hidden = !open;
+  pairModalOverlay.hidden = !open;
+}
+
+function clearRemoteTimers() {
+  if (remotePairPollTimer) {
+    window.clearInterval(remotePairPollTimer);
+    remotePairPollTimer = null;
+  }
+  if (remoteExpireTimer) {
+    window.clearInterval(remoteExpireTimer);
+    remoteExpireTimer = null;
+  }
+}
+
+async function stopRemoteSubscription() {
+  if (!remoteChannel) return;
+  await supabase.removeChannel(remoteChannel);
+  remoteChannel = null;
+}
+
+function updatePairMeta() {
+  if (!pairMeta) return;
+  if (!remoteSessionExpiresAt) {
+    pairMeta.textContent = '';
+    return;
+  }
+  const remaining = new Date(remoteSessionExpiresAt).getTime() - Date.now();
+  if (remaining <= 0) {
+    pairMeta.textContent = 'Session expired';
+    return;
+  }
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  pairMeta.textContent = `Session ends in ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function startRemoteExpiryTicker() {
+  if (!remoteSessionExpiresAt) return;
+  if (remoteExpireTimer) window.clearInterval(remoteExpireTimer);
+  updatePairMeta();
+  remoteExpireTimer = window.setInterval(() => {
+    updatePairMeta();
+    if (!remoteSessionExpiresAt) return;
+    if (new Date(remoteSessionExpiresAt).getTime() <= Date.now()) {
+      pairStatus.textContent = 'Session expired.';
+      pairEndSessionBtn.disabled = true;
+      clearRemoteTimers();
+      stopRemoteSubscription().catch(() => {});
+    }
+  }, 1000);
+}
+
+async function subscribeRemoteScans(scanSessionId) {
+  await stopRemoteSubscription();
+  remoteChannel = supabase
+    .channel(`remote-scan-bulk-${scanSessionId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'scan_events', filter: `scan_session_id=eq.${scanSessionId}` },
+      (payload) => {
+        const barcode = payload?.new?.barcode;
+        if (!barcode) return;
+        appendBulkSerial(String(barcode));
+      }
+    )
+    .subscribe();
+}
+
+async function waitForPairedSession(pairingId) {
+  clearRemoteTimers();
+  remotePairPollTimer = window.setInterval(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('scan_sessions')
+        .select('id, status, expires_at')
+        .eq('pairing_challenge_id', pairingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) return;
+      if (data.status !== 'active') return;
+      remoteSessionId = data.id;
+      remoteSessionExpiresAt = data.expires_at;
+      pairStatus.textContent = 'Phone paired. Remote scanner active.';
+      pairEndSessionBtn.disabled = false;
+      clearRemoteTimers();
+      startRemoteExpiryTicker();
+      await subscribeRemoteScans(remoteSessionId);
+    } catch {
+      // keep polling
+    }
+  }, 1200);
+}
+
+async function generatePairingQr() {
+  pairStatus.textContent = 'Generating pairing QR...';
+  pairMeta.textContent = '';
+  pairEndSessionBtn.disabled = true;
+  const { data, error } = await supabase.functions.invoke('pairing-create', {
+    body: { context: 'bulk', ttl_seconds: 45 }
+  });
+  if (error) {
+    pairStatus.textContent = 'Failed to create pairing.';
+    toast(error.message, true);
+    return;
+  }
+  remotePairingId = data.pairing_id;
+  const payload = data.pairing_qr_payload || JSON.stringify({
+    type: 'scan_pairing',
+    pairing_id: data.pairing_id,
+    challenge: data.challenge
+  });
+  await window.QRCode.toCanvas(pairQrCanvas, payload, { width: 220, margin: 1 });
+  pairStatus.textContent = 'Scan this QR with the shared phone.';
+  pairMeta.textContent = `Pairing expires at ${new Date(data.expires_at).toLocaleTimeString()}`;
+  await waitForPairedSession(remotePairingId);
+}
+
+async function endRemoteSession() {
+  if (!remoteSessionId) return;
+  const { error } = await supabase.functions.invoke('scan-session-end', {
+    body: { scan_session_id: remoteSessionId }
+  });
+  if (error) {
+    toast(error.message, true);
+    return;
+  }
+  remoteSessionId = null;
+  remoteSessionExpiresAt = null;
+  pairStatus.textContent = 'Session ended.';
+  pairEndSessionBtn.disabled = true;
+  pairMeta.textContent = '';
+  clearRemoteTimers();
+  await stopRemoteSubscription();
+}
+
 async function init() {
   initTheme();
   bindThemeToggle();
@@ -808,6 +966,21 @@ async function init() {
   bulkScannerToggleBtn?.addEventListener('click', () => {
     toggleBulkScanner().catch((err) => toast(err.message, true));
   });
+  if (bulkRemoteScanBtn && !isDesktopMode()) {
+    bulkRemoteScanBtn.hidden = true;
+  }
+  bulkRemoteScanBtn?.addEventListener('click', () => {
+    setPairModalOpen(true);
+    generatePairingQr().catch((err) => toast(err.message, true));
+  });
+  pairModalOverlay?.addEventListener('click', () => setPairModalOpen(false));
+  pairModalCloseBtn?.addEventListener('click', () => setPairModalOpen(false));
+  pairRegenerateBtn?.addEventListener('click', () => {
+    generatePairingQr().catch((err) => toast(err.message, true));
+  });
+  pairEndSessionBtn?.addEventListener('click', () => {
+    endRemoteSession().catch((err) => toast(err.message, true));
+  });
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
   setEditMode(false);
@@ -821,6 +994,10 @@ async function init() {
   window.addEventListener('resize', syncBulkScannerHeight);
   window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);
+  window.addEventListener('beforeunload', () => {
+    clearRemoteTimers();
+    stopRemoteSubscription().catch(() => {});
+  });
 }
 
 init().catch((err) => toast(err.message, true));

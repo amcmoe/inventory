@@ -1092,6 +1092,84 @@ textarea {
   display: block;
 }
 
+.remote-scan-btn {
+  color: #7dd3fc;
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  flex: 0 0 46px;
+  border-radius: 13px;
+}
+
+.remote-scan-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.pair-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 20, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 120;
+}
+
+.pair-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 24px));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  z-index: 121;
+}
+
+.pair-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pair-modal-body {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 14px;
+}
+
+.pair-modal-body code {
+  font-family: var(--mono);
+}
+
+.pair-status {
+  font-weight: 700;
+  text-align: center;
+}
+
+.pair-meta {
+  font-size: 12px;
+  text-align: center;
+}
+
+.pair-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 980px) {
+  .remote-scan-btn {
+    display: none !important;
+  }
+}
+
 .bulk-clear-confirm {
   display: inline-flex;
   align-items: center;

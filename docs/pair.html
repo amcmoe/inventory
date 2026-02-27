@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phone Scanner Pairing</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="main" style="padding:14px;max-width:760px;margin:0 auto;">
+    <section class="panel">
+      <div class="panel-body">
+        <h2>Shared Phone Scanner</h2>
+        <p class="muted">Scan the desktop pairing QR first, then scan barcodes.</p>
+        <div class="row">
+          <button class="btn primary" id="pairStartBtn" type="button">Scan Pair QR</button>
+          <button class="btn" id="scanStartBtn" type="button" disabled>Start Barcode Scan</button>
+          <button class="btn" id="scanStopBtn" type="button" disabled>Stop</button>
+        </div>
+        <div class="detail" style="margin-top:10px;">
+          <div class="k">Session</div>
+          <div class="v" id="pairState">Not paired</div>
+          <div class="v muted" id="pairCountdown">--:--</div>
+        </div>
+        <div class="scanner-stage" id="pairScannerStage" hidden>
+          <video id="pairScannerVideo" autoplay playsinline muted></video>
+          <canvas id="pairScannerCanvas" hidden></canvas>
+          <div class="scanner-overlay"></div>
+        </div>
+        <div class="muted" id="pairHint">Tap “Scan Pair QR” and point camera at the desktop pairing code.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./js/pair.js"></script>
+</body>
+</html>
