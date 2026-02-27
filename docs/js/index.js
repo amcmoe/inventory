@@ -542,7 +542,21 @@ async function generatePairingQr() {
     pairing_id: data.pairing_id,
     challenge: data.challenge
   });
-  await window.QRCode.toCanvas(pairQrCanvas, payload, { width: 220, margin: 1 });
+  if (window.QRCode?.toCanvas) {
+    await window.QRCode.toCanvas(pairQrCanvas, payload, { width: 220, margin: 1 });
+  } else {
+    const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload)}`;
+    const ctx = pairQrCanvas.getContext('2d');
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = fallbackUrl;
+    });
+    ctx.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
+    ctx.drawImage(img, 0, 0, pairQrCanvas.width, pairQrCanvas.height);
+  }
   pairStatus.textContent = 'Scan this QR with the shared phone.';
   pairMeta.textContent = `Pairing expires at ${new Date(data.expires_at).toLocaleTimeString()}`;
   await waitForPairedSession(remotePairingId);
