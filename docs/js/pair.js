@@ -30,6 +30,12 @@ let audioCtx = null;
 let freezeUntil = 0;
 let freezeTimer = null;
 
+function resetLastReadState() {
+  lastRead = '';
+  lastReadAt = 0;
+  updateLastScanPill('');
+}
+
 function appConfig() {
   return window.APP_CONFIG || {};
 }
@@ -298,6 +304,7 @@ async function checkSessionStatus() {
     if (statusData.status !== 'active') {
       scanSessionId = null;
       sessionExpiresAt = null;
+      resetLastReadState();
       pairState.textContent = 'Session: Ended';
       pairCountdown.textContent = '--:-- remaining';
       pairHint.textContent = 'Session ended from desktop. Scan a new pairing QR to reconnect.';
@@ -399,6 +406,7 @@ async function consumePairing(pairing) {
   activePairingChallenge = pairing.challenge;
   scanSessionId = session.scan_session_id;
   sessionExpiresAt = session.expires_at;
+  resetLastReadState();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Pairing complete. Scanning is active.';
   if (!stream) await startCamera();
@@ -498,6 +506,7 @@ async function scanFrame() {
 
 async function startPairMode() {
   mode = 'pairing';
+  resetLastReadState();
   pairState.textContent = 'Session: Waiting for pairing QR...';
   pairHint.textContent = 'Point at the pairing QR shown on desktop.';
   await startCamera();
@@ -526,6 +535,7 @@ function pauseScanning() {
 
 function stopAll() {
   mode = 'idle';
+  resetLastReadState();
   stopCamera();
   stopSessionStatusMonitor();
   pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
@@ -557,6 +567,7 @@ async function endSessionFromPhone() {
   sessionExpiresAt = null;
   activePairingId = null;
   activePairingChallenge = null;
+  resetLastReadState();
   scanStartBtn.disabled = true;
   scanPauseBtn.disabled = true;
   scanEndSessionBtn.disabled = true;
