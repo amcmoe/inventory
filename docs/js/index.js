@@ -31,6 +31,7 @@ const pairMeta = qs('#pairMeta');
 const pairRegenerateBtn = qs('#pairRegenerateBtn');
 const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
+const remoteEndBtn = qs('#remoteEndBtn');
 const drawerAssigneeEditor = qs('#drawerAssigneeEditor');
 const drawerAssigneeSearch = qs('#drawerAssigneeSearch');
 const drawerAssigneeSuggestions = qs('#drawerAssigneeSuggestions');
@@ -474,6 +475,7 @@ function setRemoteBadge(state = 'off', text = '') {
   else if (state === 'expired') remoteBadge.classList.add('is-expired');
   else remoteBadge.classList.add('is-off');
   remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
+  if (remoteEndBtn) remoteEndBtn.hidden = state !== 'on';
 }
 
 function flashRemoteBadge() {
@@ -724,6 +726,9 @@ async function init() {
       }
       setPairModalOpen(false);
     })().catch((err) => toast(err.message, true));
+  });
+  remoteEndBtn?.addEventListener('click', () => {
+    endRemoteSession().catch((err) => toast(err.message, true));
   });
   setRemoteBadge('off', 'Remote Scanner: Idle');
   clearFiltersBtn?.addEventListener('click', () => {

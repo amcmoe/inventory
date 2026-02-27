@@ -259,7 +259,7 @@ function updateCountdown() {
   const remaining = new Date(sessionExpiresAt).getTime() - Date.now();
   if (remaining <= 0) {
     pairCountdown.textContent = '00:00 remaining';
-    pairState.textContent = 'Session expired';
+    pairState.textContent = 'Session: Expired';
     stopCamera();
     scanStartBtn.disabled = true;
     scanPauseBtn.disabled = true;
@@ -359,7 +359,7 @@ async function consumePairing(pairing) {
   activePairingChallenge = pairing.challenge;
   scanSessionId = session.scan_session_id;
   sessionExpiresAt = session.expires_at;
-  pairState.textContent = `Paired (${session.context})`;
+  pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Pairing complete. Scanning is active.';
   if (!stream) await startCamera();
   mode = 'scanning';
@@ -380,9 +380,6 @@ async function handleRead(raw) {
   if (text === lastRead && now - lastReadAt < 1200) return;
   lastRead = text;
   lastReadAt = now;
-  updateLastScanPill(text);
-  showFreezeFrame(text, 1000);
-  playScanChime();
 
   if (mode === 'pairing') {
     const pairing = parsePairPayload(text);
@@ -394,6 +391,9 @@ async function handleRead(raw) {
     return;
   }
   if (mode === 'scanning') {
+    updateLastScanPill(text);
+    showFreezeFrame(text, 1000);
+    playScanChime();
     await submitScan(text);
     toast(`Scanned: ${text}`);
   }
@@ -450,7 +450,7 @@ async function scanFrame() {
 
 async function startPairMode() {
   mode = 'pairing';
-  pairState.textContent = 'Waiting for pairing QR...';
+  pairState.textContent = 'Session: Waiting for pairing QR...';
   pairHint.textContent = 'Point at the pairing QR shown on desktop.';
   await startCamera();
   updateScanButtons();
@@ -462,7 +462,7 @@ async function startScanMode() {
     return;
   }
   mode = 'scanning';
-  pairState.textContent = 'Scanner active';
+  pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Scanning barcodes to desktop session.';
   if (!stream) await startCamera();
   updateScanButtons();
@@ -511,7 +511,7 @@ async function endSessionFromPhone() {
   scanStartBtn.disabled = true;
   scanPauseBtn.disabled = true;
   scanEndSessionBtn.disabled = true;
-  pairState.textContent = 'Session ended';
+  pairState.textContent = 'Session: Ended';
   pairCountdown.textContent = '--:-- remaining';
   stopAll();
   updateScanButtons();

@@ -13,7 +13,7 @@
         <h2>Shared Phone Scanner</h2>
         <p class="muted">Scan the desktop pairing QR first, then scan barcodes.</p>
         <div class="row pair-actions">
-          <button class="btn primary" id="pairStartBtn" type="button">Scan Pair QR</button>
+          <button class="btn primary" id="pairStartBtn" type="button">Pair QR Scanner</button>
           <button class="btn" id="scanStartBtn" type="button" hidden>Start Scanning</button>
           <button class="btn" id="scanPauseBtn" type="button" disabled>Pause Scanning</button>
           <button class="btn danger" id="scanEndSessionBtn" type="button" hidden disabled>End Session</button>
@@ -21,7 +21,7 @@
         <div class="detail" style="margin-top:10px;">
           <div class="k">Session</div>
           <div class="v pair-session-line">
-            <span id="pairState">Not paired</span>
+            <span id="pairState">Session: Not paired</span>
             <span class="muted" id="pairCountdown">--:-- remaining</span>
           </div>
         </div>
@@ -33,7 +33,7 @@
           <div class="scanner-overlay"></div>
           <div class="pair-last-pill" id="pairLastScanPill" hidden>Last: -</div>
         </div>
-        <div class="muted" id="pairHint">Tap “Scan Pair QR” and point camera at the desktop pairing code.</div>
+        <div class="muted" id="pairHint">Tap "Scan Pair QR" and point camera at the desktop pairing code.</div>
       </div>
     </section>
   </main>
