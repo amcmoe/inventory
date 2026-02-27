@@ -40,12 +40,17 @@
         </div>
         <div class="controls">
           <span class="remote-badge" id="remoteBadge" aria-live="polite">Remote Scanner: Idle</span>
-          <button class="btn danger" id="remoteEndBtn" type="button" hidden>End Session</button>
           <button class="bulk-icon-btn remote-scan-btn" id="bulkRemoteScanBtn" type="button" aria-label="Pair phone scanner" title="Pair Phone Scanner">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="icon-pair" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3" y="5" width="10" height="14" rx="2"></rect>
               <path d="M17 8h4"></path>
               <path d="M19 6v4"></path>
+              <path d="M8 16h0.01"></path>
+            </svg>
+            <svg class="icon-disconnect" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="10" height="14" rx="2"></rect>
+              <path d="M16 8l5 5"></path>
+              <path d="M21 8l-5 5"></path>
               <path d="M8 16h0.01"></path>
             </svg>
           </button>

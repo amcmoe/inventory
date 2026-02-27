@@ -31,7 +31,6 @@ const pairMeta = qs('#pairMeta');
 const pairRegenerateBtn = qs('#pairRegenerateBtn');
 const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
-const remoteEndBtn = qs('#remoteEndBtn');
 const drawerAssigneeEditor = qs('#drawerAssigneeEditor');
 const drawerAssigneeSearch = qs('#drawerAssigneeSearch');
 const drawerAssigneeSuggestions = qs('#drawerAssigneeSuggestions');
@@ -482,7 +481,13 @@ function setRemoteBadge(state = 'off', text = '') {
   else if (state === 'expired') remoteBadge.classList.add('is-expired');
   else remoteBadge.classList.add('is-off');
   remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
-  if (remoteEndBtn) remoteEndBtn.hidden = state !== 'on';
+  if (remoteScanBtn) {
+    remoteScanBtn.classList.remove('is-disconnecting');
+    const isConnected = state === 'on';
+    remoteScanBtn.classList.toggle('is-connected', isConnected);
+    remoteScanBtn.setAttribute('aria-label', isConnected ? 'Disconnect phone scanner' : 'Pair phone scanner');
+    remoteScanBtn.title = isConnected ? 'Disconnect Phone Scanner' : 'Pair Phone Scanner';
+  }
 }
 
 function flashRemoteBadge() {
@@ -642,22 +647,47 @@ async function generatePairingQr() {
 }
 
 async function endRemoteSession() {
-  if (!remoteSessionId) return;
-  const { error } = await supabase.functions.invoke('scan-session-end', {
-    body: { scan_session_id: remoteSessionId }
-  });
-  if (error) {
-    toast(error.message, true);
-    return;
+  try {
+    if (remoteScanBtn) {
+      remoteScanBtn.classList.add('is-disconnecting');
+      remoteScanBtn.disabled = true;
+    }
+    if (!remoteSessionId) {
+      const raw = localStorage.getItem(REMOTE_SESSION_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const persistedId = String(parsed.scan_session_id || '').trim();
+          if (persistedId) {
+            remoteSessionId = persistedId;
+          }
+        } catch {
+          // ignore parse issues
+        }
+      }
+    }
+    if (!remoteSessionId) {
+      setRemoteBadge('off', 'Remote Scanner: Idle');
+      return;
+    }
+    const { error } = await supabase.functions.invoke('scan-session-end', {
+      body: { scan_session_id: remoteSessionId }
+    });
+    if (error) {
+      toast(error.message, true);
+      return;
+    }
+    remoteSessionId = null;
+    remoteSessionExpiresAt = null;
+    pairStatus.textContent = 'Session ended.';
+    pairMeta.textContent = '';
+    clearRemoteTimers();
+    await stopRemoteSubscription();
+    clearPersistedRemoteSession();
+    setRemoteBadge('off', 'Remote Scanner: Idle');
+  } finally {
+    if (remoteScanBtn) remoteScanBtn.disabled = false;
   }
-  remoteSessionId = null;
-  remoteSessionExpiresAt = null;
-  pairStatus.textContent = 'Session ended.';
-  pairMeta.textContent = '';
-  clearRemoteTimers();
-  await stopRemoteSubscription();
-  clearPersistedRemoteSession();
-  setRemoteBadge('off', 'Remote Scanner: Idle');
 }
 
 async function restoreGlobalRemoteSession() {
@@ -718,6 +748,10 @@ async function init() {
     remoteScanBtn.hidden = true;
   }
   remoteScanBtn?.addEventListener('click', () => {
+    if (remoteScanBtn.classList.contains('is-connected') || remoteSessionId) {
+      endRemoteSession().catch((err) => toast(err.message, true));
+      return;
+    }
     setPairModalOpen(true);
     generatePairingQr().catch((err) => toast(err.message, true));
   });
@@ -733,9 +767,6 @@ async function init() {
       }
       setPairModalOpen(false);
     })().catch((err) => toast(err.message, true));
-  });
-  remoteEndBtn?.addEventListener('click', () => {
-    endRemoteSession().catch((err) => toast(err.message, true));
   });
   setRemoteBadge('off', 'Remote Scanner: Idle');
   clearFiltersBtn?.addEventListener('click', () => {

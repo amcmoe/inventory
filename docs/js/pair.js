@@ -23,6 +23,7 @@ let lastReadAt = 0;
 let scanSessionId = null;
 let sessionExpiresAt = null;
 let countdownTimer = null;
+let sessionStatusTimer = null;
 let activePairingId = null;
 let activePairingChallenge = null;
 let audioCtx = null;
@@ -279,6 +280,45 @@ function startCountdown() {
   countdownTimer = window.setInterval(updateCountdown, 500);
 }
 
+function stopSessionStatusMonitor() {
+  if (sessionStatusTimer) {
+    window.clearInterval(sessionStatusTimer);
+    sessionStatusTimer = null;
+  }
+}
+
+async function checkSessionStatus() {
+  if (!scanSessionId || !activePairingId || !activePairingChallenge) return;
+  try {
+    const statusData = await postNoAuth('scan-session-status', {
+      scan_session_id: scanSessionId,
+      pairing_id: activePairingId,
+      challenge: activePairingChallenge
+    });
+    if (statusData.status !== 'active') {
+      scanSessionId = null;
+      sessionExpiresAt = null;
+      pairState.textContent = 'Session: Ended';
+      pairCountdown.textContent = '--:-- remaining';
+      pairHint.textContent = 'Session ended from desktop. Scan a new pairing QR to reconnect.';
+      stopSessionStatusMonitor();
+      stopAll();
+      updateScanButtons();
+      return;
+    }
+    sessionExpiresAt = statusData.expires_at || sessionExpiresAt;
+  } catch {
+    // Keep local countdown running; network hiccups should not hard-stop scanning.
+  }
+}
+
+function startSessionStatusMonitor() {
+  stopSessionStatusMonitor();
+  sessionStatusTimer = window.setInterval(() => {
+    checkSessionStatus().catch(() => {});
+  }, 2500);
+}
+
 function parsePairPayload(raw) {
   const value = String(raw || '').trim();
   if (!value) return null;
@@ -364,6 +404,7 @@ async function consumePairing(pairing) {
   if (!stream) await startCamera();
   mode = 'scanning';
   startCountdown();
+  startSessionStatusMonitor();
   updateScanButtons();
   toast('Phone paired.');
 }
@@ -377,17 +418,24 @@ async function handleRead(raw) {
   const now = Date.now();
   const text = String(raw || '').trim();
   if (!text) return;
+  const pairing = parsePairPayload(text);
+  if (pairing) {
+    if (mode === 'pairing') {
+      if (text === lastRead && now - lastReadAt < 1200) return;
+      lastRead = text;
+      lastReadAt = now;
+      await consumePairing(pairing);
+    }
+    // Ignore pairing QR payloads once already paired/scanning.
+    return;
+  }
+
   if (text === lastRead && now - lastReadAt < 1200) return;
   lastRead = text;
   lastReadAt = now;
 
   if (mode === 'pairing') {
-    const pairing = parsePairPayload(text);
-    if (!pairing) {
-      toast('Not a valid pairing QR.', true);
-      return;
-    }
-    await consumePairing(pairing);
+    toast('Not a valid pairing QR.', true);
     return;
   }
   if (mode === 'scanning') {
@@ -479,6 +527,7 @@ function pauseScanning() {
 function stopAll() {
   mode = 'idle';
   stopCamera();
+  stopSessionStatusMonitor();
   pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
   updateScanButtons();
 }
