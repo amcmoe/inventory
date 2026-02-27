@@ -8,6 +8,50 @@ export async function getSession() {
   return data.session;
 }
 
+export async function ensureSessionFresh(refreshWindowSec = 180) {
+  const session = await getSession();
+  if (!session) return null;
+  const expMs = Number(session.expires_at || 0) * 1000;
+  const remainingMs = expMs - Date.now();
+  if (!Number.isFinite(expMs) || remainingMs > refreshWindowSec * 1000) {
+    return session;
+  }
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) throw error;
+  return data.session || session;
+}
+
+export function startSessionKeepAlive({ intervalMs = 60_000, refreshWindowSec = 180 } = {}) {
+  let timer = null;
+  let stopped = false;
+
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      await ensureSessionFresh(refreshWindowSec);
+    } catch {
+      // Let page-level actions surface auth failures when they occur.
+    }
+  };
+
+  timer = window.setInterval(tick, intervalMs);
+  const onVisible = () => {
+    if (!document.hidden) {
+      tick().catch(() => {});
+    }
+  };
+  document.addEventListener('visibilitychange', onVisible);
+
+  return () => {
+    stopped = true;
+    if (timer) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+    document.removeEventListener('visibilitychange', onVisible);
+  };
+}
+
 export async function sendMagicLink(email) {
   const redirectTo = window.location.origin + window.location.pathname;
   const { error } = await supabase.auth.signInWithOtp({

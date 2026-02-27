@@ -1,5 +1,5 @@
 import { supabase, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, sendMagicLink, signOut } from './auth.js';
+import { getSession, getCurrentProfile, sendMagicLink, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
 import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const authPanel = qs('#authPanel');
@@ -61,6 +61,7 @@ let remotePairPollTimer = null;
 let remoteExpireTimer = null;
 let remoteChannel = null;
 let remoteStatusTimer = null;
+let stopSessionKeepAlive = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 
 function syncScannerToggleButton() {
@@ -259,6 +260,7 @@ async function startScanner() {
 }
 
 async function loadAssets() {
+  await ensureSessionFresh();
   const term = sanitizeFilterTerm(searchInput.value);
   if (!term) {
     renderSearchPrompt();
@@ -615,6 +617,7 @@ async function generatePairingQr() {
   pairingGenerateInFlight = true;
   if (pairRegenerateBtn) pairRegenerateBtn.disabled = true;
   try {
+    await ensureSessionFresh();
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
     remotePairingId = null;
@@ -662,6 +665,7 @@ async function generatePairingQr() {
 
 async function endRemoteSession() {
   try {
+    await ensureSessionFresh();
     if (remoteScanBtn) {
       remoteScanBtn.classList.add('is-disconnecting');
       remoteScanBtn.disabled = true;
@@ -754,6 +758,7 @@ async function init() {
     }
   });
   bindSignOut(signOut, './index.html');
+  stopSessionKeepAlive = startSessionKeepAlive();
 
   scannerToggleBtn?.addEventListener('click', () => {
     toggleScanner().catch((err) => toast(err.message, true));
@@ -862,6 +867,7 @@ async function init() {
   syncScannerToggleButton();
   window.addEventListener('beforeunload', stopScanner);
   window.addEventListener('beforeunload', () => {
+    if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     stopRemoteSubscription().catch(() => {});
   });

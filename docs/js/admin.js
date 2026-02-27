@@ -1,5 +1,5 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
+import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
 import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
@@ -52,6 +52,7 @@ let remoteExpireTimer = null;
 let remoteChannel = null;
 let remoteStatusTimer = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
+let stopSessionKeepAlive = null;
 
 function syncBulkScannerToggleLabel() {
   if (!bulkScannerToggleBtn) return;
@@ -938,6 +939,7 @@ async function generatePairingQr() {
   pairingGenerateInFlight = true;
   if (pairRegenerateBtn) pairRegenerateBtn.disabled = true;
   try {
+    await ensureSessionFresh();
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
     remotePairingId = null;
@@ -985,6 +987,7 @@ async function generatePairingQr() {
 
 async function endRemoteSession() {
   try {
+    await ensureSessionFresh();
     if (bulkRemoteScanBtn) {
       bulkRemoteScanBtn.classList.add('is-disconnecting');
       bulkRemoteScanBtn.disabled = true;
@@ -1059,6 +1062,7 @@ async function init() {
   initTheme();
   bindThemeToggle();
   bindSignOut(signOut);
+  stopSessionKeepAlive = startSessionKeepAlive();
   if (!requireConfig()) {
     toast('Update config.js with Supabase config.', true);
     return;
@@ -1168,6 +1172,7 @@ async function init() {
   window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);
   window.addEventListener('beforeunload', () => {
+    if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     stopRemoteSubscription().catch(() => {});
   });
