@@ -125,8 +125,8 @@ function renderAssets(assets) {
     const lookupTag = asset.asset_tag || serial;
     const locationLabel = asset.location || asset.building || '';
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-location="${escapeHtml(locationLabel)}" data-room="${escapeHtml(asset.room || '')}">
-        <td><a href="./asset.html?tag=${encodeURIComponent(lookupTag)}">${escapeHtml(serial)}</a></td>
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-location="${escapeHtml(locationLabel)}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
+        <td>${escapeHtml(serial)}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
         <td>${escapeHtml(asset.status || '')}</td>
@@ -269,7 +269,7 @@ async function loadAssets() {
 
   let query = supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, asset_condition, ownership, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
     .order('asset_tag', { ascending: true })
     .limit(200);
 
@@ -286,7 +286,45 @@ async function loadAssets() {
     toast(error.message, true);
     return;
   }
-  renderAssets(data || []);
+
+  // Secondary assignee-name search path (kept separate to avoid PostgREST logic-tree parsing issues).
+  const { data: assigneeRows, error: assigneeError } = await supabase
+    .from('asset_current')
+    .select('asset_id, people!inner(display_name)')
+    .ilike('people.display_name', `%${term}%`)
+    .limit(200);
+
+  if (assigneeError) {
+    toast(assigneeError.message, true);
+    return;
+  }
+
+  const assigneeAssetIds = [...new Set((assigneeRows || []).map((r) => r.asset_id).filter(Boolean))];
+  let assigneeAssets = [];
+  if (assigneeAssetIds.length) {
+    let assigneeQuery = supabase
+      .from('assets')
+      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+      .in('id', assigneeAssetIds)
+      .order('asset_tag', { ascending: true })
+      .limit(200);
+    if (status) {
+      assigneeQuery = assigneeQuery.eq('status', status);
+    }
+    const { data: assigneeAssetData, error: assigneeAssetError } = await assigneeQuery;
+    if (assigneeAssetError) {
+      toast(assigneeAssetError.message, true);
+      return;
+    }
+    assigneeAssets = assigneeAssetData || [];
+  }
+
+  const merged = new Map();
+  [...(data || []), ...assigneeAssets].forEach((asset) => {
+    if (asset?.id) merged.set(asset.id, asset);
+  });
+
+  renderAssets(Array.from(merged.values()));
 }
 
 function bindSearch() {

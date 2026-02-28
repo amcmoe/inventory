@@ -165,6 +165,12 @@ async function printCurrentLabel(printWin) {
 function enhanceAssetTable() {
   if (!assetTbody) return;
   const rows = Array.from(assetTbody.querySelectorAll("tr"));
+  const fmtDate = (v) => {
+    const raw = String(v || "").trim();
+    if (!raw) return "-";
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? raw : d.toLocaleDateString();
+  };
   rows.forEach((tr) => {
     tr.addEventListener("click", () => {
       rows.forEach((r) => r.classList.remove("selected"));
@@ -173,19 +179,37 @@ function enhanceAssetTable() {
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
       const [serial, model, assignedTo, status, location] = cells;
       const assetTag = tr.dataset.assetTag || serial || "";
+      const manufacturer = tr.dataset.manufacturer || "";
+      const equipmentType = tr.dataset.equipmentType || "";
+      const building = tr.dataset.building || "";
       const room = tr.dataset.room || "";
-      currentRowData = { serial, assetTag, model, assignedTo, status, location, room };
+      const serviceStartDate = tr.dataset.serviceStartDate || "";
+      const ownership = tr.dataset.ownership || "";
+      const warrantyExpirationDate = tr.dataset.warrantyExpirationDate || "";
+      const obsolete = tr.dataset.obsolete || "No";
+      currentRowData = {
+        serial, assetTag, model, assignedTo, status, location,
+        manufacturer, equipmentType, building, room, serviceStartDate,
+        ownership, warrantyExpirationDate, obsolete
+      };
 
       if (drawerPrimary) drawerPrimary.textContent = serial || "Asset";
       if (drawerSecondary) drawerSecondary.textContent = model || "-";
       if (drawerDetails) {
         drawerDetails.innerHTML = `
           <div class="detail"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "-")}</div></div>
+          <div class="detail"><div class="k">Manufacturer</div><div class="v">${escapeHtml(manufacturer || "-")}</div></div>
           <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(model || "-")}</div></div>
+          <div class="detail"><div class="k">Equipment Type</div><div class="v">${escapeHtml(equipmentType || "-")}</div></div>
+          <div class="detail"><div class="k">Building</div><div class="v">${escapeHtml(building || "-")}</div></div>
+          <div class="detail"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
+          <div class="detail"><div class="k">In Service Since</div><div class="v">${escapeHtml(fmtDate(serviceStartDate))}</div></div>
+          <div class="detail"><div class="k">Owned or Leased</div><div class="v">${escapeHtml(ownership || "-")}</div></div>
+          <div class="detail"><div class="k">Warranty Expiration</div><div class="v">${escapeHtml(fmtDate(warrantyExpirationDate))}</div></div>
+          <div class="detail"><div class="k">Obsolete</div><div class="v">${escapeHtml(obsolete || "No")}</div></div>
           <div class="detail"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
           <div class="detail"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
           <div class="detail"><div class="k">Location</div><div class="v">${escapeHtml(location || "-")}</div></div>
-          <div class="detail"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
         `;
       }
       if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";
