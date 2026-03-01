@@ -39,6 +39,7 @@ let freezeTimer = null;
 let remoteControlMode = 'scan';
 let remoteControlAssetTag = null;
 let pendingDamageBase64 = '';
+let pairStartInFlight = false;
 
 function resetLastReadState() {
   lastRead = '';
@@ -84,7 +85,7 @@ function updateScanButtons() {
   }
   if (pairStartBtn) {
     pairStartBtn.hidden = hasSession;
-    pairStartBtn.disabled = hasSession;
+    pairStartBtn.disabled = hasSession || pairStartInFlight;
   }
   scanStartBtn.hidden = !(hasSession && !cameraOpen);
   scanStartBtn.disabled = !hasSession;
@@ -585,13 +586,27 @@ async function scanFrame() {
 }
 
 async function startPairMode() {
+  if (pairStartInFlight) return;
+  pairStartInFlight = true;
+  updateScanButtons();
   mode = 'pairing';
   resetLastReadState();
   updatePairHeader();
   pairState.textContent = 'Session: Waiting for pairing QR...';
   pairHint.textContent = 'Point at the pairing QR shown on desktop.';
-  await startCamera();
-  updateScanButtons();
+  try {
+    await startCamera();
+    updateScanButtons();
+  } catch (err) {
+    mode = 'idle';
+    pairHint.textContent = 'Camera failed to start. Check camera permission and try Pair QR Scanner again.';
+    updatePairHeader();
+    updateScanButtons();
+    throw err;
+  } finally {
+    pairStartInFlight = false;
+    updateScanButtons();
+  }
 }
 
 async function startScanMode() {
@@ -706,7 +721,7 @@ async function uploadCapturedDamagePhoto() {
     toast('Damage photo sent to desktop.');
   } catch (err) {
     // Keep captured frame so the user can retry upload or retake.
-    toast((err as Error)?.message || 'Damage photo upload failed', true);
+    toast((err && err.message) ? err.message : 'Damage photo upload failed', true);
   } finally {
     if (mode === 'damage') {
       if (pairDamageUploadBtn) pairDamageUploadBtn.disabled = false;
