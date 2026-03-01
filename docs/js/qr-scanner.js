@@ -54,7 +54,7 @@ async function lookupAsset(rawValue) {
   for (const tag of candidates) {
     const { data, error } = await supabase
       .from('assets')
-      .select('asset_tag, model, equipment_type, status, location, building, room')
+      .select('asset_tag, model, equipment_type, status, building, room')
       .eq('asset_tag', tag)
       .maybeSingle();
 
@@ -64,14 +64,14 @@ async function lookupAsset(rawValue) {
     }
 
     if (data) {
-      const locationParts = [data.location, data.building, data.room].filter(Boolean);
+      const buildingParts = [data.building, data.room].filter(Boolean);
       scannerResultBody.innerHTML = `
         <div class="detail-grid">
           <div class="detail"><div class="k">Asset Tag</div><div class="v mono">${escapeHtml(data.asset_tag)}</div></div>
           <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(data.model || '-')}</div></div>
           <div class="detail"><div class="k">Type</div><div class="v">${escapeHtml(data.equipment_type || '-')}</div></div>
           <div class="detail"><div class="k">Status</div><div class="v">${escapeHtml(data.status || '-')}</div></div>
-          <div class="detail"><div class="k">Location</div><div class="v">${escapeHtml(locationParts.join(' / ') || '-')}</div></div>
+          <div class="detail"><div class="k">Building / Room</div><div class="v">${escapeHtml(buildingParts.join(' / ') || '-')}</div></div>
         </div>
         <div class="row">
           <a class="btn primary" href="./asset.html?tag=${encodeURIComponent(data.asset_tag)}">Open Asset</a>

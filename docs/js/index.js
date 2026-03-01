@@ -123,14 +123,14 @@ function renderAssets(assets) {
     const assignedTo = current?.people?.display_name || '';
     const serial = asset.serial || asset.asset_tag || '';
     const lookupTag = asset.asset_tag || serial;
-    const locationLabel = asset.location || asset.building || '';
+    const buildingLabel = asset.building || '';
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-location="${escapeHtml(locationLabel)}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
         <td>${escapeHtml(serial)}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
         <td>${escapeHtml(asset.status || '')}</td>
-        <td>${escapeHtml(locationLabel)}</td>
+        <td>${escapeHtml(buildingLabel)}</td>
       </tr>
     `;
   }).join('');
@@ -269,13 +269,13 @@ async function loadAssets() {
 
   let query = supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
     .order('asset_tag', { ascending: true })
     .limit(200);
 
   const status = statusFilter.value;
 
-  query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,location.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
+  query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
 
   if (status) {
     query = query.eq('status', status);
@@ -304,7 +304,7 @@ async function loadAssets() {
   if (assigneeAssetIds.length) {
     let assigneeQuery = supabase
       .from('assets')
-      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
       .in('id', assigneeAssetIds)
       .order('asset_tag', { ascending: true })
       .limit(200);

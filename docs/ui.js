@@ -177,7 +177,7 @@ function enhanceAssetTable() {
       tr.classList.add("selected");
 
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
-      const [serial, model, assignedTo, status, location] = cells;
+      const [serial, model, assignedTo, status, buildingCell] = cells;
       const assetTag = tr.dataset.assetTag || serial || "";
       const manufacturer = tr.dataset.manufacturer || "";
       const equipmentType = tr.dataset.equipmentType || "";
@@ -188,7 +188,8 @@ function enhanceAssetTable() {
       const warrantyExpirationDate = tr.dataset.warrantyExpirationDate || "";
       const obsolete = tr.dataset.obsolete || "No";
       currentRowData = {
-        serial, assetTag, model, assignedTo, status, location,
+        serial, assetTag, model, assignedTo, status,
+        building: buildingCell,
         manufacturer, equipmentType, building, room, serviceStartDate,
         ownership, warrantyExpirationDate, obsolete
       };
@@ -209,7 +210,6 @@ function enhanceAssetTable() {
           <div class="detail"><div class="k">Obsolete</div><div class="v">${escapeHtml(obsolete || "No")}</div></div>
           <div class="detail"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
           <div class="detail"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
-          <div class="detail"><div class="k">Location</div><div class="v">${escapeHtml(location || "-")}</div></div>
         `;
       }
       if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";

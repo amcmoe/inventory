@@ -73,7 +73,7 @@ async function loadAsset() {
 
   const { data, error } = await supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(id, display_name, email, employee_id, department))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(id, display_name, email, employee_id, department))')
     .eq('asset_tag', tag)
     .maybeSingle();
 
@@ -114,7 +114,6 @@ async function loadAsset() {
       ${detailPill('Equipment Type', escapeHtml(asset.equipment_type || '-'))}
       ${detailPill('Building', escapeHtml(asset.building || '-'))}
       ${detailPill('Room', escapeHtml(asset.room || '-'))}
-      ${detailPill('Location', escapeHtml(asset.location || '-'))}
       ${detailPill('In Service Since', escapeHtml(asset.service_start_date || '-'))}
       ${detailPill('In Service For', escapeHtml(inServiceFor(asset.service_start_date)))}
       ${detailPill('Condition', escapeHtml(asset.asset_condition || '-'))}

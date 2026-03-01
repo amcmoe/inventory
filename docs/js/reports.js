@@ -19,8 +19,8 @@ function fileSafeTs() {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
-function normalizeLocation(a) {
-  return [a.location, a.building, a.room].filter(Boolean).join(' / ') || '-';
+function normalizeBuildingRoom(a) {
+  return [a.building, a.room].filter(Boolean).join(' / ') || '-';
 }
 
 function rowToView(a) {
@@ -31,7 +31,7 @@ function rowToView(a) {
     model: a.model || '',
     assignee: current?.people?.display_name || '',
     status: a.status || '',
-    location: normalizeLocation(a)
+    buildingRoom: normalizeBuildingRoom(a)
   };
 }
 
@@ -47,7 +47,7 @@ function renderRows(rows) {
       <td>${escapeHtml(r.model)}</td>
       <td>${escapeHtml(r.assignee)}</td>
       <td>${escapeHtml(r.status)}</td>
-      <td>${escapeHtml(r.location)}</td>
+      <td>${escapeHtml(r.buildingRoom)}</td>
     </tr>
   `).join('');
 }
@@ -61,7 +61,7 @@ function applyClientFilters() {
     if (status && r.status !== status) return false;
     if (type && r.type !== type) return false;
     if (!q) return true;
-    const hay = `${r.serial} ${r.type} ${r.model} ${r.assignee} ${r.status} ${r.location}`.toLowerCase();
+    const hay = `${r.serial} ${r.type} ${r.model} ${r.assignee} ${r.status} ${r.buildingRoom}`.toLowerCase();
     return hay.includes(q);
   });
   renderRows(rows);
@@ -79,11 +79,11 @@ function downloadBlob(filename, mime, content) {
 }
 
 function exportCsv(rows) {
-  const headers = ['Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Location'];
+  const headers = ['Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Building / Room'];
   const escapeCsv = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`;
   const lines = [
     headers.join(','),
-    ...rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.location].map(escapeCsv).join(','))
+    ...rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.buildingRoom].map(escapeCsv).join(','))
   ];
   downloadBlob(`asset-report-${fileSafeTs()}.csv`, 'text/csv;charset=utf-8', lines.join('\n'));
 }
@@ -96,7 +96,7 @@ function exportHtml(rows) {
       <td>${escapeHtml(r.model)}</td>
       <td>${escapeHtml(r.assignee)}</td>
       <td>${escapeHtml(r.status)}</td>
-      <td>${escapeHtml(r.location)}</td>
+      <td>${escapeHtml(r.buildingRoom)}</td>
     </tr>
   `).join('');
 
@@ -113,7 +113,7 @@ th{background:#f3f3f3;}
 </head><body>
 <h1>Asset Report</h1>
 <p>Generated ${new Date().toLocaleString()}</p>
-<table><thead><tr><th>Serial</th><th>Type</th><th>Model</th><th>Assigned To</th><th>Status</th><th>Location</th></tr></thead>
+<table><thead><tr><th>Serial</th><th>Type</th><th>Model</th><th>Assigned To</th><th>Status</th><th>Building / Room</th></tr></thead>
 <tbody>${tableRows}</tbody></table>
 </body></html>`;
 
@@ -133,8 +133,8 @@ function exportPdf(rows) {
   doc.text(`Generated ${new Date().toLocaleString()}`, 14, 20);
   doc.autoTable({
     startY: 25,
-    head: [['Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Location']],
-    body: rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.location]),
+    head: [['Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Building / Room']],
+    body: rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.buildingRoom]),
     styles: { fontSize: 8 }
   });
   doc.save(`asset-report-${fileSafeTs()}.pdf`);
@@ -143,7 +143,7 @@ function exportPdf(rows) {
 async function loadRows() {
   const { data, error } = await supabase
     .from('assets')
-    .select('asset_tag, serial, equipment_type, model, status, location, building, room, asset_current(assignee_person_id, people(display_name))')
+    .select('asset_tag, serial, equipment_type, model, status, building, room, asset_current(assignee_person_id, people(display_name))')
     .order('serial', { ascending: true })
     .limit(2000);
 

@@ -902,6 +902,20 @@ textarea {
   background: rgba(255, 255, 255, 0.05);
 }
 
+#drawerAssigneeEditor .v {
+  margin-top: 8px;
+}
+
+#drawerAssigneeSelected {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#drawerAssigneeEditor .row {
+  margin-top: 4px;
+}
+
 @media (min-width: 860px) {
   .grid.cols-2 {
     grid-template-columns: 1fr 1fr;
