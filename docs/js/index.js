@@ -114,6 +114,86 @@ function updatePendingUploadsBadge() {
   pendingUploadsBadge.hidden = !hasPending;
   pendingUploadsBadge.classList.toggle('is-pending', hasPending);
   pendingUploadsBadge.textContent = `Pending Uploads: ${count}`;
+  const target = hasPending ? getFirstPendingUploadTarget() : null;
+  if (!hasPending) {
+    pendingUploadsBadge.removeAttribute('title');
+    pendingUploadsBadge.removeAttribute('aria-label');
+    return;
+  }
+  const tag = String(target?.assetTag || '').trim();
+  const hint = tag
+    ? `Open pending uploads for ${tag}`
+    : 'Open pending uploads';
+  pendingUploadsBadge.title = hint;
+  pendingUploadsBadge.setAttribute('aria-label', hint);
+}
+
+function getFirstPendingUploadTarget() {
+  for (const [assetId, draft] of damageDraftsByAssetId.entries()) {
+    const photoCount = Array.isArray(draft?.photos) ? draft.photos.length : 0;
+    const note = String(draft?.notes || '').trim();
+    if (photoCount > 0 || note) {
+      return { assetId: String(assetId), assetTag: '' };
+    }
+  }
+  const remoteTagged = pendingRemoteDamagePhotos.find((item) => String(item?.assetTag || '').trim());
+  if (remoteTagged) {
+    return { assetId: '', assetTag: String(remoteTagged.assetTag || '').trim() };
+  }
+  const remoteAny = pendingRemoteDamagePhotos[0];
+  if (remoteAny) {
+    return { assetId: '', assetTag: String(remoteAny.assetTag || '').trim() };
+  }
+  return null;
+}
+
+function findAssetRowForPendingTarget(target) {
+  if (!assetTbody || !target) return null;
+  const rows = Array.from(assetTbody.querySelectorAll('tr[data-asset-id], tr[data-asset-tag]'));
+  if (target.assetId) {
+    const byId = rows.find((row) => String(row.dataset.assetId || '') === String(target.assetId));
+    if (byId) return byId;
+  }
+  if (target.assetTag) {
+    const wanted = String(target.assetTag || '').toLowerCase();
+    const byTag = rows.find((row) => String(row.dataset.assetTag || '').toLowerCase() === wanted);
+    if (byTag) return byTag;
+  }
+  return null;
+}
+
+function openPendingTargetRow(row) {
+  if (!row) return;
+  try {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch {
+    row.scrollIntoView();
+  }
+  const damageBtn = row.querySelector('.row-record-damage-btn');
+  if (damageBtn) {
+    damageBtn.click();
+    return;
+  }
+  row.click();
+  window.setTimeout(() => {
+    openDamageDrawerForSelectedAsset();
+  }, 30);
+}
+
+async function jumpToPendingUploads() {
+  const target = getFirstPendingUploadTarget();
+  if (!target) return;
+  let row = findAssetRowForPendingTarget(target);
+  if (!row && target.assetTag) {
+    searchInput.value = target.assetTag;
+    await loadAssets();
+    row = findAssetRowForPendingTarget(target);
+  }
+  if (!row) {
+    toast('Pending uploads exist, but matching asset is not in the current results.', true);
+    return;
+  }
+  openPendingTargetRow(row);
 }
 
 function syncScannerToggleButton() {
@@ -680,8 +760,20 @@ function queueRemoteDamageModeSync(mode = 'scan', assetTag = null) {
         setRemoteBadge('on', damageOpen ? 'Remote Scanner: Damage Mode' : 'Remote Scanner: Connected');
       })
       .catch((err) => {
-        setRemoteBadge('on', 'Remote Scanner: Connected');
-        toast(`Remote mode sync failed: ${err.message}`, true);
+        if (!remoteSessionId) return;
+        // Retry once for transient control-function lag.
+        window.setTimeout(() => {
+          if (!remoteSessionId) return;
+          syncRemoteDamageMode(mode, assetTag)
+            .then(() => {
+              const damageOpen = Boolean(mode === 'damage');
+              setRemoteBadge('on', damageOpen ? 'Remote Scanner: Damage Mode' : 'Remote Scanner: Connected');
+            })
+            .catch(() => {
+              setRemoteBadge('on', 'Remote Scanner: Connected');
+              toast(`Remote mode sync failed: ${err.message}`, true);
+            });
+        }, 240);
       });
   }, 90);
 }
@@ -694,9 +786,7 @@ function setDamageDrawerOpen(open) {
     if (open && selectedAsset?.assetTag) {
       queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
     } else {
-      syncRemoteDamageMode('scan', null)
-        .then(() => setRemoteBadge('on', 'Remote Scanner: Connected'))
-        .catch((err) => toast(`Remote mode sync failed: ${err.message}`, true));
+      queueRemoteDamageModeSync('scan', null);
     }
   }
   if (!open) {
@@ -999,10 +1089,11 @@ async function syncRemoteSessionState() {
 
 function startRemoteStatusMonitor() {
   if (!remoteSessionId) return;
+  syncRemoteSessionState().catch(() => {});
   if (remoteStatusTimer) window.clearInterval(remoteStatusTimer);
   remoteStatusTimer = window.setInterval(() => {
     syncRemoteSessionState().catch(() => {});
-  }, 2500);
+  }, 1500);
 }
 
 function updatePairMeta() {
@@ -1411,6 +1502,18 @@ async function init() {
   });
   setRemoteBadge('off', 'Remote Scanner: Idle');
   updatePendingUploadsBadge();
+  if (pendingUploadsBadge) {
+    pendingUploadsBadge.setAttribute('role', 'button');
+    pendingUploadsBadge.setAttribute('tabindex', '0');
+    pendingUploadsBadge.addEventListener('click', () => {
+      jumpToPendingUploads().catch((err) => toast(err.message, true));
+    });
+    pendingUploadsBadge.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      jumpToPendingUploads().catch((err) => toast(err.message, true));
+    });
+  }
   clearFiltersBtn?.addEventListener('click', () => {
     stopScanner();
     searchInput.value = '';
@@ -1532,8 +1635,13 @@ async function init() {
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !autoRefreshTimer) {
-      startAutoRefresh();
+    if (!document.hidden) {
+      if (!autoRefreshTimer) {
+        startAutoRefresh();
+      }
+      if (remoteSessionId) {
+        syncRemoteSessionState().catch(() => {});
+      }
     }
   });
 

@@ -223,7 +223,7 @@ function enhanceAssetTable() {
             <section class="drawer-summary-pill">
               <details>
                 <summary>Lifecycle & Warranty</summary>
-                <div class="pill-grid" style="margin-top:8px;">
+                <div class="pill-grid with-top-gap">
                   <div class="pill-item"><div class="k">In Service Since</div><div class="v">${escapeHtml(fmtDate(serviceStartDate))}</div></div>
                   <div class="pill-item"><div class="k">Warranty Expiration</div><div class="v">${escapeHtml(fmtDate(warrantyExpirationDate))}</div></div>
                   <div class="pill-item"><div class="k">Owned or Leased</div><div class="v">${escapeHtml(ownership || "-")}</div></div>

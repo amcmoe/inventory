@@ -75,6 +75,10 @@ function appConfig() {
 function updateScanButtons() {
   const hasSession = Boolean(scanSessionId);
   const cameraOpen = !stage.hidden;
+  if (pairStartBtn) {
+    pairStartBtn.hidden = hasSession;
+    pairStartBtn.disabled = hasSession;
+  }
   scanStartBtn.hidden = !(hasSession && !cameraOpen);
   scanStartBtn.disabled = !hasSession;
   scanPauseBtn.hidden = !cameraOpen;

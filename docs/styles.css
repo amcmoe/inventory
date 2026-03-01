@@ -958,9 +958,9 @@ textarea {
 .thumb-item {
   position: relative;
   width: 86px;
-  height: 62px;
+  height: 86px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
@@ -1486,10 +1486,16 @@ textarea {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .pending-badge.is-pending {
   animation: pending-pulse 1.2s ease-in-out infinite;
+}
+
+.pending-badge:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 @keyframes pending-pulse {
@@ -1553,6 +1559,10 @@ textarea {
   border-top: 1px solid var(--border);
   margin-top: 8px;
   padding-top: 8px;
+}
+
+.drawer-summary-pill .pill-grid.with-top-gap {
+  margin-top: 8px;
 }
 
 .drawer-summary-pill summary {
