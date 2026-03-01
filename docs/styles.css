@@ -728,7 +728,7 @@ tbody tr.selected {
 }
 
 .drawer-secondary {
-  width: min(460px, 88vw);
+  width: min(560px, 92vw);
   right: min(520px, 92vw);
   z-index: 65;
 }
@@ -947,6 +947,69 @@ textarea {
 
 #drawerDamageThumbs {
   margin-top: 8px;
+}
+
+.thumb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.thumb-item {
+  position: relative;
+  width: 86px;
+  height: 62px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-item .thumb-expand-hint {
+  position: absolute;
+  left: 8px;
+  bottom: 5px;
+  z-index: 3;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.thumb-item .thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 4;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.thumb-item.is-expanded {
+  width: 100%;
+  height: 220px;
+  border-radius: 14px;
+}
+
+.thumb-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 .damage-drawer-tools .bulk-icon-btn {

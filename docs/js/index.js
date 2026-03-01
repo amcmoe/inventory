@@ -90,6 +90,8 @@ let stopSessionKeepAlive = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 let drawerDamageCameraStream = null;
 let capturedDamagePhotos = [];
+let expandedDamagePhotoId = null;
+const damageDraftsByAssetId = new Map();
 let remoteModeSyncTimer = null;
 let pendingRemoteDamagePhotos = [];
 const PENDING_REMOTE_DAMAGE_TTL_MS = 10 * 60 * 1000;
@@ -609,9 +611,16 @@ async function submitDamageFromDrawer() {
     }
   }
 
+  capturedDamagePhotos.forEach((p) => {
+    if (p?.url) URL.revokeObjectURL(p.url);
+  });
   drawerDamageNotes.value = '';
   if (drawerDamagePhotos) drawerDamagePhotos.value = '';
   capturedDamagePhotos = [];
+  expandedDamagePhotoId = null;
+  if (selectedAsset?.assetId) {
+    damageDraftsByAssetId.delete(selectedAsset.assetId);
+  }
   renderCapturedDamageThumbs();
   stopDrawerDamageCamera();
   setDamageDrawerOpen(false);
@@ -686,19 +695,34 @@ function setDrawerCameraButtons() {
 function renderCapturedDamageThumbs() {
   if (!drawerDamageThumbs) return;
   if (!capturedDamagePhotos.length) {
+    expandedDamagePhotoId = null;
     drawerDamageThumbs.hidden = true;
     drawerDamageThumbs.innerHTML = '';
+    saveDamageDraftForCurrentAsset();
     return;
+  }
+  if (expandedDamagePhotoId && !capturedDamagePhotos.some((p) => p.id === expandedDamagePhotoId)) {
+    expandedDamagePhotoId = null;
   }
   drawerDamageThumbs.hidden = false;
   drawerDamageThumbs.innerHTML = capturedDamagePhotos.map((p) => `
-    <div class="thumb-item" data-photo-id="${escapeHtml(p.id)}" style="position:relative;">
+    <button class="thumb-item ${expandedDamagePhotoId === p.id ? 'is-expanded' : ''}" type="button" data-photo-id="${escapeHtml(p.id)}" aria-label="Toggle photo preview">
       <img src="${escapeHtml(p.url)}" alt="Damage capture">
-      <button class="btn ghost" type="button" data-remove-photo-id="${escapeHtml(p.id)}" style="position:absolute;top:6px;right:6px;">X</button>
-    </div>
+      <span class="thumb-expand-hint">${expandedDamagePhotoId === p.id ? 'Collapse' : 'Expand'}</span>
+      <span class="thumb-remove" data-remove-photo-id="${escapeHtml(p.id)}" role="button" tabindex="0" aria-label="Remove photo">X</span>
+    </button>
   `).join('');
-  drawerDamageThumbs.querySelectorAll('button[data-remove-photo-id]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+  drawerDamageThumbs.querySelectorAll('.thumb-item[data-photo-id]').forEach((item) => {
+    item.addEventListener('click', (event) => {
+      const removeTarget = event.target?.closest?.('[data-remove-photo-id]');
+      if (removeTarget) return;
+      const id = item.getAttribute('data-photo-id');
+      expandedDamagePhotoId = expandedDamagePhotoId === id ? null : id;
+      renderCapturedDamageThumbs();
+    });
+  });
+  drawerDamageThumbs.querySelectorAll('.thumb-remove[data-remove-photo-id]').forEach((btn) => {
+    const remove = () => {
       const id = btn.getAttribute('data-remove-photo-id');
       const idx = capturedDamagePhotos.findIndex((p) => p.id === id);
       if (idx >= 0) {
@@ -706,8 +730,72 @@ function renderCapturedDamageThumbs() {
         capturedDamagePhotos.splice(idx, 1);
         renderCapturedDamageThumbs();
       }
+    };
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      remove();
+    });
+    btn.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        remove();
+      }
     });
   });
+  saveDamageDraftForCurrentAsset();
+}
+
+function saveDamageDraftForCurrentAsset() {
+  const assetId = String(selectedAsset?.assetId || '').trim();
+  if (!assetId) return;
+  const notes = String(drawerDamageNotes?.value || '');
+  if (!notes.trim() && !capturedDamagePhotos.length) {
+    damageDraftsByAssetId.delete(assetId);
+    return;
+  }
+  damageDraftsByAssetId.set(assetId, {
+    notes,
+    photos: capturedDamagePhotos.slice(),
+    expandedPhotoId: expandedDamagePhotoId || null
+  });
+}
+
+function restoreDamageDraftForAsset(assetId) {
+  const id = String(assetId || '').trim();
+  const draft = id ? damageDraftsByAssetId.get(id) : null;
+  if (drawerDamageNotes) drawerDamageNotes.value = draft?.notes || '';
+  if (drawerDamagePhotos) drawerDamagePhotos.value = '';
+  capturedDamagePhotos = Array.isArray(draft?.photos) ? draft.photos.slice() : [];
+  expandedDamagePhotoId = draft?.expandedPhotoId || null;
+  renderCapturedDamageThumbs();
+}
+
+function clearAllDamageDrafts() {
+  const seen = new Set();
+  damageDraftsByAssetId.forEach((draft) => {
+    const photos = Array.isArray(draft?.photos) ? draft.photos : [];
+    photos.forEach((p) => {
+      const url = String(p?.url || '');
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      URL.revokeObjectURL(url);
+    });
+  });
+  capturedDamagePhotos.forEach((p) => {
+    const url = String(p?.url || '');
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    URL.revokeObjectURL(url);
+  });
+  damageDraftsByAssetId.clear();
+  if (drawerDamageNotes) drawerDamageNotes.value = '';
+  if (drawerDamagePhotos) drawerDamagePhotos.value = '';
+  selectedAsset = null;
+  capturedDamagePhotos = [];
+  expandedDamagePhotoId = null;
+  renderCapturedDamageThumbs();
 }
 
 async function startDrawerDamageCamera() {
@@ -1328,6 +1416,7 @@ async function init() {
   });
   window.addEventListener('asset-row-selected', (event) => {
     const detail = event.detail || {};
+    saveDamageDraftForCurrentAsset();
     selectedAsset = {
       assetId: detail.assetId || '',
       assetTag: detail.assetTag || detail.serial || '',
@@ -1359,13 +1448,9 @@ async function init() {
       drawerDamageEditor.hidden = !canWrite;
     }
     if (drawerNoteInput) drawerNoteInput.value = '';
-    if (drawerDamageNotes) drawerDamageNotes.value = '';
-    if (drawerDamagePhotos) drawerDamagePhotos.value = '';
+    restoreDamageDraftForAsset(selectedAsset.assetId);
     stopDrawerDamageCamera();
     setDamageDrawerOpen(false);
-    capturedDamagePhotos.forEach((p) => URL.revokeObjectURL(p.url));
-    capturedDamagePhotos = [];
-    renderCapturedDamageThumbs();
     if (damageDrawer?.classList.contains('open') && selectedAsset?.assetTag) {
       queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
     }
@@ -1392,10 +1477,8 @@ async function init() {
       stopScanner();
       stopAutoRefresh();
       setDamageDrawerOpen(false);
-      capturedDamagePhotos.forEach((p) => URL.revokeObjectURL(p.url));
-      capturedDamagePhotos = [];
+      clearAllDamageDrafts();
       pendingRemoteDamagePhotos = [];
-      renderCapturedDamageThumbs();
       remoteSessionId = null;
       remoteSessionExpiresAt = null;
       clearRemoteTimers();
@@ -1413,9 +1496,13 @@ async function init() {
 
   syncScannerToggleButton();
   setDrawerCameraButtons();
+  drawerDamageNotes?.addEventListener('input', () => {
+    saveDamageDraftForCurrentAsset();
+  });
   startPendingRemoteDamagePurgeTicker();
   window.addEventListener('beforeunload', stopScanner);
   window.addEventListener('beforeunload', () => {
+    saveDamageDraftForCurrentAsset();
     stopDrawerDamageCamera();
     if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
