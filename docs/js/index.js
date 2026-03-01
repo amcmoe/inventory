@@ -1381,9 +1381,9 @@ async function pullRemoteDamageEvents() {
     .from('scan_events')
     .select('id, barcode, source')
     .eq('scan_session_id', remoteSessionId)
-    .eq('source', 'remote_damage_photo')
+    .in('source', ['remote_damage_photo', 'remote_session_end'])
     .order('id', { ascending: false })
-    .limit(30);
+    .limit(60);
   if (error || !Array.isArray(data) || !data.length) return;
   data.slice().reverse().forEach((row) => {
     const eventId = Number(row.id);
@@ -1395,6 +1395,11 @@ async function pullRemoteDamageEvents() {
         seenRemoteDamageEventIds.clear();
         values.forEach((v) => seenRemoteDamageEventIds.add(v));
       }
+    }
+    const source = String(row.source || '');
+    if (source === 'remote_session_end') {
+      clearRemoteSessionLocal('Session ended from phone.').catch(() => {});
+      return;
     }
     const parsed = extractRemoteDamagePath(row);
     if (!parsed?.path) return;
