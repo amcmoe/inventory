@@ -102,6 +102,16 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
+    // Emit an explicit end event so desktop UIs can clear connection immediately.
+    const { error: eventError } = await admin
+      .from('scan_events')
+      .insert({
+        scan_session_id: scanSessionId,
+        barcode: '__session_end__',
+        source: 'remote_session_end'
+      });
+    if (eventError) throw eventError;
+
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

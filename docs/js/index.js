@@ -916,7 +916,7 @@ function renderCapturedDamageThumbs() {
   }
   drawerDamageThumbs.hidden = false;
   drawerDamageThumbs.innerHTML = capturedDamagePhotos.map((p) => `
-    <button class="thumb-item ${expandedDamagePhotoId === p.id ? 'is-expanded' : ''}" type="button" data-photo-id="${escapeHtml(p.id)}" aria-label="Toggle photo preview">
+    <button class="thumb-item ${expandedDamagePhotoId === p.id ? 'is-expanded' : ''}" type="button" data-photo-id="${escapeHtml(p.id)}" data-remote-path="${escapeHtml(p.remotePath || '')}" aria-label="Toggle photo preview">
       <img src="${escapeHtml(p.url)}" alt="Damage capture">
       <span class="thumb-expand-hint">${expandedDamagePhotoId === p.id ? 'Collapse' : 'Expand'}</span>
       <span class="thumb-remove" data-remove-photo-id="${escapeHtml(p.id)}" role="button" tabindex="0" aria-label="Remove photo">X</span>
@@ -937,24 +937,30 @@ function renderCapturedDamageThumbs() {
       const idx = capturedDamagePhotos.findIndex((p) => p.id === id);
       if (idx >= 0) {
         const removed = capturedDamagePhotos[idx];
+        const remotePathFromDom = String(btn.closest('.thumb-item')?.getAttribute('data-remote-path') || '').trim();
+        const remotePath = String(removed?.remotePath || remotePathFromDom || '').trim();
         URL.revokeObjectURL(removed.url);
         capturedDamagePhotos.splice(idx, 1);
         renderCapturedDamageThumbs();
-        if (removed?.remotePath) {
-          await dismissAndDeleteRemoteDamagePath(removed.remotePath);
+        if (remotePath) {
+          await dismissAndDeleteRemoteDamagePath(remotePath);
         }
       }
     };
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      remove().catch(() => {});
+      remove().catch((err) => {
+        toast(`Photo delete failed: ${err?.message || 'unknown error'}`, true);
+      });
     });
     btn.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         event.stopPropagation();
-        remove().catch(() => {});
+        remove().catch((err) => {
+          toast(`Photo delete failed: ${err?.message || 'unknown error'}`, true);
+        });
       }
     });
   });
@@ -1336,6 +1342,10 @@ async function subscribeRemoteScans(scanSessionId) {
       { event: 'INSERT', schema: 'public', table: 'scan_events', filter: `scan_session_id=eq.${scanSessionId}` },
       (payload) => {
         const source = String(payload?.new?.source || '');
+        if (source === 'remote_session_end') {
+          clearRemoteSessionLocal('Session ended from phone.').catch(() => {});
+          return;
+        }
         if (source === 'remote_damage_photo') {
           const parsed = extractRemoteDamagePath(payload?.new);
           if (!parsed?.path) return;

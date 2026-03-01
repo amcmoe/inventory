@@ -59,6 +59,15 @@ npx.cmd supabase functions deploy scan-damage-photo --no-verify-jwt
 npx.cmd supabase functions deploy scan-damage-delete
 ```
 
+4. Scanner function JWT settings:
+- `verify_jwt = false`: `pairing-consume`, `scan-submit`, `scan-session-end`, `scan-session-status`, `scan-damage-photo`
+- `verify_jwt = true` (default): `pairing-create`, `scan-session-control`, `scan-damage-delete`
+
+## Remote Scanner Notes
+
+- When phone `End Session` is pressed, `scan-session-end` now emits a `remote_session_end` event so desktop UI disconnects immediately without manual refresh.
+- Remote damage photo `X` delete in desktop drawer calls `scan-damage-delete`, which removes the `remote-temp/...` storage file and matching `scan_events` entries.
+
 ## Deployment
 
 - Frontend: publish `docs/` (GitHub Pages or equivalent static host).
