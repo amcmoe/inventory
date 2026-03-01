@@ -56,6 +56,7 @@ npx.cmd supabase functions deploy scan-session-end --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-status --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-control
 npx.cmd supabase functions deploy scan-damage-photo --no-verify-jwt
+npx.cmd supabase functions deploy scan-damage-delete
 ```
 
 ## Deployment

@@ -10,6 +10,7 @@ This folder contains function skeletons for desktop + shared-phone scan pairing.
 - `scan-session-status` (desktop/mobile status polling)
 - `scan-session-control` (desktop authenticated control mode updates)
 - `scan-damage-photo` (shared phone damage photo upload)
+- `scan-damage-delete` (desktop authenticated remote-temp cleanup)
 
 ### Important Supabase Settings
 You do **not** need broad project-level auth changes, but you do need:
@@ -26,6 +27,7 @@ You do **not** need broad project-level auth changes, but you do need:
 - `supabase functions deploy scan-session-status`
 - `supabase functions deploy scan-session-control`
 - `supabase functions deploy scan-damage-photo`
+- `supabase functions deploy scan-damage-delete`
 
 3. Disable JWT verification for scanner endpoints:
 - `pairing-consume`

@@ -147,23 +147,48 @@ function removePendingRemoteDamagePath(path) {
   updatePendingUploadsBadge();
 }
 
+function getScanSessionIdFromRemotePath(path) {
+  const value = String(path || '').trim();
+  if (!value) return '';
+  const parts = value.split('/').filter(Boolean);
+  if (parts.length < 3) return '';
+  if (parts[0] !== 'remote-temp') return '';
+  return String(parts[1] || '').trim();
+}
+
 async function dismissAndDeleteRemoteDamagePath(path) {
   const value = String(path || '').trim();
   if (!value) return;
   dismissedRemoteDamagePaths.add(value);
   persistDismissedRemoteDamagePaths();
   removePendingRemoteDamagePath(value);
+  const sessionId = String(remoteSessionId || getScanSessionIdFromRemotePath(value)).trim();
+  try {
+    const { error } = await supabase.functions.invoke('scan-damage-delete', {
+      body: {
+        scan_session_id: sessionId || null,
+        path: value
+      }
+    });
+    if (error) {
+      throw new Error(error.message || 'Failed to delete temp remote photo');
+    }
+    return;
+  } catch (err) {
+    // Fall back to best-effort local client calls for older deployments.
+    toast((err && err.message) ? err.message : 'Temp delete function unavailable; using fallback delete.', true);
+  }
   try {
     await supabase.storage.from(damagePhotoBucket).remove([value]);
   } catch {
     // keep dismissed even if storage delete fails
   }
-  if (remoteSessionId) {
+  if (sessionId) {
     try {
       await supabase
         .from('scan_events')
         .delete()
-        .eq('scan_session_id', remoteSessionId)
+        .eq('scan_session_id', sessionId)
         .eq('source', 'remote_damage_photo')
         .ilike('barcode', `%${value}%`);
     } catch {
