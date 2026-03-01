@@ -1469,7 +1469,36 @@ async function generatePairingQr(force = false) {
   if (pairRegenerateBtn) pairRegenerateBtn.disabled = true;
   try {
     setPairModalOpen(true);
-    clearRemoteTimers();
+    // Always reset any stale remote-session state before generating a fresh QR.
+    let staleSessionId = String(remoteSessionId || '').trim();
+    if (!staleSessionId) {
+      const raw = localStorage.getItem(REMOTE_SESSION_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          staleSessionId = String(parsed?.scan_session_id || '').trim();
+        } catch {
+          staleSessionId = '';
+        }
+      }
+    }
+    if (staleSessionId) {
+      try {
+        await supabase.functions.invoke('scan-session-end', {
+          body: { scan_session_id: staleSessionId }
+        });
+      } catch {
+        // ignore; stale session may already be ended
+      }
+      remoteSessionId = staleSessionId;
+      await clearRemoteSessionLocal('Preparing new pairing...');
+    } else {
+      clearRemoteTimers();
+      clearPersistedRemoteSession();
+      setRemoteBadge('off', 'Remote Scanner: Idle');
+      pairStatus.textContent = 'Preparing new pairing...';
+      pairMeta.textContent = '';
+    }
     await ensureSessionFresh();
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
