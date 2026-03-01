@@ -100,6 +100,7 @@ let remoteModeSyncTimer = null;
 let pendingRemoteDamagePhotos = [];
 const PENDING_REMOTE_DAMAGE_TTL_MS = 10 * 60 * 1000;
 let pendingRemotePurgeTimer = null;
+let pendingRemoteFlushTimer = null;
 let remoteSessionWatchdogTimer = null;
 const dismissedRemoteDamagePaths = new Set();
 let damageHistoryLoadSeq = 0;
@@ -1189,6 +1190,18 @@ function setPairModalOpen(open) {
   pairModalOverlay.hidden = !open;
 }
 
+function withTimeout(promise, ms, timeoutMessage) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) window.clearTimeout(timer);
+  });
+}
+
 function clearRemoteTimers() {
   if (remoteModeSyncTimer) {
     window.clearTimeout(remoteModeSyncTimer);
@@ -1372,6 +1385,16 @@ function startPendingRemoteDamagePurgeTicker() {
   }, 60 * 1000);
 }
 
+function startPendingRemoteFlushTicker() {
+  if (pendingRemoteFlushTimer) window.clearInterval(pendingRemoteFlushTimer);
+  pendingRemoteFlushTimer = window.setInterval(() => {
+    if (!remoteSessionId) return;
+    if (!damageDrawer?.classList.contains('open')) return;
+    if (!selectedAsset?.assetId) return;
+    flushPendingRemoteDamagePhotosForSelectedAsset().catch(() => {});
+  }, 2500);
+}
+
 function startRemoteSessionWatchdog() {
   if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
   remoteSessionWatchdogTimer = window.setInterval(() => {
@@ -1384,15 +1407,30 @@ async function addRemoteDamagePhotoToDrawer(path) {
   if (isRemoteDamagePathDismissed(path)) return;
   const duplicate = capturedDamagePhotos.some((p) => p.remotePath === path);
   if (duplicate) return;
-  const signed = await supabase.storage.from(damagePhotoBucket).createSignedUrl(path, 60 * 30);
-  if (signed.error || !signed.data?.signedUrl) {
-    throw new Error(signed.error?.message || 'Could not load remote photo');
+  let blob = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const signed = await supabase.storage.from(damagePhotoBucket).createSignedUrl(path, 60 * 30);
+      if (signed.error || !signed.data?.signedUrl) {
+        throw new Error(signed.error?.message || 'Could not load remote photo');
+      }
+      const response = await fetch(signed.data.signedUrl);
+      if (!response.ok) {
+        throw new Error('Could not download remote photo');
+      }
+      blob = await response.blob();
+      break;
+    } catch (err) {
+      lastError = err;
+      if (attempt < 3) {
+        await new Promise((resolve) => window.setTimeout(resolve, 220 * attempt));
+      }
+    }
   }
-  const response = await fetch(signed.data.signedUrl);
-  if (!response.ok) {
-    throw new Error('Could not download remote photo');
+  if (!blob) {
+    throw (lastError instanceof Error ? lastError : new Error('Could not load remote photo'));
   }
-  const blob = await response.blob();
   const fileExt = blob.type.includes('png') ? 'png' : 'jpg';
   const filename = `remote-${Date.now()}.${fileExt}`;
   const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
@@ -1424,6 +1462,7 @@ async function flushPendingRemoteDamagePhotosForSelectedAsset() {
     try {
       await addRemoteDamagePhotoToDrawer(item.path);
     } catch (err) {
+      keep.push(item);
       toast(err.message, true);
     }
   }
@@ -1460,7 +1499,10 @@ async function subscribeRemoteScans(scanSessionId) {
           }
           addRemoteDamagePhotoToDrawer(parsed.path)
             .then(() => toast('Remote damage photo added.'))
-            .catch((err) => toast(err.message, true));
+            .catch((err) => {
+              enqueuePendingRemoteDamagePhoto(parsed);
+              toast(err.message, true);
+            });
           return;
         }
         const barcode = payload?.new?.barcode;
@@ -1508,7 +1550,9 @@ async function pullRemoteDamageEvents() {
       return;
     }
     if (parsed.assetTag && selectedAsset.assetTag && parsed.assetTag !== selectedAsset.assetTag) return;
-    addRemoteDamagePhotoToDrawer(parsed.path).catch(() => {});
+    addRemoteDamagePhotoToDrawer(parsed.path).catch(() => {
+      enqueuePendingRemoteDamagePhoto(parsed);
+    });
   });
 }
 
@@ -1601,7 +1645,7 @@ async function generatePairingQr(force = false) {
       pairStatus.textContent = 'Preparing new pairing...';
       pairMeta.textContent = '';
     }
-    await ensureSessionFresh();
+    await withTimeout(ensureSessionFresh(), 8000, 'Session refresh timed out. Please try again.');
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
     remotePairingId = null;
@@ -1609,9 +1653,13 @@ async function generatePairingQr(force = false) {
       const ctx = pairQrCanvas.getContext('2d');
       ctx?.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
     }
-    const { data, error } = await supabase.functions.invoke('pairing-create', {
-      body: { context: 'search', ttl_seconds: 45 }
-    });
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('pairing-create', {
+        body: { context: 'search', ttl_seconds: 45 }
+      }),
+      12000,
+      'Pairing request timed out. Please try again.'
+    );
     if (error) {
       pairStatus.textContent = 'Failed to create pairing.';
       toast(error.message, true);
@@ -1641,6 +1689,10 @@ async function generatePairingQr(force = false) {
     pairStatus.textContent = 'Scan this QR with the shared phone.';
     pairMeta.textContent = `Pairing expires at ${new Date(data.expires_at).toLocaleTimeString()}`;
     await waitForPairedSession(remotePairingId);
+  } catch (err) {
+    pairStatus.textContent = 'Could not generate pairing. Try Regenerate QR.';
+    pairMeta.textContent = '';
+    toast(err?.message || 'Could not generate pairing QR.', true);
   } finally {
     pairingGenerateInFlight = false;
     if (pairRegenerateBtn) pairRegenerateBtn.disabled = false;
@@ -1920,6 +1972,10 @@ async function init() {
       }
       if (remoteSessionId) {
         syncRemoteSessionState().catch(() => {});
+        pullRemoteDamageEvents().catch(() => {});
+        if (damageDrawer?.classList.contains('open') && selectedAsset?.assetId) {
+          flushPendingRemoteDamagePhotosForSelectedAsset().catch(() => {});
+        }
       }
     }
   });
@@ -1930,6 +1986,7 @@ async function init() {
     saveDamageDraftForCurrentAsset();
   });
   startPendingRemoteDamagePurgeTicker();
+  startPendingRemoteFlushTicker();
   startRemoteSessionWatchdog();
   window.addEventListener('beforeunload', stopScanner);
   window.addEventListener('beforeunload', () => {
@@ -1938,6 +1995,7 @@ async function init() {
     if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     if (pendingRemotePurgeTimer) window.clearInterval(pendingRemotePurgeTimer);
+    if (pendingRemoteFlushTimer) window.clearInterval(pendingRemoteFlushTimer);
     if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
     stopRemoteSubscription().catch(() => {});
   });

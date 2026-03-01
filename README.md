@@ -16,6 +16,7 @@ Inventory checkout/check-in app built with plain HTML/CSS/JS and Supabase.
 - Asset search, filters, and detail views
 - Checkout/check-in via RPC-only state transitions
 - Damage reports with private storage uploads
+- Damage history in asset drawer (notes + photo thumbnails)
 - Admin asset management + bulk create
 - User/assignee management
 - Remote phone scanner pairing for desktop workflows
@@ -56,17 +57,27 @@ npx.cmd supabase functions deploy scan-session-end --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-status --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-control
 npx.cmd supabase functions deploy scan-damage-photo --no-verify-jwt
-npx.cmd supabase functions deploy scan-damage-delete
+npx.cmd supabase functions deploy scan-damage-delete --no-verify-jwt
 ```
 
 4. Scanner function JWT settings:
-- `verify_jwt = false`: `pairing-consume`, `scan-submit`, `scan-session-end`, `scan-session-status`, `scan-damage-photo`
-- `verify_jwt = true` (default): `pairing-create`, `scan-session-control`, `scan-damage-delete`
+- `verify_jwt = false`: `pairing-consume`, `scan-submit`, `scan-session-end`, `scan-session-status`, `scan-damage-photo`, `scan-damage-delete`
+- `verify_jwt = true` (default): `pairing-create`, `scan-session-control`
 
 ## Remote Scanner Notes
 
 - When phone `End Session` is pressed, `scan-session-end` now emits a `remote_session_end` event so desktop UI disconnects immediately without manual refresh.
 - Remote damage photo `X` delete in desktop drawer calls `scan-damage-delete`, which removes the `remote-temp/...` storage file and matching `scan_events` entries.
+- Pairing QR expiration is short-lived (default ~45 seconds). Scan session duration is longer (default up to 15 minutes).
+
+## Troubleshooting
+
+- If UI behavior seems stale (buttons/status not matching latest changes), hard refresh with cache bypass (`Ctrl+F5` on desktop, full refresh on mobile).
+- If `scan-damage-delete` returns `401` before function logs run, set `verify_jwt = false` for that function and redeploy.
+- If remote session looks connected after phone end, confirm:
+  1. `scan_sessions.status = ended`
+  2. a `scan_events` row exists with `source = remote_session_end`
+  3. desktop is on latest deployed frontend build
 
 ## Deployment
 
