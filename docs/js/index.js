@@ -177,31 +177,12 @@ function bindRowDamageButtons() {
       event.stopPropagation();
       const tr = btn.closest('tr');
       if (!tr) return;
-      selectAssetFromTableRow(tr);
-      openDamageDrawerForSelectedAsset();
+      tr.click();
+      window.setTimeout(() => {
+        openDamageDrawerForSelectedAsset();
+      }, 20);
     });
   });
-}
-
-function selectAssetFromTableRow(tr) {
-  if (!tr) return;
-  assetTbody.querySelectorAll('tr').forEach((row) => row.classList.remove('selected'));
-  tr.classList.add('selected');
-  const cells = Array.from(tr.querySelectorAll('td')).map((td) => String(td.textContent || '').trim());
-  const serial = cells[0] || tr.dataset.serial || '';
-  const model = cells[1] || tr.dataset.model || '';
-  const assignedTo = cells[2] || tr.dataset.assignee || '';
-  const status = tr.dataset.status || cells[3] || '';
-  const detail = {
-    assetId: tr.dataset.assetId || '',
-    serial,
-    assetTag: tr.dataset.assetTag || serial,
-    model,
-    assignedTo,
-    status,
-    notes: tr.dataset.notes || ''
-  };
-  window.dispatchEvent(new CustomEvent('asset-row-selected', { detail }));
 }
 
 function sanitizeFilterTerm(term) {
@@ -661,7 +642,16 @@ function queueRemoteDamageModeSync(mode = 'scan', assetTag = null) {
   }
   remoteModeSyncTimer = window.setTimeout(() => {
     remoteModeSyncTimer = null;
-    syncRemoteDamageMode(mode, assetTag).catch((err) => toast(err.message, true));
+    syncRemoteDamageMode(mode, assetTag)
+      .then(() => {
+        if (!remoteSessionId) return;
+        const damageOpen = Boolean(mode === 'damage');
+        setRemoteBadge('on', damageOpen ? 'Remote Scanner: Damage Mode' : 'Remote Scanner: Connected');
+      })
+      .catch((err) => {
+        setRemoteBadge('on', 'Remote Scanner: Connected');
+        toast(`Remote mode sync failed: ${err.message}`, true);
+      });
   }, 90);
 }
 
@@ -670,7 +660,6 @@ function setDamageDrawerOpen(open) {
   damageDrawer.classList.toggle('open', Boolean(open));
   damageDrawer.setAttribute('aria-hidden', open ? 'false' : 'true');
   if (remoteSessionId) {
-    setRemoteBadge('on', open ? 'Remote Scanner: Damage Mode' : 'Remote Scanner: Connected');
     if (open && selectedAsset?.assetTag) {
       queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
     } else {
