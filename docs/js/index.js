@@ -1491,7 +1491,11 @@ async function generatePairingQr(force = false) {
         // ignore; stale session may already be ended
       }
       remoteSessionId = staleSessionId;
-      await clearRemoteSessionLocal('Preparing new pairing...');
+      // Do not block QR regeneration if subscription cleanup hangs.
+      await Promise.race([
+        clearRemoteSessionLocal('Preparing new pairing...'),
+        new Promise((resolve) => window.setTimeout(resolve, 900))
+      ]);
     } else {
       clearRemoteTimers();
       clearPersistedRemoteSession();
