@@ -41,6 +41,7 @@ const drawerAssigneeSelected = qs('#drawerAssigneeSelected');
 const drawerSetAssigneeBtn = qs('#drawerSetAssigneeBtn');
 const drawerCreatePersonBtn = qs('#drawerCreatePersonBtn');
 const drawerNotes = qs('#drawerNotes');
+const drawerDamageHistoryList = qs('#drawerDamageHistoryList');
 const drawerNoteEditor = qs('#drawerNoteEditor');
 const drawerNoteInput = qs('#drawerNoteInput');
 const drawerSaveNoteBtn = qs('#drawerSaveNoteBtn');
@@ -101,6 +102,7 @@ const PENDING_REMOTE_DAMAGE_TTL_MS = 10 * 60 * 1000;
 let pendingRemotePurgeTimer = null;
 let remoteSessionWatchdogTimer = null;
 const dismissedRemoteDamagePaths = new Set();
+let damageHistoryLoadSeq = 0;
 
 function getDismissedRemoteDamageStorageKey(sessionId = remoteSessionId) {
   const id = String(sessionId || '').trim();
@@ -340,6 +342,14 @@ function renderSearchPrompt() {
 function renderEmpty() {
   assetTbody.innerHTML = '<tr><td colspan="6" class="dim">No assets found for the current filters.</td></tr>';
   window.updateKpisFromTable?.();
+}
+
+function escapeAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function renderAssets(assets) {
@@ -822,7 +832,92 @@ async function submitDamageFromDrawer() {
   updatePendingUploadsBadge();
   stopDrawerDamageCamera();
   setDamageDrawerOpen(false);
+  await loadDamageHistoryForSelectedAsset();
   toast('Damage report submitted.');
+}
+
+async function loadDamageHistoryForSelectedAsset() {
+  if (!drawerDamageHistoryList) return;
+  const assetId = String(selectedAsset?.assetId || '').trim();
+  if (!assetId) {
+    drawerDamageHistoryList.textContent = 'No damage reports yet.';
+    return;
+  }
+  const seq = ++damageHistoryLoadSeq;
+  drawerDamageHistoryList.textContent = 'Loading damage history...';
+
+  const { data: reports, error } = await supabase
+    .from('damage_reports')
+    .select('id, created_at, summary, notes, damage_photos(storage_path)')
+    .eq('asset_id', assetId)
+    .order('created_at', { ascending: false })
+    .limit(15);
+
+  if (seq !== damageHistoryLoadSeq) return;
+  if (error) {
+    drawerDamageHistoryList.textContent = 'Could not load damage history.';
+    return;
+  }
+  if (!Array.isArray(reports) || !reports.length) {
+    drawerDamageHistoryList.textContent = 'No damage reports yet.';
+    return;
+  }
+
+  const allPaths = [];
+  reports.forEach((report) => {
+    const photos = Array.isArray(report?.damage_photos) ? report.damage_photos : [];
+    photos.forEach((photo) => {
+      const path = String(photo?.storage_path || '').trim();
+      if (path) allPaths.push(path);
+    });
+  });
+
+  const signedByPath = new Map();
+  if (allPaths.length) {
+    try {
+      const { data: signedRows, error: signedError } = await supabase.storage
+        .from(damagePhotoBucket)
+        .createSignedUrls(allPaths, 60 * 20);
+      if (!signedError && Array.isArray(signedRows)) {
+        signedRows.forEach((row, idx) => {
+          const path = allPaths[idx];
+          const signedUrl = String(row?.signedUrl || '').trim();
+          if (path && signedUrl) signedByPath.set(path, signedUrl);
+        });
+      }
+    } catch {
+      // keep rendering notes even if photo signing fails
+    }
+  }
+
+  if (seq !== damageHistoryLoadSeq) return;
+
+  const html = reports.map((report) => {
+    const createdLabel = report?.created_at
+      ? new Date(report.created_at).toLocaleString()
+      : '-';
+    const note = String(report?.notes || report?.summary || '').trim() || '-';
+    const photos = Array.isArray(report?.damage_photos) ? report.damage_photos : [];
+    const photoHtml = photos
+      .map((photo) => {
+        const path = String(photo?.storage_path || '').trim();
+        const signed = signedByPath.get(path);
+        if (!path || !signed) return '';
+        return `<a href="${escapeAttr(signed)}" target="_blank" rel="noopener noreferrer" title="Open photo"><img src="${escapeAttr(signed)}" alt="Damage photo"></a>`;
+      })
+      .filter(Boolean)
+      .join('');
+
+    return `
+      <div class="damage-history-item">
+        <div class="meta">${escapeHtml(createdLabel)}</div>
+        <div class="note">${escapeHtml(note)}</div>
+        ${photoHtml ? `<div class="damage-history-photos">${photoHtml}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  drawerDamageHistoryList.innerHTML = `<div class="damage-history-list">${html}</div>`;
 }
 
 async function syncRemoteDamageMode(mode = 'scan', assetTag = null) {
@@ -919,11 +1014,14 @@ function renderCapturedDamageThumbs() {
     <button class="thumb-item ${expandedDamagePhotoId === p.id ? 'is-expanded' : ''}" type="button" data-photo-id="${escapeHtml(p.id)}" data-remote-path="${escapeHtml(p.remotePath || '')}" aria-label="Toggle photo preview">
       <img src="${escapeHtml(p.url)}" alt="Damage capture">
       <span class="thumb-expand-hint">${expandedDamagePhotoId === p.id ? 'Collapse' : 'Expand'}</span>
+      ${expandedDamagePhotoId === p.id ? `<a class="thumb-full-link" href="${escapeAttr(p.url)}" target="_blank" rel="noopener noreferrer">View Full Image</a>` : ''}
       <span class="thumb-remove" data-remove-photo-id="${escapeHtml(p.id)}" role="button" tabindex="0" aria-label="Remove photo">X</span>
     </button>
   `).join('');
   drawerDamageThumbs.querySelectorAll('.thumb-item[data-photo-id]').forEach((item) => {
     item.addEventListener('click', (event) => {
+      const fullLinkTarget = event.target?.closest?.('.thumb-full-link');
+      if (fullLinkTarget) return;
       const removeTarget = event.target?.closest?.('[data-remove-photo-id]');
       if (removeTarget) return;
       const id = item.getAttribute('data-photo-id');
@@ -1757,6 +1855,11 @@ async function init() {
     if (drawerNotes) {
       drawerNotes.textContent = detail.notes || '-';
     }
+    loadDamageHistoryForSelectedAsset().catch(() => {
+      if (drawerDamageHistoryList) {
+        drawerDamageHistoryList.textContent = 'Could not load damage history.';
+      }
+    });
     const canWrite = Boolean(currentProfile && (currentProfile.role === 'admin' || currentProfile.role === 'tech'));
     if (drawerAssigneeEditor) {
       drawerAssigneeEditor.hidden = !canWrite;
