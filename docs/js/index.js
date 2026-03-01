@@ -84,6 +84,8 @@ let remotePairPollTimer = null;
 let remoteExpireTimer = null;
 let remoteChannel = null;
 let remoteStatusTimer = null;
+let remoteDamagePollTimer = null;
+const seenRemoteDamageEventIds = new Set();
 let stopSessionKeepAlive = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 let drawerDamageCameraStream = null;
@@ -794,6 +796,10 @@ function clearRemoteTimers() {
     window.clearInterval(remoteStatusTimer);
     remoteStatusTimer = null;
   }
+  if (remoteDamagePollTimer) {
+    window.clearInterval(remoteDamagePollTimer);
+    remoteDamagePollTimer = null;
+  }
 }
 
 async function stopRemoteSubscription() {
@@ -952,6 +958,12 @@ async function addRemoteDamagePhotoToDrawer(path) {
   renderCapturedDamageThumbs();
 }
 
+function enqueuePendingRemoteDamagePhoto(parsed) {
+  if (!parsed?.path) return;
+  const exists = pendingRemoteDamagePhotos.some((item) => item.path === parsed.path);
+  if (!exists) pendingRemoteDamagePhotos.push(parsed);
+}
+
 async function flushPendingRemoteDamagePhotosForSelectedAsset() {
   purgeStalePendingRemoteDamagePhotos();
   if (!selectedAsset?.assetTag || !pendingRemoteDamagePhotos.length) return;
@@ -986,7 +998,7 @@ async function subscribeRemoteScans(scanSessionId) {
           if (!parsed?.path) return;
           if (!damageDrawer?.classList.contains('open') || !selectedAsset?.assetId) {
             purgeStalePendingRemoteDamagePhotos();
-            pendingRemoteDamagePhotos.push(parsed);
+            enqueuePendingRemoteDamagePhoto(parsed);
             toast('Remote photo received. Open Record Damage to attach it.');
             return;
           }
@@ -1007,6 +1019,46 @@ async function subscribeRemoteScans(scanSessionId) {
       }
     )
     .subscribe();
+}
+
+async function pullRemoteDamageEvents() {
+  if (!remoteSessionId) return;
+  const { data, error } = await supabase
+    .from('scan_events')
+    .select('id, barcode, source')
+    .eq('scan_session_id', remoteSessionId)
+    .eq('source', 'remote_damage_photo')
+    .order('id', { ascending: false })
+    .limit(30);
+  if (error || !Array.isArray(data) || !data.length) return;
+  data.slice().reverse().forEach((row) => {
+    const eventId = Number(row.id);
+    if (Number.isFinite(eventId) && seenRemoteDamageEventIds.has(eventId)) return;
+    if (Number.isFinite(eventId)) {
+      seenRemoteDamageEventIds.add(eventId);
+      if (seenRemoteDamageEventIds.size > 200) {
+        const values = Array.from(seenRemoteDamageEventIds).slice(-120);
+        seenRemoteDamageEventIds.clear();
+        values.forEach((v) => seenRemoteDamageEventIds.add(v));
+      }
+    }
+    const parsed = extractRemoteDamagePath(row);
+    if (!parsed?.path) return;
+    if (!damageDrawer?.classList.contains('open') || !selectedAsset?.assetId) {
+      purgeStalePendingRemoteDamagePhotos();
+      enqueuePendingRemoteDamagePhoto(parsed);
+      return;
+    }
+    if (parsed.assetTag && selectedAsset.assetTag && parsed.assetTag !== selectedAsset.assetTag) return;
+    addRemoteDamagePhotoToDrawer(parsed.path).catch(() => {});
+  });
+}
+
+function startRemoteDamageEventPoller() {
+  if (remoteDamagePollTimer) window.clearInterval(remoteDamagePollTimer);
+  remoteDamagePollTimer = window.setInterval(() => {
+    pullRemoteDamageEvents().catch(() => {});
+  }, 2200);
 }
 
 async function waitForPairedSession(pairingId) {
@@ -1031,6 +1083,8 @@ async function waitForPairedSession(pairingId) {
       startRemoteExpiryTicker();
       startRemoteStatusMonitor();
       await subscribeRemoteScans(remoteSessionId);
+      startRemoteDamageEventPoller();
+      pullRemoteDamageEvents().catch(() => {});
       if (damageDrawer?.classList.contains('open') && selectedAsset?.assetTag) {
         queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
       } else {
@@ -1162,6 +1216,8 @@ async function restoreGlobalRemoteSession() {
     startRemoteExpiryTicker();
     startRemoteStatusMonitor();
     await subscribeRemoteScans(id);
+    startRemoteDamageEventPoller();
+    pullRemoteDamageEvents().catch(() => {});
     if (damageDrawer?.classList.contains('open') && selectedAsset?.assetTag) {
       queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
     } else {

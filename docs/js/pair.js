@@ -7,6 +7,8 @@ const scanEndSessionBtn = qs('#scanEndSessionBtn');
 const pairState = qs('#pairState');
 const pairCountdown = qs('#pairCountdown');
 const pairHint = qs('#pairHint');
+const pairTitle = qs('#pairTitle');
+const pairSubtitle = qs('#pairSubtitle');
 const stage = qs('#pairScannerStage');
 const pairLastScanPill = qs('#pairLastScanPill');
 const video = qs('#pairScannerVideo');
@@ -51,6 +53,19 @@ function resetDamageDraft() {
   if (mode === 'damage') {
     clearFreeze();
   }
+}
+
+function updatePairHeader() {
+  if (!pairTitle || !pairSubtitle) return;
+  if (mode === 'damage') {
+    pairTitle.textContent = 'Damage Mode';
+    pairSubtitle.textContent = remoteControlAssetTag
+      ? `Capture damage photos for ${remoteControlAssetTag}.`
+      : 'Capture damage photos for the selected asset.';
+    return;
+  }
+  pairTitle.textContent = 'Shared Phone Scanner';
+  pairSubtitle.textContent = 'Scan the desktop pairing QR first, then scan barcodes.';
 }
 
 function appConfig() {
@@ -560,6 +575,7 @@ async function scanFrame() {
 async function startPairMode() {
   mode = 'pairing';
   resetLastReadState();
+  updatePairHeader();
   pairState.textContent = 'Session: Waiting for pairing QR...';
   pairHint.textContent = 'Point at the pairing QR shown on desktop.';
   await startCamera();
@@ -576,6 +592,7 @@ async function startScanMode() {
     return;
   }
   mode = 'scanning';
+  updatePairHeader();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Scanning barcodes to desktop session.';
   if (!stream) await startCamera();
@@ -588,6 +605,7 @@ function pauseScanning() {
     remoteControlMode = 'scan';
   }
   mode = 'paused';
+  updatePairHeader();
   resetDamageDraft();
   stopCamera();
   pairHint.textContent = 'Scanning paused. Tap Start Scanning to resume.';
@@ -601,12 +619,14 @@ function stopAll() {
   stopCamera();
   stopSessionStatusMonitor();
   pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
+  updatePairHeader();
   updateScanButtons();
 }
 
 async function enterDamageMode() {
   if (!scanSessionId) return;
   mode = 'damage';
+  updatePairHeader();
   resetDamageDraft();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = remoteControlAssetTag
@@ -620,6 +640,7 @@ async function exitDamageModeToScanning() {
   if (!scanSessionId) return;
   resetDamageDraft();
   mode = 'scanning';
+  updatePairHeader();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Scanning barcodes to desktop session.';
   if (!stream) await startCamera();
@@ -711,6 +732,7 @@ async function endSessionFromPhone() {
   scanEndSessionBtn.disabled = true;
   pairState.textContent = 'Session: Ended';
   pairCountdown.textContent = '--:-- remaining';
+  updatePairHeader();
   stopAll();
   updateScanButtons();
 }
@@ -736,6 +758,7 @@ function init() {
   });
   pairDamageRetakeBtn?.addEventListener('click', retakeDamagePhoto);
   window.addEventListener('beforeunload', stopCamera);
+  updatePairHeader();
   updateScanButtons();
 }
 
