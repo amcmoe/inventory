@@ -691,17 +691,28 @@ async function uploadCapturedDamagePhoto() {
   if (!scanSessionId || mode !== 'damage' || !pendingDamageBase64) return;
   if (pairDamageUploadBtn) pairDamageUploadBtn.disabled = true;
   if (pairDamageRetakeBtn) pairDamageRetakeBtn.disabled = true;
-  await postNoAuth('scan-damage-photo', {
-    scan_session_id: scanSessionId,
-    pairing_id: activePairingId,
-    challenge: activePairingChallenge,
-    asset_tag: remoteControlAssetTag,
-    image_base64: pendingDamageBase64,
-    mime_type: 'image/jpeg'
-  });
-  resetDamageDraft();
-  showFreezeFrame('Photo uploaded', 480);
-  toast('Damage photo sent to desktop.');
+  try {
+    await postNoAuth('scan-damage-photo', {
+      scan_session_id: scanSessionId,
+      pairing_id: activePairingId,
+      challenge: activePairingChallenge,
+      asset_tag: remoteControlAssetTag,
+      image_base64: pendingDamageBase64,
+      mime_type: 'image/jpeg'
+    });
+    resetDamageDraft();
+    showFreezeFrame('Photo uploaded', 480);
+    toast('Damage photo sent to desktop.');
+  } catch (err) {
+    // Keep captured frame so the user can retry upload or retake.
+    toast((err as Error)?.message || 'Damage photo upload failed', true);
+  } finally {
+    if (mode === 'damage') {
+      if (pairDamageUploadBtn) pairDamageUploadBtn.disabled = false;
+      if (pairDamageRetakeBtn) pairDamageRetakeBtn.disabled = false;
+      updateScanButtons();
+    }
+  }
 }
 
 function retakeDamagePhoto() {
