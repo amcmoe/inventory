@@ -65,7 +65,7 @@ function updatePairHeader() {
     return;
   }
   pairTitle.textContent = 'Shared Phone Scanner';
-  pairSubtitle.textContent = 'Scan the desktop pairing QR first, then scan barcodes.';
+  pairSubtitle.textContent = 'Scan the desktop pairing QE first, then scan barcodes.';
 }
 
 function appConfig() {
@@ -75,6 +75,9 @@ function appConfig() {
 function updateScanButtons() {
   const hasSession = Boolean(scanSessionId);
   const cameraOpen = !stage.hidden;
+  if (pairSubtitle) {
+    pairSubtitle.hidden = hasSession;
+  }
   if (pairStartBtn) {
     pairStartBtn.hidden = hasSession;
     pairStartBtn.disabled = hasSession;

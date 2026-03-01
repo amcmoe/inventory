@@ -1324,11 +1324,16 @@ async function waitForPairedSession(pairingId) {
   }, 1200);
 }
 
-async function generatePairingQr() {
-  if (pairingGenerateInFlight) return;
+async function generatePairingQr(force = false) {
+  if (pairingGenerateInFlight && !force) return;
+  if (force) {
+    pairingGenerateInFlight = false;
+  }
   pairingGenerateInFlight = true;
   if (pairRegenerateBtn) pairRegenerateBtn.disabled = true;
   try {
+    setPairModalOpen(true);
+    clearRemoteTimers();
     await ensureSessionFresh();
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
@@ -1485,12 +1490,12 @@ async function init() {
       return;
     }
     setPairModalOpen(true);
-    generatePairingQr().catch((err) => toast(err.message, true));
+    generatePairingQr(true).catch((err) => toast(err.message, true));
   });
   pairModalOverlay?.addEventListener('click', () => setPairModalOpen(false));
   pairModalCloseBtn?.addEventListener('click', () => setPairModalOpen(false));
   pairRegenerateBtn?.addEventListener('click', () => {
-    generatePairingQr().catch((err) => toast(err.message, true));
+    generatePairingQr(true).catch((err) => toast(err.message, true));
   });
   pairEndSessionBtn?.addEventListener('click', () => {
     (async () => {

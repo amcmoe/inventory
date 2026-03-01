@@ -1421,9 +1421,13 @@ textarea {
 
 .pair-actions {
   display: flex;
+  align-items: center;
   flex-wrap: nowrap;
   gap: 8px;
+  padding-top: 3px;
+  padding-bottom: 3px;
   overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1433,6 +1437,7 @@ textarea {
   padding: 8px 10px;
   font-size: 0.9rem;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .pair-damage-actions {
