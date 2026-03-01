@@ -23,6 +23,11 @@ let detector = null;
 let lastRaw = '';
 let lastScanAt = 0;
 
+function displayStatus(status) {
+  const raw = String(status || '');
+  return raw === 'checked_out' ? 'Assigned' : raw;
+}
+
 function extractCandidates(rawValue) {
   const raw = String(rawValue || '').trim();
   if (!raw) return [];
@@ -70,7 +75,7 @@ async function lookupAsset(rawValue) {
           <div class="detail"><div class="k">Asset Tag</div><div class="v mono">${escapeHtml(data.asset_tag)}</div></div>
           <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(data.model || '-')}</div></div>
           <div class="detail"><div class="k">Type</div><div class="v">${escapeHtml(data.equipment_type || '-')}</div></div>
-          <div class="detail"><div class="k">Status</div><div class="v">${escapeHtml(data.status || '-')}</div></div>
+          <div class="detail"><div class="k">Status</div><div class="v">${escapeHtml(displayStatus(data.status || '-'))}</div></div>
           <div class="detail"><div class="k">Building / Room</div><div class="v">${escapeHtml(buildingParts.join(' / ') || '-')}</div></div>
         </div>
         <div class="row">

@@ -140,6 +140,42 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" id="assigneeHistorySection" hidden>
+        <div class="panel-body">
+          <h2>Assignee History</h2>
+          <p class="muted" id="assigneeHistoryMeta">Select an assignee to view assignment and damage history.</p>
+          <div class="table-wrap">
+            <table role="grid" aria-label="Assignee asset history">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Action</th>
+                  <th>Asset</th>
+                  <th>Model</th>
+                  <th>Building</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="assigneeHistoryTbody"></tbody>
+            </table>
+          </div>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table role="grid" aria-label="Assignee damage history">
+              <thead>
+                <tr>
+                  <th>Reported</th>
+                  <th>Asset</th>
+                  <th>Summary</th>
+                  <th>Status</th>
+                  <th>Attribution</th>
+                </tr>
+              </thead>
+              <tbody id="assigneeDamageTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 

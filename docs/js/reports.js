@@ -15,6 +15,11 @@ const reportSearch = qs('#reportSearch');
 let rowsCache = [];
 let debounce = null;
 
+function displayStatus(status) {
+  const raw = String(status || '');
+  return raw === 'checked_out' ? 'Assigned' : raw;
+}
+
 function fileSafeTs() {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
@@ -46,7 +51,7 @@ function renderRows(rows) {
       <td>${escapeHtml(r.type)}</td>
       <td>${escapeHtml(r.model)}</td>
       <td>${escapeHtml(r.assignee)}</td>
-      <td>${escapeHtml(r.status)}</td>
+      <td>${escapeHtml(displayStatus(r.status))}</td>
       <td>${escapeHtml(r.buildingRoom)}</td>
     </tr>
   `).join('');
@@ -83,7 +88,7 @@ function exportCsv(rows) {
   const escapeCsv = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`;
   const lines = [
     headers.join(','),
-    ...rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.buildingRoom].map(escapeCsv).join(','))
+    ...rows.map((r) => [r.serial, r.type, r.model, r.assignee, displayStatus(r.status), r.buildingRoom].map(escapeCsv).join(','))
   ];
   downloadBlob(`asset-report-${fileSafeTs()}.csv`, 'text/csv;charset=utf-8', lines.join('\n'));
 }
@@ -95,7 +100,7 @@ function exportHtml(rows) {
       <td>${escapeHtml(r.type)}</td>
       <td>${escapeHtml(r.model)}</td>
       <td>${escapeHtml(r.assignee)}</td>
-      <td>${escapeHtml(r.status)}</td>
+      <td>${escapeHtml(displayStatus(r.status))}</td>
       <td>${escapeHtml(r.buildingRoom)}</td>
     </tr>
   `).join('');
@@ -134,7 +139,7 @@ function exportPdf(rows) {
   doc.autoTable({
     startY: 25,
     head: [['Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Building / Room']],
-    body: rows.map((r) => [r.serial, r.type, r.model, r.assignee, r.status, r.buildingRoom]),
+    body: rows.map((r) => [r.serial, r.type, r.model, r.assignee, displayStatus(r.status), r.buildingRoom]),
     styles: { fontSize: 8 }
   });
   doc.save(`asset-report-${fileSafeTs()}.pdf`);

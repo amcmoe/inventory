@@ -727,6 +727,19 @@ tbody tr.selected {
   transform: translateX(0);
 }
 
+.drawer-secondary {
+  width: min(460px, 88vw);
+  right: min(520px, 92vw);
+  z-index: 65;
+}
+
+@media (max-width: 1100px) {
+  .drawer-secondary {
+    right: 0;
+    width: min(520px, 92vw);
+  }
+}
+
 .drawer-header {
   padding: 16px;
   border-bottom: 1px solid var(--border);
@@ -914,6 +927,88 @@ textarea {
 
 #drawerAssigneeEditor .row {
   margin-top: 4px;
+}
+
+#drawerNoteEditor textarea,
+#drawerDamageEditor textarea,
+#drawerDamageEditor input[type="text"] {
+  margin-top: 6px;
+}
+
+#drawerNoteEditor .row,
+#drawerDamageEditor .row {
+  margin-top: 8px;
+}
+
+#drawerDamageCameraStage {
+  margin-top: 8px;
+  min-height: 180px;
+}
+
+#drawerDamageThumbs {
+  margin-top: 8px;
+}
+
+.damage-drawer-tools .bulk-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.camera-shutter-btn {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  width: 62px;
+  height: 62px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.camera-shutter-btn > span {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.camera-shutter-btn:hover > span {
+  background: #ffffff;
+}
+
+.camera-shutter-btn:active {
+  transform: translateX(-50%) scale(0.96);
+}
+
+.camera-shutter-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .camera-shutter-btn {
+  border-color: rgba(15, 23, 42, 0.28);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+#drawerDamageCameraToggleBtn.is-running .icon-scan {
+  display: none;
+}
+
+#drawerDamageCameraToggleBtn .icon-stop {
+  display: none;
+}
+
+#drawerDamageCameraToggleBtn.is-running .icon-stop {
+  display: block;
 }
 
 @media (min-width: 860px) {
@@ -1275,6 +1370,11 @@ textarea {
   padding: 8px 10px;
   font-size: 0.9rem;
   white-space: nowrap;
+}
+
+.pair-damage-actions {
+  margin-top: 8px;
+  gap: 10px;
 }
 
 .remote-badge {

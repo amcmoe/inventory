@@ -24,13 +24,21 @@ let selectedPerson = null;
 let personSearchDebounce = null;
 let incidentCount = 0;
 
+function personLink(personId, displayName) {
+  const label = escapeHtml(displayName || '-');
+  if (!personId) return label;
+  return `<a href="./people.html?person=${encodeURIComponent(personId)}">${label}</a>`;
+}
+
 function getTag() {
   const params = new URLSearchParams(window.location.search);
   return params.get('tag');
 }
 
 function statusBadge(status) {
-  return `<span class="badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+  const raw = String(status || '');
+  const label = raw === 'checked_out' ? 'Assigned' : raw;
+  return `<span class="badge status-${escapeHtml(raw)}">${escapeHtml(label)}</span>`;
 }
 
 function detailPill(label, value) {
@@ -73,7 +81,7 @@ async function loadAsset() {
 
   const { data, error } = await supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(id, display_name, email, employee_id, department))')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, last_transaction_id, people(id, display_name, email, employee_id, department))')
     .eq('asset_tag', tag)
     .maybeSingle();
 
@@ -90,6 +98,7 @@ async function loadAsset() {
 
   const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
   const assignee = current?.people?.display_name || '-';
+  const assigneeLink = personLink(current?.people?.id || current?.assignee_person_id || null, assignee);
 
   const title = asset.model || asset.device_name || asset.asset_tag;
   assetTitle.innerHTML = `${escapeHtml(asset.asset_tag)} - ${escapeHtml(title)}`;
@@ -121,7 +130,7 @@ async function loadAsset() {
       ${detailPill('Ownership', escapeHtml(asset.ownership || '-'))}
       ${detailPill('Warranty Expires', escapeHtml(asset.warranty_expiration_date || '-'))}
       ${detailPill('Obsolete', asset.obsolete ? 'Yes' : 'No')}
-      ${detailPill('Current Assignee', escapeHtml(assignee))}
+      ${detailPill('Current Assignee', assigneeLink)}
       ${detailPill('Checked Out At', formatDateTime(current?.checked_out_at))}
     </div>
     <div class="asset-detail-notes">
@@ -147,7 +156,7 @@ async function loadHistory() {
 
   const { data, error } = await supabase
     .from('transactions')
-    .select('id, action, assignee_person_id, performed_by_user_id, occurred_at, notes, due_date, people(display_name)')
+    .select('id, action, assignee_person_id, performed_by_user_id, occurred_at, notes, due_date, people(id, display_name)')
     .eq('asset_id', asset.id)
     .order('occurred_at', { ascending: false })
     .limit(100);
@@ -163,13 +172,14 @@ async function loadHistory() {
 
   historyList.innerHTML = data.map((tx) => {
     const assignee = tx.people?.display_name || '-';
+    const assigneeId = tx.assignee_person_id || tx.people?.id || null;
     return `
       <div class="history-item">
         <div class="row row-between">
           <strong>${tx.action.toUpperCase()}</strong>
           <span class="muted">${formatDateTime(tx.occurred_at)}</span>
         </div>
-        <div class="meta">Assignee: ${escapeHtml(assignee)}</div>
+        <div class="meta">Assignee: ${personLink(assigneeId, assignee)}</div>
         <div class="meta">Due: ${escapeHtml(tx.due_date || '-')}</div>
         <div class="meta">By user ID: ${escapeHtml(tx.performed_by_user_id)}</div>
         <div class="meta">Notes: ${escapeHtml(tx.notes || '-')}</div>
@@ -204,6 +214,46 @@ async function loadDamageReports() {
   }
   incidentCount = data.length;
 
+  const { data: txRows, error: txError } = await supabase
+    .from('transactions')
+    .select('id, action, assignee_person_id, occurred_at, people(id, display_name)')
+    .eq('asset_id', asset.id)
+    .order('occurred_at', { ascending: true })
+    .limit(500);
+
+  if (txError) {
+    throw txError;
+  }
+  const txList = txRows || [];
+  const txById = new Map(txList.map((tx) => [tx.id, tx]));
+
+  function resolveReportAssignee(report) {
+    if (report.related_transaction_id && txById.has(report.related_transaction_id)) {
+      const tx = txById.get(report.related_transaction_id);
+      return {
+        id: tx?.assignee_person_id || tx?.people?.id || null,
+        name: tx?.people?.display_name || 'Unknown',
+        inferred: false
+      };
+    }
+    const createdAt = new Date(report.created_at).getTime();
+    if (Number.isNaN(createdAt)) {
+      return { id: null, name: 'Unknown', inferred: true };
+    }
+    let candidate = null;
+    for (const tx of txList) {
+      if (tx.action !== 'out') continue;
+      const occurred = new Date(tx.occurred_at).getTime();
+      if (Number.isNaN(occurred) || occurred > createdAt) continue;
+      candidate = tx;
+    }
+    return {
+      id: candidate?.assignee_person_id || candidate?.people?.id || null,
+      name: candidate?.people?.display_name || 'Unknown',
+      inferred: true
+    };
+  }
+
   const allPaths = data.flatMap((report) => (report.damage_photos || []).map((p) => p.storage_path));
   let signedMap = new Map();
 
@@ -212,23 +262,29 @@ async function loadDamageReports() {
       .from(bucket)
       .createSignedUrls(allPaths, 3600);
 
-    if (!signedError && signedData) {
+    if (signedError) {
+      toast(`Photo URL signing failed: ${signedError.message}`, true);
+    } else if (signedData) {
       signedData.forEach((item, index) => {
-        signedMap.set(allPaths[index], item.signedUrl);
+        if (item?.signedUrl) {
+          signedMap.set(allPaths[index], item.signedUrl);
+        }
       });
     }
   }
 
   damageList.innerHTML = data.map((report) => {
+    const assignee = resolveReportAssignee(report);
     const photos = report.damage_photos || [];
+    const renderedPhotos = photos.map((photo) => {
+      const url = signedMap.get(photo.storage_path);
+      if (!url) {
+        return '<div class="muted">Photo unavailable (URL signing failed)</div>';
+      }
+      return `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(url)}" alt="Damage photo"></a>`;
+    }).join('');
     const photoHtml = photos.length
-      ? `<div class="thumb-grid">${photos.map((photo) => {
-        const url = signedMap.get(photo.storage_path);
-        if (!url) {
-          return '';
-        }
-        return `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(url)}" alt="Damage photo"></a>`;
-      }).join('')}</div>`
+      ? `<div class="thumb-grid">${renderedPhotos}</div>`
       : '<div class="muted">No photos uploaded.</div>';
 
     return `
@@ -238,6 +294,7 @@ async function loadDamageReports() {
           <span class="badge status-${escapeHtml(report.status)}">${escapeHtml(report.status)}</span>
         </div>
         <div class="meta">Created: ${formatDateTime(report.created_at)} | Reporter: ${escapeHtml(report.reported_by_user_id)}</div>
+        <div class="meta">Attributed Assignee: ${personLink(assignee.id, assignee.name)}${assignee.inferred ? ' (inferred)' : ''}</div>
         <div class="meta">Related Transaction: ${escapeHtml(String(report.related_transaction_id || '-'))}</div>
         <div class="meta">Notes: ${escapeHtml(report.notes || '-')}</div>
         ${photoHtml}
@@ -385,13 +442,17 @@ async function submitDamageReport() {
     return;
   }
 
+  const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
+  const relatedTxId = current?.last_transaction_id || null;
+
   const { data: report, error } = await supabase
     .from('damage_reports')
     .insert({
       asset_id: asset.id,
       reported_by_user_id: session.user.id,
       summary,
-      notes
+      notes,
+      related_transaction_id: relatedTxId
     })
     .select('id')
     .single();

@@ -90,7 +90,7 @@
         <div class="kpi">
           <div class="label">Assigned</div>
           <div class="value" id="kpiAssigned">0</div>
-          <div class="hint">Checked out to users</div>
+          <div class="hint">Assigned to users</div>
         </div>
         <div class="kpi">
           <div class="label">Available</div>
@@ -132,7 +132,7 @@
               <select id="statusFilter">
                 <option value="">All status</option>
                 <option value="available">Available</option>
-                <option value="checked_out">Checked Out</option>
+                <option value="checked_out">Assigned</option>
                 <option value="repair">Repair</option>
                 <option value="retired">Retired</option>
               </select>
@@ -153,6 +153,7 @@
                 <th>Assigned To</th>
                 <th>Status</th>
                 <th>Building</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="assetTbody"></tbody>
@@ -189,11 +190,80 @@
           </div>
         </div>
       </div>
+      <div class="detail" id="drawerNoteEditor" hidden>
+        <div class="k">Add Note</div>
+        <div class="v">
+          <textarea id="drawerNoteInput" rows="3" placeholder="Add note to this asset..."></textarea>
+          <div class="row">
+            <button class="btn" id="drawerSaveNoteBtn" type="button">Save Note</button>
+          </div>
+        </div>
+      </div>
+      <div class="detail" id="drawerDamageEditor" hidden>
+        <div class="k">Record Damage</div>
+        <div class="v">
+          <button class="btn danger" id="drawerOpenDamageBtn" type="button">Record Damage</button>
+        </div>
+      </div>
     </div>
     <div class="drawer-footer">
       <button class="btn primary" id="printLabelBtn" type="button">Print Label</button>
       <button class="btn" id="editBtn" type="button">Edit</button>
       <button class="btn danger" id="retireBtn" type="button">Retire</button>
+    </div>
+  </aside>
+  <aside class="drawer drawer-secondary" id="damageDrawer" aria-label="Record damage" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <strong>Record Damage</strong>
+        <span id="damageDrawerAssetMeta">Select an asset first</span>
+      </div>
+      <button class="btn ghost" id="damageDrawerCloseBtn" type="button" aria-label="Close damage drawer">X</button>
+    </div>
+      <div class="drawer-body">
+      <div class="detail">
+        <div class="k">Damage Note</div>
+        <div class="v">
+          <textarea id="drawerDamageNotes" rows="4" placeholder="Describe the damage..." required></textarea>
+        </div>
+      </div>
+          <div class="detail">
+        <div class="k">Photos</div>
+        <div class="v">
+          <div class="row damage-drawer-tools">
+            <button class="bulk-icon-btn" id="drawerDamageCameraToggleBtn" type="button" aria-label="Start camera" title="Start Camera">
+              <svg class="icon-scan" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h3l1.3-2h7.4L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5" />
+              </svg>
+            </button>
+            <button class="bulk-icon-btn" id="drawerDamageUploadBtn" type="button" aria-label="Upload photos" title="Upload Photos">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 16V6"></path>
+                <path d="M8.5 9.5 12 6l3.5 3.5"></path>
+                <path d="M4 17.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="scanner-stage" id="drawerDamageCameraStage" hidden>
+            <video id="drawerDamageCameraVideo" autoplay playsinline muted></video>
+            <canvas id="drawerDamageCameraCanvas" hidden></canvas>
+            <div class="scanner-overlay"></div>
+            <button class="camera-shutter-btn" id="drawerDamageCameraCaptureBtn" type="button" aria-label="Capture photo" title="Capture Photo" disabled>
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="thumb-grid" id="drawerDamageThumbs" hidden></div>
+          <input id="drawerDamagePhotos" type="file" accept="image/*" capture="environment" multiple hidden>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn" id="damageDrawerCancelBtn" type="button">Cancel</button>
+      <button class="btn danger" id="drawerReportDamageBtn" type="button">Submit Damage Report</button>
     </div>
   </aside>
 

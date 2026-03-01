@@ -36,6 +36,13 @@
           <canvas id="pairScannerCanvas" hidden></canvas>
           <div class="scanner-overlay"></div>
           <div class="pair-last-pill" id="pairLastScanPill" hidden>Last: -</div>
+          <button class="camera-shutter-btn" id="pairDamageCaptureBtn" type="button" aria-label="Capture damage photo" title="Capture damage photo" hidden>
+            <span aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="row pair-damage-actions" id="pairDamageActions" hidden>
+          <button class="btn primary" id="pairDamageUploadBtn" type="button">Upload</button>
+          <button class="btn" id="pairDamageRetakeBtn" type="button">Retake</button>
         </div>
         <div class="muted" id="pairHint">Tap "Scan Pair QR" and point camera at the desktop pairing code.</div>
       </div>

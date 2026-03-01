@@ -371,6 +371,13 @@ function setEditMode(isEditMode) {
   });
 }
 
+function sanitizeLookupTerm(term) {
+  return String(term || '')
+    .replace(/[,%()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getFormValues() {
   const assetTag = qs('#assetTag').value.trim() || null;
   const model = qs('#model').value.trim() || null;
@@ -433,16 +440,18 @@ async function saveAsset() {
 }
 
 async function loadByTag() {
-  const tag = qs('#assetTag').value.trim();
-  if (!tag) {
-    toast('Enter a serial number.', true);
+  const term = sanitizeLookupTerm(qs('#assetTag').value);
+  if (!term) {
+    toast('Enter search text.', true);
     return;
   }
 
   const { data, error } = await supabase
     .from('assets')
     .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes')
-    .eq('asset_tag', tag)
+    .or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%`)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -451,7 +460,7 @@ async function loadByTag() {
   }
 
   if (!data) {
-    toast('Asset not found for that tag.', true);
+    toast('Asset not found for that search term.', true);
     setEditMode(false);
     return;
   }

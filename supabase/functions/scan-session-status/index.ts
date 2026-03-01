@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const { data: session, error: readError } = await admin
       .from('scan_sessions')
-      .select('id, created_by_user_id, status, expires_at, ended_at, pairing_challenge_id')
+      .select('id, created_by_user_id, status, expires_at, ended_at, pairing_challenge_id, remote_mode, remote_asset_tag')
       .eq('id', scanSessionId)
       .single();
     if (readError || !session) {
@@ -93,7 +93,9 @@ Deno.serve(async (req) => {
       ok: true,
       status: session.status,
       expires_at: session.expires_at,
-      ended_at: session.ended_at
+      ended_at: session.ended_at,
+      remote_mode: session.remote_mode || 'scan',
+      remote_asset_tag: session.remote_asset_tag || null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

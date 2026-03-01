@@ -13,11 +13,15 @@ const video = qs('#pairScannerVideo');
 const freezeCanvas = qs('#pairScannerFreeze');
 const overlayCanvas = qs('#pairScannerOverlay');
 const canvas = qs('#pairScannerCanvas');
+const pairDamageCaptureBtn = qs('#pairDamageCaptureBtn');
+const pairDamageActions = qs('#pairDamageActions');
+const pairDamageUploadBtn = qs('#pairDamageUploadBtn');
+const pairDamageRetakeBtn = qs('#pairDamageRetakeBtn');
 
 let stream = null;
 let detector = null;
 let timer = null;
-let mode = 'idle'; // idle | pairing | scanning | paused
+let mode = 'idle'; // idle | pairing | scanning | paused | damage
 let lastRead = '';
 let lastReadAt = 0;
 let scanSessionId = null;
@@ -29,11 +33,24 @@ let activePairingChallenge = null;
 let audioCtx = null;
 let freezeUntil = 0;
 let freezeTimer = null;
+let remoteControlMode = 'scan';
+let remoteControlAssetTag = null;
+let pendingDamageBase64 = '';
 
 function resetLastReadState() {
   lastRead = '';
   lastReadAt = 0;
   updateLastScanPill('');
+}
+
+function resetDamageDraft() {
+  pendingDamageBase64 = '';
+  if (pairDamageActions) pairDamageActions.hidden = true;
+  if (pairDamageUploadBtn) pairDamageUploadBtn.disabled = false;
+  if (pairDamageRetakeBtn) pairDamageRetakeBtn.disabled = false;
+  if (mode === 'damage') {
+    clearFreeze();
+  }
 }
 
 function appConfig() {
@@ -49,6 +66,14 @@ function updateScanButtons() {
   scanPauseBtn.disabled = !cameraOpen;
   scanEndSessionBtn.hidden = !hasSession;
   scanEndSessionBtn.disabled = !hasSession;
+  if (pairDamageCaptureBtn) {
+    const showCapture = hasSession && cameraOpen && mode === 'damage';
+    pairDamageCaptureBtn.hidden = !showCapture;
+    pairDamageCaptureBtn.disabled = !showCapture || Boolean(pendingDamageBase64);
+  }
+  if (pairDamageActions) {
+    pairDamageActions.hidden = !(mode === 'damage' && cameraOpen && Boolean(pendingDamageBase64));
+  }
 }
 
 function updateLastScanPill(value = '') {
@@ -106,6 +131,7 @@ function clearOverlay() {
 function clearFreeze() {
   if (!freezeCanvas) return;
   freezeCanvas.hidden = true;
+  freezeUntil = 0;
   const ctx = freezeCanvas.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, freezeCanvas.width, freezeCanvas.height);
@@ -238,7 +264,7 @@ function showFreezeFrame(readText = '', durationMs = 1000) {
   ctx.drawImage(video, offsetX, offsetY, drawW, drawH);
   if (readText) {
     ctx.font = '600 16px ui-sans-serif, system-ui, sans-serif';
-    const label = `Read: ${readText}`;
+    const label = String(readText);
     const textW = ctx.measureText(label).width;
     const boxW = Math.min(displayW - 20, textW + 20);
     const boxH = 30;
@@ -250,6 +276,14 @@ function showFreezeFrame(readText = '', durationMs = 1000) {
     ctx.fillText(label, boxX + 10, boxY + 20);
   }
   freezeCanvas.hidden = false;
+  if (durationMs <= 0) {
+    freezeUntil = Number.POSITIVE_INFINITY;
+    if (freezeTimer) {
+      window.clearTimeout(freezeTimer);
+      freezeTimer = null;
+    }
+    return;
+  }
   freezeUntil = Date.now() + durationMs;
   if (freezeTimer) window.clearTimeout(freezeTimer);
   freezeTimer = window.setTimeout(() => {
@@ -309,11 +343,25 @@ async function checkSessionStatus() {
       pairCountdown.textContent = '--:-- remaining';
       pairHint.textContent = 'Session ended from desktop. Scan a new pairing QR to reconnect.';
       stopSessionStatusMonitor();
+      resetDamageDraft();
       stopAll();
       updateScanButtons();
       return;
     }
     sessionExpiresAt = statusData.expires_at || sessionExpiresAt;
+    remoteControlMode = statusData.remote_mode === 'damage' ? 'damage' : 'scan';
+    remoteControlAssetTag = String(statusData.remote_asset_tag || '').trim() || null;
+    if (remoteControlMode === 'damage') {
+      if (mode !== 'damage') {
+        await enterDamageMode();
+      } else {
+        pairHint.textContent = remoteControlAssetTag
+          ? `Damage mode active for ${remoteControlAssetTag}.`
+          : 'Damage mode active.';
+      }
+    } else if (mode === 'damage') {
+      await exitDamageModeToScanning();
+    }
   } catch {
     // Keep local countdown running; network hiccups should not hard-stop scanning.
   }
@@ -407,6 +455,7 @@ async function consumePairing(pairing) {
   scanSessionId = session.scan_session_id;
   sessionExpiresAt = session.expires_at;
   resetLastReadState();
+  resetDamageDraft();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Pairing complete. Scanning is active.';
   if (!stream) await startCamera();
@@ -458,6 +507,10 @@ async function handleRead(raw) {
 async function scanFrame() {
   if (!video || video.readyState < 2) return;
   if (mode === 'idle') return;
+  if (mode === 'damage') {
+    clearOverlay();
+    return;
+  }
   if (Date.now() < freezeUntil) return;
 
   const width = video.videoWidth || 640;
@@ -518,6 +571,10 @@ async function startScanMode() {
     toast('Pair first.', true);
     return;
   }
+  if (remoteControlMode === 'damage') {
+    toast('Damage mode is active from desktop.', true);
+    return;
+  }
   mode = 'scanning';
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = 'Scanning barcodes to desktop session.';
@@ -527,7 +584,11 @@ async function startScanMode() {
 
 function pauseScanning() {
   if (!scanSessionId) return;
+  if (mode === 'damage') {
+    remoteControlMode = 'scan';
+  }
   mode = 'paused';
+  resetDamageDraft();
   stopCamera();
   pairHint.textContent = 'Scanning paused. Tap Start Scanning to resume.';
   updateScanButtons();
@@ -536,9 +597,84 @@ function pauseScanning() {
 function stopAll() {
   mode = 'idle';
   resetLastReadState();
+  resetDamageDraft();
   stopCamera();
   stopSessionStatusMonitor();
   pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
+  updateScanButtons();
+}
+
+async function enterDamageMode() {
+  if (!scanSessionId) return;
+  mode = 'damage';
+  resetDamageDraft();
+  pairState.textContent = 'Session: Paired';
+  pairHint.textContent = remoteControlAssetTag
+    ? `Damage mode active for ${remoteControlAssetTag}.`
+    : 'Damage mode active.';
+  if (!stream) await startCamera();
+  updateScanButtons();
+}
+
+async function exitDamageModeToScanning() {
+  if (!scanSessionId) return;
+  resetDamageDraft();
+  mode = 'scanning';
+  pairState.textContent = 'Session: Paired';
+  pairHint.textContent = 'Scanning barcodes to desktop session.';
+  if (!stream) await startCamera();
+  updateScanButtons();
+}
+
+async function captureDamagePhoto() {
+  if (!scanSessionId || mode !== 'damage' || !video || !canvas) return;
+  const width = video.videoWidth || 1280;
+  const height = video.videoHeight || 720;
+  const maxLongEdge = 1600;
+  const longEdge = Math.max(width, height);
+  const scale = longEdge > maxLongEdge ? (maxLongEdge / longEdge) : 1;
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, targetW, targetH);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+  const base64 = String(dataUrl).split(',')[1] || '';
+  if (!base64) {
+    toast('Capture failed.', true);
+    return;
+  }
+  const estimatedBytes = Math.ceil((base64.length * 3) / 4);
+  if (estimatedBytes > (3 * 1024 * 1024)) {
+    toast('Image still too large. Move closer and retake.', true);
+    return;
+  }
+  pendingDamageBase64 = base64;
+  showFreezeFrame('Preview captured', 0);
+  updateScanButtons();
+}
+
+async function uploadCapturedDamagePhoto() {
+  if (!scanSessionId || mode !== 'damage' || !pendingDamageBase64) return;
+  if (pairDamageUploadBtn) pairDamageUploadBtn.disabled = true;
+  if (pairDamageRetakeBtn) pairDamageRetakeBtn.disabled = true;
+  await postNoAuth('scan-damage-photo', {
+    scan_session_id: scanSessionId,
+    pairing_id: activePairingId,
+    challenge: activePairingChallenge,
+    asset_tag: remoteControlAssetTag,
+    image_base64: pendingDamageBase64,
+    mime_type: 'image/jpeg'
+  });
+  resetDamageDraft();
+  showFreezeFrame('Photo uploaded', 480);
+  toast('Damage photo sent to desktop.');
+}
+
+function retakeDamagePhoto() {
+  if (mode !== 'damage') return;
+  resetDamageDraft();
   updateScanButtons();
 }
 
@@ -567,6 +703,8 @@ async function endSessionFromPhone() {
   sessionExpiresAt = null;
   activePairingId = null;
   activePairingChallenge = null;
+  remoteControlMode = 'scan';
+  remoteControlAssetTag = null;
   resetLastReadState();
   scanStartBtn.disabled = true;
   scanPauseBtn.disabled = true;
@@ -590,6 +728,13 @@ function init() {
   scanEndSessionBtn?.addEventListener('click', () => {
     endSessionFromPhone().catch((err) => toast(err.message, true));
   });
+  pairDamageCaptureBtn?.addEventListener('click', () => {
+    captureDamagePhoto().catch((err) => toast(err.message, true));
+  });
+  pairDamageUploadBtn?.addEventListener('click', () => {
+    uploadCapturedDamagePhoto().catch((err) => toast(err.message, true));
+  });
+  pairDamageRetakeBtn?.addEventListener('click', retakeDamagePhoto);
   window.addEventListener('beforeunload', stopCamera);
   updateScanButtons();
 }

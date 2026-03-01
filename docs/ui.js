@@ -82,12 +82,13 @@ themeBtn?.addEventListener("click", () => {
 
 function statusBadge(status) {
   const s = String(status || "").toLowerCase();
+  const label = s === "checked_out" ? "Assigned" : (status || "-");
   let cls = "info";
   if (s.includes("available")) cls = "ok";
   else if (s.includes("assigned") || s.includes("in service") || s.includes("checked_out")) cls = "info";
   else if (s.includes("repair") || s.includes("maintenance")) cls = "warn";
   else if (s.includes("retire")) cls = "danger";
-  return `<span class="badge ${cls}"><span class="dot"></span>${escapeHtml(status || "-")}</span>`;
+  return `<span class="badge ${cls}"><span class="dot"></span>${escapeHtml(label)}</span>`;
 }
 
 function escapeHtml(str) {
@@ -178,6 +179,7 @@ function enhanceAssetTable() {
 
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
       const [serial, model, assignedTo, status, buildingCell] = cells;
+      const assetId = tr.dataset.assetId || "";
       const assetTag = tr.dataset.assetTag || serial || "";
       const manufacturer = tr.dataset.manufacturer || "";
       const equipmentType = tr.dataset.equipmentType || "";
@@ -188,10 +190,11 @@ function enhanceAssetTable() {
       const warrantyExpirationDate = tr.dataset.warrantyExpirationDate || "";
       const obsolete = tr.dataset.obsolete || "No";
       currentRowData = {
-        serial, assetTag, model, assignedTo, status,
+        assetId, serial, assetTag, model, assignedTo, status,
         building: buildingCell,
         manufacturer, equipmentType, building, room, serviceStartDate,
-        ownership, warrantyExpirationDate, obsolete
+        ownership, warrantyExpirationDate, obsolete,
+        notes: tr.dataset.notes || ""
       };
 
       if (drawerPrimary) drawerPrimary.textContent = serial || "Asset";
