@@ -88,8 +88,9 @@ function updateScanButtons() {
   }
   scanStartBtn.hidden = !(hasSession && !cameraOpen);
   scanStartBtn.disabled = !hasSession;
-  scanPauseBtn.hidden = !cameraOpen;
-  scanPauseBtn.disabled = !cameraOpen;
+  const showPause = hasSession && cameraOpen;
+  scanPauseBtn.hidden = !showPause;
+  scanPauseBtn.disabled = !showPause;
   scanEndSessionBtn.hidden = !hasSession;
   scanEndSessionBtn.disabled = !hasSession;
   if (pairDamageCaptureBtn) {
