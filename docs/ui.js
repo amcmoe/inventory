@@ -201,18 +201,37 @@ function enhanceAssetTable() {
       if (drawerSecondary) drawerSecondary.textContent = model || "-";
       if (drawerDetails) {
         drawerDetails.innerHTML = `
-          <div class="detail"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "-")}</div></div>
-          <div class="detail"><div class="k">Manufacturer</div><div class="v">${escapeHtml(manufacturer || "-")}</div></div>
-          <div class="detail"><div class="k">Model</div><div class="v">${escapeHtml(model || "-")}</div></div>
-          <div class="detail"><div class="k">Equipment Type</div><div class="v">${escapeHtml(equipmentType || "-")}</div></div>
-          <div class="detail"><div class="k">Building</div><div class="v">${escapeHtml(building || "-")}</div></div>
-          <div class="detail"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
-          <div class="detail"><div class="k">In Service Since</div><div class="v">${escapeHtml(fmtDate(serviceStartDate))}</div></div>
-          <div class="detail"><div class="k">Owned or Leased</div><div class="v">${escapeHtml(ownership || "-")}</div></div>
-          <div class="detail"><div class="k">Warranty Expiration</div><div class="v">${escapeHtml(fmtDate(warrantyExpirationDate))}</div></div>
-          <div class="detail"><div class="k">Obsolete</div><div class="v">${escapeHtml(obsolete || "No")}</div></div>
-          <div class="detail"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
-          <div class="detail"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
+          <div class="drawer-summary-grid">
+            <section class="drawer-summary-pill">
+              <div class="pill-title">Asset</div>
+              <div class="pill-grid">
+                <div class="pill-item"><div class="k">Manufacturer</div><div class="v">${escapeHtml(manufacturer || "-")}</div></div>
+                <div class="pill-item"><div class="k">Model</div><div class="v">${escapeHtml(model || "-")}</div></div>
+                <div class="pill-item"><div class="k">Type</div><div class="v">${escapeHtml(equipmentType || "-")}</div></div>
+                <div class="pill-item"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "-")}</div></div>
+              </div>
+            </section>
+            <section class="drawer-summary-pill">
+              <div class="pill-title">Assignment</div>
+              <div class="pill-grid">
+                <div class="pill-item"><div class="k">Building</div><div class="v">${escapeHtml(building || "-")}</div></div>
+                <div class="pill-item"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
+                <div class="pill-item"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
+                <div class="pill-item"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
+              </div>
+            </section>
+            <section class="drawer-summary-pill">
+              <details>
+                <summary>Lifecycle & Warranty</summary>
+                <div class="pill-grid" style="margin-top:8px;">
+                  <div class="pill-item"><div class="k">In Service Since</div><div class="v">${escapeHtml(fmtDate(serviceStartDate))}</div></div>
+                  <div class="pill-item"><div class="k">Warranty Expiration</div><div class="v">${escapeHtml(fmtDate(warrantyExpirationDate))}</div></div>
+                  <div class="pill-item"><div class="k">Owned or Leased</div><div class="v">${escapeHtml(ownership || "-")}</div></div>
+                  <div class="pill-item"><div class="k">Obsolete</div><div class="v">${escapeHtml(obsolete || "No")}</div></div>
+                </div>
+              </details>
+            </section>
+          </div>
         `;
       }
       if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";

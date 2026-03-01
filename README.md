@@ -42,15 +42,20 @@ window.APP_CONFIG = {
 - `002_equipment_type_rename.sql`
 - `003_user_management_app_users.sql`
 - `004_scan_sessions.sql`
+- `005_checkout_checkin_asset_id_ambiguity_fix.sql`
+- `006_append_asset_note.sql`
+- `007_scan_session_remote_control.sql`
 
 3. Deploy/update scanner Edge Functions as needed:
 
 ```powershell
-npx.cmd supabase functions deploy pairing-create --no-verify-jwt
+npx.cmd supabase functions deploy pairing-create
 npx.cmd supabase functions deploy pairing-consume --no-verify-jwt
 npx.cmd supabase functions deploy scan-submit --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-end --no-verify-jwt
 npx.cmd supabase functions deploy scan-session-status --no-verify-jwt
+npx.cmd supabase functions deploy scan-session-control
+npx.cmd supabase functions deploy scan-damage-photo --no-verify-jwt
 ```
 
 ## Deployment
@@ -67,4 +72,3 @@ npx.cmd supabase functions deploy scan-session-status --no-verify-jwt
 - This repo includes:
   - CSP/referrer meta tags in app pages
   - `docs/_headers` for hosts that support static header rules
-
