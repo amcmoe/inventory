@@ -4,6 +4,7 @@ const pairStartBtn = qs('#pairStartBtn');
 const scanStartBtn = qs('#scanStartBtn');
 const scanPauseBtn = qs('#scanPauseBtn');
 const scanEndSessionBtn = qs('#scanEndSessionBtn');
+const pairSessionCard = qs('#pairSessionCard');
 const pairState = qs('#pairState');
 const pairCountdown = qs('#pairCountdown');
 const pairHint = qs('#pairHint');
@@ -58,7 +59,7 @@ function resetDamageDraft() {
 function updatePairHeader() {
   if (!pairTitle || !pairSubtitle) return;
   if (mode === 'damage') {
-    pairTitle.textContent = 'Damage Mode';
+    pairTitle.textContent = 'Damage Capture';
     pairSubtitle.textContent = remoteControlAssetTag
       ? `Capture damage photos for ${remoteControlAssetTag}.`
       : 'Capture damage photos for the selected asset.';
@@ -75,6 +76,9 @@ function appConfig() {
 function updateScanButtons() {
   const hasSession = Boolean(scanSessionId);
   const cameraOpen = !stage.hidden;
+  if (pairSessionCard) {
+    pairSessionCard.hidden = !hasSession;
+  }
   if (pairSubtitle) {
     pairSubtitle.hidden = hasSession;
   }
@@ -378,8 +382,8 @@ async function checkSessionStatus() {
         await enterDamageMode();
       } else {
         pairHint.textContent = remoteControlAssetTag
-          ? `Damage mode active for ${remoteControlAssetTag}.`
-          : 'Damage mode active.';
+          ? `Damage capture active for ${remoteControlAssetTag}.`
+          : 'Damage capture active.';
       }
     } else if (mode === 'damage') {
       await exitDamageModeToScanning();
@@ -595,7 +599,7 @@ async function startScanMode() {
     return;
   }
   if (remoteControlMode === 'damage') {
-    toast('Damage mode is active from desktop.', true);
+    toast('Damage capture is active from desktop.', true);
     return;
   }
   mode = 'scanning';
@@ -625,7 +629,7 @@ function stopAll() {
   resetDamageDraft();
   stopCamera();
   stopSessionStatusMonitor();
-  pairHint.textContent = 'Tap "Scan Pair QR" and point camera at the desktop pairing code.';
+  pairHint.textContent = 'Tap "Pair QR Scanner" and point camera at the desktop pairing code.';
   updatePairHeader();
   updateScanButtons();
 }
@@ -637,8 +641,8 @@ async function enterDamageMode() {
   resetDamageDraft();
   pairState.textContent = 'Session: Paired';
   pairHint.textContent = remoteControlAssetTag
-    ? `Damage mode active for ${remoteControlAssetTag}.`
-    : 'Damage mode active.';
+    ? `Damage capture active for ${remoteControlAssetTag}.`
+    : 'Damage capture active.';
   if (!stream) await startCamera();
   updateScanButtons();
 }

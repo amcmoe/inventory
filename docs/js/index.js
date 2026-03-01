@@ -90,6 +90,7 @@ const seenRemoteDamageEventIds = new Set();
 let remoteStatusFailureCount = 0;
 let stopSessionKeepAlive = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
+const DISMISSED_REMOTE_DAMAGE_KEY_PREFIX = 'remoteDismissedDamagePaths:';
 let drawerDamageCameraStream = null;
 let capturedDamagePhotos = [];
 let expandedDamagePhotoId = null;
@@ -98,6 +99,78 @@ let remoteModeSyncTimer = null;
 let pendingRemoteDamagePhotos = [];
 const PENDING_REMOTE_DAMAGE_TTL_MS = 10 * 60 * 1000;
 let pendingRemotePurgeTimer = null;
+let remoteSessionWatchdogTimer = null;
+const dismissedRemoteDamagePaths = new Set();
+
+function getDismissedRemoteDamageStorageKey(sessionId = remoteSessionId) {
+  const id = String(sessionId || '').trim();
+  return id ? `${DISMISSED_REMOTE_DAMAGE_KEY_PREFIX}${id}` : '';
+}
+
+function loadDismissedRemoteDamagePaths() {
+  dismissedRemoteDamagePaths.clear();
+  const key = getDismissedRemoteDamageStorageKey();
+  if (!key) return;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    parsed.forEach((item) => {
+      const path = String(item || '').trim();
+      if (path) dismissedRemoteDamagePaths.add(path);
+    });
+  } catch {
+    // ignore malformed storage payload
+  }
+}
+
+function persistDismissedRemoteDamagePaths() {
+  const key = getDismissedRemoteDamageStorageKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(dismissedRemoteDamagePaths).slice(-400)));
+  } catch {
+    // ignore storage write failures
+  }
+}
+
+function isRemoteDamagePathDismissed(path) {
+  const value = String(path || '').trim();
+  return value ? dismissedRemoteDamagePaths.has(value) : false;
+}
+
+function removePendingRemoteDamagePath(path) {
+  const value = String(path || '').trim();
+  if (!value) return;
+  pendingRemoteDamagePhotos = pendingRemoteDamagePhotos.filter((item) => String(item?.path || '').trim() !== value);
+  updatePendingUploadsBadge();
+}
+
+async function dismissAndDeleteRemoteDamagePath(path) {
+  const value = String(path || '').trim();
+  if (!value) return;
+  dismissedRemoteDamagePaths.add(value);
+  persistDismissedRemoteDamagePaths();
+  removePendingRemoteDamagePath(value);
+  try {
+    await supabase.storage.from(damagePhotoBucket).remove([value]);
+  } catch {
+    // keep dismissed even if storage delete fails
+  }
+  if (remoteSessionId) {
+    try {
+      await supabase
+        .from('scan_events')
+        .delete()
+        .eq('scan_session_id', remoteSessionId)
+        .eq('source', 'remote_damage_photo')
+        .ilike('barcode', `%${value}%`);
+    } catch {
+      // ignore delete-policy issues; dismissed set still prevents re-add
+    }
+  }
+}
 
 function getPendingUploadCount() {
   let count = pendingRemoteDamagePhotos.length;
@@ -834,25 +907,29 @@ function renderCapturedDamageThumbs() {
     });
   });
   drawerDamageThumbs.querySelectorAll('.thumb-remove[data-remove-photo-id]').forEach((btn) => {
-    const remove = () => {
+    const remove = async () => {
       const id = btn.getAttribute('data-remove-photo-id');
       const idx = capturedDamagePhotos.findIndex((p) => p.id === id);
       if (idx >= 0) {
-        URL.revokeObjectURL(capturedDamagePhotos[idx].url);
+        const removed = capturedDamagePhotos[idx];
+        URL.revokeObjectURL(removed.url);
         capturedDamagePhotos.splice(idx, 1);
         renderCapturedDamageThumbs();
+        if (removed?.remotePath) {
+          await dismissAndDeleteRemoteDamagePath(removed.remotePath);
+        }
       }
     };
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      remove();
+      remove().catch(() => {});
     });
     btn.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         event.stopPropagation();
-        remove();
+        remove().catch(() => {});
       }
     });
   });
@@ -1041,9 +1118,15 @@ function setRemoteBadge(state = 'off', text = '') {
 }
 
 async function clearRemoteSessionLocal(reasonText = 'Session ended.') {
+  const previousSessionId = remoteSessionId;
   remoteSessionId = null;
   remoteSessionExpiresAt = null;
   remoteStatusFailureCount = 0;
+  dismissedRemoteDamagePaths.clear();
+  if (previousSessionId) {
+    const key = getDismissedRemoteDamageStorageKey(previousSessionId);
+    if (key) localStorage.removeItem(key);
+  }
   clearPersistedRemoteSession();
   await stopRemoteSubscription();
   setRemoteBadge('off', 'Remote Scanner: Idle');
@@ -1160,7 +1243,16 @@ function startPendingRemoteDamagePurgeTicker() {
   }, 60 * 1000);
 }
 
+function startRemoteSessionWatchdog() {
+  if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
+  remoteSessionWatchdogTimer = window.setInterval(() => {
+    if (!remoteSessionId) return;
+    syncRemoteSessionState().catch(() => {});
+  }, 2000);
+}
+
 async function addRemoteDamagePhotoToDrawer(path) {
+  if (isRemoteDamagePathDismissed(path)) return;
   const duplicate = capturedDamagePhotos.some((p) => p.remotePath === path);
   if (duplicate) return;
   const signed = await supabase.storage.from(damagePhotoBucket).createSignedUrl(path, 60 * 30);
@@ -1183,6 +1275,7 @@ async function addRemoteDamagePhotoToDrawer(path) {
 
 function enqueuePendingRemoteDamagePhoto(parsed) {
   if (!parsed?.path) return;
+  if (isRemoteDamagePathDismissed(parsed.path)) return;
   const exists = pendingRemoteDamagePhotos.some((item) => item.path === parsed.path);
   if (!exists) pendingRemoteDamagePhotos.push(parsed);
   updatePendingUploadsBadge();
@@ -1221,6 +1314,7 @@ async function subscribeRemoteScans(scanSessionId) {
         if (source === 'remote_damage_photo') {
           const parsed = extractRemoteDamagePath(payload?.new);
           if (!parsed?.path) return;
+          if (isRemoteDamagePathDismissed(parsed.path)) return;
           if (!damageDrawer?.classList.contains('open') || !selectedAsset?.assetId) {
             purgeStalePendingRemoteDamagePhotos();
             enqueuePendingRemoteDamagePhoto(parsed);
@@ -1269,6 +1363,7 @@ async function pullRemoteDamageEvents() {
     }
     const parsed = extractRemoteDamagePath(row);
     if (!parsed?.path) return;
+    if (isRemoteDamagePathDismissed(parsed.path)) return;
     if (!damageDrawer?.classList.contains('open') || !selectedAsset?.assetId) {
       purgeStalePendingRemoteDamagePhotos();
       enqueuePendingRemoteDamagePhoto(parsed);
@@ -1302,6 +1397,7 @@ async function waitForPairedSession(pairingId) {
       remoteSessionId = data.id;
       remoteSessionExpiresAt = data.expires_at;
       remoteStatusFailureCount = 0;
+      loadDismissedRemoteDamagePaths();
       pairStatus.textContent = 'Phone paired. Remote scanner active.';
       persistRemoteSession();
       setRemoteBadge('on', 'Remote Scanner: Connected');
@@ -1436,6 +1532,7 @@ async function restoreGlobalRemoteSession() {
     remoteSessionId = id;
     remoteSessionExpiresAt = exp;
     remoteStatusFailureCount = 0;
+    loadDismissedRemoteDamagePaths();
     pairStatus.textContent = 'Remote scanner active (global session).';
     setRemoteBadge('on', 'Remote Scanner: Connected');
     startRemoteExpiryTicker();
@@ -1632,6 +1729,7 @@ async function init() {
       updatePendingUploadsBadge();
       remoteSessionId = null;
       remoteSessionExpiresAt = null;
+      dismissedRemoteDamagePaths.clear();
       clearRemoteTimers();
       clearPersistedRemoteSession();
       stopRemoteSubscription().catch(() => {});
@@ -1656,6 +1754,7 @@ async function init() {
     saveDamageDraftForCurrentAsset();
   });
   startPendingRemoteDamagePurgeTicker();
+  startRemoteSessionWatchdog();
   window.addEventListener('beforeunload', stopScanner);
   window.addEventListener('beforeunload', () => {
     saveDamageDraftForCurrentAsset();
@@ -1663,6 +1762,7 @@ async function init() {
     if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     if (pendingRemotePurgeTimer) window.clearInterval(pendingRemotePurgeTimer);
+    if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
     stopRemoteSubscription().catch(() => {});
   });
   window.addEventListener('beforeunload', stopAutoRefresh);

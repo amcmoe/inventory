@@ -22,7 +22,7 @@
           <button class="btn" id="scanPauseBtn" type="button" disabled>Pause Scanning</button>
           <button class="btn danger" id="scanEndSessionBtn" type="button" hidden disabled>End Session</button>
         </div>
-        <div class="detail" style="margin-top:10px;">
+        <div class="detail" id="pairSessionCard" style="margin-top:10px;" hidden>
           <div class="k">Session</div>
           <div class="v pair-session-line">
             <span id="pairState">Session: Not paired</span>
@@ -44,7 +44,7 @@
           <button class="btn primary" id="pairDamageUploadBtn" type="button">Upload</button>
           <button class="btn" id="pairDamageRetakeBtn" type="button">Retake</button>
         </div>
-        <div class="muted" id="pairHint">Tap "Scan Pair QR" and point camera at the desktop pairing code.</div>
+        <div class="muted" id="pairHint">Tap "Pair QR Scanner" and point camera at the desktop pairing code.</div>
       </div>
     </section>
   </main>
