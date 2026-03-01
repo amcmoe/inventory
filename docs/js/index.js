@@ -177,12 +177,31 @@ function bindRowDamageButtons() {
       event.stopPropagation();
       const tr = btn.closest('tr');
       if (!tr) return;
-      tr.click();
-      window.setTimeout(() => {
-        openDamageDrawerForSelectedAsset();
-      }, 0);
+      selectAssetFromTableRow(tr);
+      openDamageDrawerForSelectedAsset();
     });
   });
+}
+
+function selectAssetFromTableRow(tr) {
+  if (!tr) return;
+  assetTbody.querySelectorAll('tr').forEach((row) => row.classList.remove('selected'));
+  tr.classList.add('selected');
+  const cells = Array.from(tr.querySelectorAll('td')).map((td) => String(td.textContent || '').trim());
+  const serial = cells[0] || tr.dataset.serial || '';
+  const model = cells[1] || tr.dataset.model || '';
+  const assignedTo = cells[2] || tr.dataset.assignee || '';
+  const status = tr.dataset.status || cells[3] || '';
+  const detail = {
+    assetId: tr.dataset.assetId || '',
+    serial,
+    assetTag: tr.dataset.assetTag || serial,
+    model,
+    assignedTo,
+    status,
+    notes: tr.dataset.notes || ''
+  };
+  window.dispatchEvent(new CustomEvent('asset-row-selected', { detail }));
 }
 
 function sanitizeFilterTerm(term) {
@@ -618,6 +637,7 @@ async function submitDamageFromDrawer() {
 
 async function syncRemoteDamageMode(mode = 'scan', assetTag = null) {
   if (!remoteSessionId) return;
+  await ensureSessionFresh();
   const normalizedMode = mode === 'damage' ? 'damage' : 'scan';
   const normalizedAssetTag = normalizedMode === 'damage'
     ? String(assetTag || selectedAsset?.assetTag || '').trim()
@@ -650,6 +670,7 @@ function setDamageDrawerOpen(open) {
   damageDrawer.classList.toggle('open', Boolean(open));
   damageDrawer.setAttribute('aria-hidden', open ? 'false' : 'true');
   if (remoteSessionId) {
+    setRemoteBadge('on', open ? 'Remote Scanner: Damage Mode' : 'Remote Scanner: Connected');
     if (open && selectedAsset?.assetTag) {
       queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
     } else {
@@ -1372,5 +1393,8 @@ function openDamageDrawerForSelectedAsset() {
     damageDrawerAssetMeta.textContent = `${selectedAsset.assetTag || '-'} - ${selectedAsset.model || ''}`.trim();
   }
   setDamageDrawerOpen(true);
+  if (remoteSessionId && selectedAsset?.assetTag) {
+    queueRemoteDamageModeSync('damage', selectedAsset.assetTag);
+  }
   flushPendingRemoteDamagePhotosForSelectedAsset().catch((err) => toast(err.message, true));
 }
