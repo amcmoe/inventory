@@ -1,7 +1,39 @@
 import { supabase, ROLES } from './supabase-client.js';
 
+let refreshInFlight = null;
+
+function withTimeout(promise, ms = 5000, timeoutMessage = 'Request timed out.') {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(timeoutMessage)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) window.clearTimeout(timer);
+  });
+}
+
+async function refreshSessionWithTimeout(timeoutMs = 5000) {
+  return withTimeout(supabase.auth.refreshSession(), timeoutMs, 'Session refresh timed out.');
+}
+
+function isRefreshLockContentionError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    (message.includes('lock') && message.includes('steal')) ||
+    message.includes('lock broken by another request') ||
+    message.includes('refresh already in progress')
+  );
+}
+
+function isSessionUsable(session, minRemainingMs = 30_000) {
+  if (!session) return false;
+  const expMs = Number(session.expires_at || 0) * 1000;
+  if (!Number.isFinite(expMs) || expMs <= 0) return true;
+  return (expMs - Date.now()) > minRemainingMs;
+}
+
 export async function getSession() {
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await withTimeout(supabase.auth.getSession(), 4500, 'Session lookup timed out.');
   if (error) {
     throw error;
   }
@@ -10,15 +42,51 @@ export async function getSession() {
 
 export async function ensureSessionFresh(refreshWindowSec = 180) {
   const session = await getSession();
-  if (!session) return null;
+  if (!session) {
+    if (refreshInFlight) {
+      return refreshInFlight;
+    }
+    refreshInFlight = (async () => {
+      const { data, error } = await refreshSessionWithTimeout(4500);
+      if (error) {
+        return null;
+      }
+      return data.session || null;
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
   const expMs = Number(session.expires_at || 0) * 1000;
   const remainingMs = expMs - Date.now();
   if (!Number.isFinite(expMs) || remainingMs > refreshWindowSec * 1000) {
     return session;
   }
-  const { data, error } = await supabase.auth.refreshSession();
-  if (error) throw error;
-  return data.session || session;
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  refreshInFlight = (async () => {
+    const { data, error } = await refreshSessionWithTimeout(4500);
+    if (error) {
+      if (isRefreshLockContentionError(error)) {
+        // Another request is refreshing; give it a moment to publish the new token.
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 120 + (attempt * 120)));
+          const latestSession = await getSession().catch(() => null);
+          if (isSessionUsable(latestSession)) {
+            return latestSession;
+          }
+        }
+        const latestSession = await getSession().catch(() => null);
+        return latestSession || session;
+      }
+      throw error;
+    }
+    return data.session || session;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 export function startSessionKeepAlive({ intervalMs = 60_000, refreshWindowSec = 180 } = {}) {
@@ -72,8 +140,8 @@ export async function signOut() {
   }
 }
 
-export async function getCurrentProfile() {
-  const session = await getSession();
+export async function getCurrentProfile(sessionOverride = null) {
+  const session = sessionOverride || await getSession();
   if (!session?.user?.id) {
     return null;
   }

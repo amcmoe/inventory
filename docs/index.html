@@ -62,7 +62,8 @@
           <div class="subtext" id="userMeta"></div>
         </div>
         <div class="controls">
-          <span class="remote-badge" id="remoteBadge" aria-live="polite">Remote Scanner: Idle</span>
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database connection: reconnecting">Database</span>
+          <span class="remote-badge" id="remoteBadge" aria-live="polite" hidden>Remote Scanner: Connected</span>
           <span class="pending-badge" id="pendingUploadsBadge" hidden aria-live="polite">Pending Uploads: 0</span>
           <button class="bulk-icon-btn remote-scan-btn" id="remoteScanBtn" type="button" aria-label="Pair phone scanner" title="Pair Phone Scanner">
             <svg class="icon-pair" viewBox="0 0 24 24" aria-hidden="true">
@@ -81,29 +82,6 @@
           <button class="btn" id="signOutBtn" type="button">Log Out</button>
         </div>
       </div>
-
-      <section class="kpis" aria-label="Summary">
-        <div class="kpi">
-          <div class="label">Total assets</div>
-          <div class="value" id="kpiTotal">0</div>
-          <div class="hint">All tracked items</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Assigned</div>
-          <div class="value" id="kpiAssigned">0</div>
-          <div class="hint">Assigned to users</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Available</div>
-          <div class="value" id="kpiAvailable">0</div>
-          <div class="hint">Ready to deploy</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Needs attention</div>
-          <div class="value" id="kpiAttention">0</div>
-          <div class="hint">Repair / retired</div>
-        </div>
-      </section>
 
       <section class="panel" aria-label="Asset list" id="searchPanel" hidden>
         <div class="panel-header">
@@ -202,12 +180,6 @@
           <div class="row">
             <button class="btn" id="drawerSaveNoteBtn" type="button">Save Note</button>
           </div>
-        </div>
-      </div>
-      <div class="detail" id="drawerDamageEditor" hidden>
-        <div class="k">Record Damage</div>
-        <div class="v">
-          <button class="btn danger" id="drawerOpenDamageBtn" type="button">Record Damage</button>
         </div>
       </div>
     </div>

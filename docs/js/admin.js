@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
+import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
@@ -53,6 +53,144 @@ let remoteChannel = null;
 let remoteStatusTimer = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 let stopSessionKeepAlive = null;
+let stopConnectionBadgeMonitor = null;
+
+function withTimeout(promise, ms, timeoutMessage) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) window.clearTimeout(timer);
+  });
+}
+
+function getFunctionUrl(name) {
+  const base = String(window.APP_CONFIG?.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/functions/v1/${name}`;
+}
+
+async function renderPairingQr(canvas, payload, size = 220) {
+  if (!canvas) throw new Error('QR canvas missing.');
+  if (window.QRCode?.toCanvas) {
+    try {
+      await withTimeout(
+        window.QRCode.toCanvas(canvas, payload, { width: size, margin: 1 }),
+        3500,
+        'QR render timed out.'
+      );
+      return;
+    } catch {
+      // Fall through to fallback image render.
+    }
+  }
+  const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await withTimeout(
+    new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = fallbackUrl;
+    }),
+    6000,
+    'QR image load timed out.'
+  );
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+}
+
+async function invokeFunctionDirect(name, body, timeoutMs = 12000) {
+  const url = getFunctionUrl(name);
+  const anonKey = String(window.APP_CONFIG?.SUPABASE_ANON_KEY || '').trim();
+  if (!url || !anonKey) {
+    throw new Error('Supabase config missing.');
+  }
+  let token = '';
+  try {
+    const sessionResult = await withTimeout(
+      supabase.auth.getSession(),
+      2500,
+      'Session lookup timed out.'
+    );
+    token = String(sessionResult?.data?.session?.access_token || '').trim();
+  } catch {
+    token = '';
+  }
+  const headers = {
+    'Content-Type': 'application/json',
+    apikey: anonKey
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body || {}),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) {
+      const message = payload?.error || payload?.message || `Function ${name} failed (${response.status})`;
+      const err = new Error(message);
+      err.status = response.status;
+      throw err;
+    }
+    return payload;
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`Function ${name} timed out.`);
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function invokeFunctionRobust(name, body, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  const remainingMs = () => Math.max(0, timeoutMs - (Date.now() - startedAt));
+  const bounded = (maxMs, floorMs = 1200) => Math.max(floorMs, Math.min(maxMs, remainingMs()));
+  try {
+    if (remainingMs() <= 0) throw new Error(`Function ${name} timed out.`);
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke(name, { body }),
+      bounded(5000),
+      `Function ${name} timed out.`
+    );
+    if (!error) return data;
+    throw error;
+  } catch (firstErr) {
+    try {
+      if (remainingMs() <= 0) throw firstErr;
+      return await invokeFunctionDirect(name, body, bounded(5000));
+    } catch (directErr) {
+      try {
+        if (remainingMs() > 2500) {
+          await withTimeout(supabase.auth.refreshSession(), bounded(3000), 'Session refresh timed out.');
+        }
+      } catch {
+        // ignore and allow one final direct retry
+      }
+      if (remainingMs() <= 0) throw (directErr || firstErr);
+      return await invokeFunctionDirect(name, body, bounded(5000)).catch((retryErr) => {
+        throw retryErr || directErr || firstErr;
+      });
+    }
+  }
+}
 
 function syncBulkScannerToggleLabel() {
   if (!bulkScannerToggleBtn) return;
@@ -814,10 +952,11 @@ function clearPersistedRemoteSession() {
 function setRemoteBadge(state = 'off', text = '') {
   if (!remoteBadge) return;
   remoteBadge.classList.remove('is-on', 'is-off', 'is-expired');
+  remoteBadge.hidden = state !== 'on';
   if (state === 'on') remoteBadge.classList.add('is-on');
   else if (state === 'expired') remoteBadge.classList.add('is-expired');
   else remoteBadge.classList.add('is-off');
-  remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
+  remoteBadge.textContent = text || 'Remote Scanner: Connected';
   if (bulkRemoteScanBtn) {
     bulkRemoteScanBtn.classList.remove('is-disconnecting');
     const isConnected = state === 'on';
@@ -948,7 +1087,7 @@ async function generatePairingQr() {
   pairingGenerateInFlight = true;
   if (pairRegenerateBtn) pairRegenerateBtn.disabled = true;
   try {
-    await ensureSessionFresh();
+    ensureSessionFresh().catch(() => {});
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
     remotePairingId = null;
@@ -956,38 +1095,21 @@ async function generatePairingQr() {
       const ctx = pairQrCanvas.getContext('2d');
       ctx?.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
     }
-    const { data, error } = await supabase.functions.invoke('pairing-create', {
-      body: { context: 'bulk', ttl_seconds: 45 }
-    });
-    if (error) {
-      pairStatus.textContent = 'Failed to create pairing.';
-      toast(error.message, true);
-      return;
-    }
+    const data = await invokeFunctionRobust('pairing-create', { context: 'bulk', ttl_seconds: 45 }, 12000);
     remotePairingId = data.pairing_id;
     const payload = data.pairing_qr_payload || JSON.stringify({
       type: 'scan_pairing',
       pairing_id: data.pairing_id,
       challenge: data.challenge
     });
-    if (window.QRCode?.toCanvas) {
-      await window.QRCode.toCanvas(pairQrCanvas, payload, { width: 220, margin: 1 });
-    } else {
-      const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload)}`;
-      const ctx = pairQrCanvas.getContext('2d');
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = fallbackUrl;
-      });
-      ctx.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
-      ctx.drawImage(img, 0, 0, pairQrCanvas.width, pairQrCanvas.height);
-    }
+    await renderPairingQr(pairQrCanvas, payload, 220);
     pairStatus.textContent = 'Scan this QR with the shared phone.';
     pairMeta.textContent = `Pairing expires at ${new Date(data.expires_at).toLocaleTimeString()}`;
     await waitForPairedSession(remotePairingId);
+  } catch (err) {
+    pairStatus.textContent = 'Could not generate pairing. Try Regenerate QR.';
+    pairMeta.textContent = '';
+    toast(err?.message || 'Could not generate pairing QR.', true);
   } finally {
     pairingGenerateInFlight = false;
     if (pairRegenerateBtn) pairRegenerateBtn.disabled = false;
@@ -1019,12 +1141,16 @@ async function endRemoteSession() {
       setRemoteBadge('off', 'Remote Scanner: Idle');
       return;
     }
-    const { error } = await supabase.functions.invoke('scan-session-end', {
+    const { data, error } = await supabase.functions.invoke('scan-session-end', {
       body: { scan_session_id: remoteSessionId }
     });
     if (error) {
       toast(error.message, true);
       return;
+    }
+    if (data?.event_emitted === false) {
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      await syncRemoteSessionState().catch(() => {});
     }
     remoteSessionId = null;
     remoteSessionExpiresAt = null;
@@ -1107,6 +1233,11 @@ async function init() {
     adminNav.style.display = '';
   }
   initAdminNav();
+  stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh,
+    badgeSelector: '#connectionBadge'
+  });
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
@@ -1181,6 +1312,7 @@ async function init() {
   window.addEventListener('orientationchange', syncBulkScannerHeight);
   window.addEventListener('beforeunload', stopBulkScanner);
   window.addEventListener('beforeunload', () => {
+    if (stopConnectionBadgeMonitor) stopConnectionBadgeMonitor();
     if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     stopRemoteSubscription().catch(() => {});

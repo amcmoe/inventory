@@ -1,6 +1,6 @@
 import { supabase, ROLES, roleCanWrite, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
-import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut } from './ui.js';
+import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
+import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initConnectionBadgeMonitor } from './ui.js';
 
 const bucket = 'asset-damage-photos';
 
@@ -23,6 +23,7 @@ let asset = null;
 let selectedPerson = null;
 let personSearchDebounce = null;
 let incidentCount = 0;
+let stopConnectionBadgeMonitor = null;
 
 function personLink(personId, displayName) {
   const label = escapeHtml(displayName || '-');
@@ -385,6 +386,7 @@ async function createPersonFromPrompt() {
 }
 
 async function doCheckout() {
+  await ensureSessionFresh();
   if (!selectedPerson?.id) {
     toast('Select an assignee first.', true);
     return;
@@ -412,6 +414,7 @@ async function doCheckout() {
 }
 
 async function doCheckin() {
+  await ensureSessionFresh();
   const notes = window.prompt('Check-in notes (optional):') || null;
 
   const { error } = await supabase.rpc('checkin_asset', {
@@ -433,6 +436,7 @@ function sanitizeFilename(name) {
 }
 
 async function submitDamageReport() {
+  await ensureSessionFresh();
   const summary = qs('#damageSummary').value.trim();
   const notes = qs('#damageNotes').value.trim() || null;
   const files = Array.from(qs('#damagePhotos').files || []);
@@ -491,6 +495,7 @@ async function submitDamageReport() {
 }
 
 async function refreshAll() {
+  await ensureSessionFresh();
   await loadAsset();
   await loadHistory();
   await loadDamageReports();
@@ -512,6 +517,11 @@ async function init() {
 
   profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
+  stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh,
+    badgeSelector: '#connectionBadge'
+  });
 
   if (assetLoadingPanel) assetLoadingPanel.hidden = true;
   if (assetTopbar) {
@@ -557,6 +567,15 @@ async function init() {
   });
 
   qs('#createPersonBtn').addEventListener('click', createPersonFromPrompt);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && asset) {
+      refreshAll().catch((err) => toast(err.message, true));
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    if (stopConnectionBadgeMonitor) stopConnectionBadgeMonitor();
+  });
 
   await refreshAll();
 }

@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth, sendMagicLink, signOut } from './auth.js';
-import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
+import { getSession, getCurrentProfile, requireAuth, sendMagicLink, signOut, ensureSessionFresh } from './auth.js';
+import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
 const peopleTopbar = qs('#peopleTopbar');
@@ -21,6 +21,7 @@ const inviteAppUserBtn = qs('#inviteAppUserBtn');
 let assigneeDebounce = null;
 let selectedAssigneeId = null;
 let selectedAssigneeName = '';
+let stopConnectionBadgeMonitor = null;
 
 function sanitizeFilterTerm(term) {
   return String(term || '')
@@ -63,6 +64,7 @@ function renderAppUsers(rows) {
 }
 
 async function loadAppUsers() {
+  await ensureSessionFresh();
   if (refreshAppUsersBtn) {
     refreshAppUsersBtn.classList.add('is-spinning');
   }
@@ -78,6 +80,7 @@ async function loadAppUsers() {
 }
 
 async function saveAppUser() {
+  await ensureSessionFresh();
   const email = qs('#appUserEmail').value.trim().toLowerCase();
   const role = qs('#appUserRole').value;
   const displayName = qs('#appUserName').value.trim() || null;
@@ -107,6 +110,7 @@ async function saveAppUser() {
 }
 
 async function inviteAppUser() {
+  await ensureSessionFresh();
   const email = qs('#appUserEmail').value.trim().toLowerCase();
   if (!email) {
     toast('User email is required to send invite.', true);
@@ -181,6 +185,7 @@ function renderAssigneeDamageRows(rows) {
 }
 
 async function loadAssigneeHistory(personId, personName = '') {
+  await ensureSessionFresh();
   if (!personId) return;
   if (assigneeHistorySection) assigneeHistorySection.hidden = false;
   if (assigneeHistoryMeta) assigneeHistoryMeta.textContent = `History for ${personName || 'selected assignee'}`;
@@ -298,6 +303,7 @@ async function loadAssigneeHistory(personId, personName = '') {
 }
 
 async function loadAssignees() {
+  await ensureSessionFresh();
   const term = sanitizeFilterTerm(qs('#assigneeSearchInput').value);
   let query = supabase
     .from('people')
@@ -316,6 +322,7 @@ async function loadAssignees() {
 }
 
 async function saveAssigneeName() {
+  await ensureSessionFresh();
   const name = qs('#editAssigneeName').value.trim();
   if (!selectedAssigneeId) {
     toast('Select an assignee first.', true);
@@ -364,6 +371,11 @@ async function init() {
   if (peopleTopbar) peopleTopbar.hidden = false;
   if (peopleNav) peopleNav.hidden = false;
   initAdminNav();
+  stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh,
+    badgeSelector: '#connectionBadge'
+  });
   if (peopleMainSection) peopleMainSection.hidden = false;
   if (assigneeSection) assigneeSection.hidden = false;
   if (assigneeHistorySection) assigneeHistorySection.hidden = true;
@@ -392,6 +404,15 @@ async function init() {
   });
   setInviteVisibility(false);
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    loadAppUsers().catch((err) => toast(err.message, true));
+    loadAssignees().catch((err) => toast(err.message, true));
+    if (selectedAssigneeId) {
+      loadAssigneeHistory(selectedAssigneeId, selectedAssigneeName).catch((err) => toast(err.message, true));
+    }
+  });
+
   await loadAppUsers();
   await loadAssignees();
 
@@ -410,6 +431,9 @@ async function init() {
       await loadAssigneeHistory(person.id, selectedAssigneeName);
     }
   }
+  window.addEventListener('beforeunload', () => {
+    if (stopConnectionBadgeMonitor) stopConnectionBadgeMonitor();
+  });
 }
 
 init().catch((err) => toast(err.message, true));

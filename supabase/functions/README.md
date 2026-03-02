@@ -35,6 +35,7 @@ You do **not** need broad project-level auth changes, but you do need:
 - `scan-session-end`
 - `scan-session-status`
 - `scan-damage-photo`
+- `scan-damage-delete`
 
 These are designed for shared phones without user login.
 
@@ -54,6 +55,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.scan-damage-photo]
+verify_jwt = false
+
+[functions.scan-damage-delete]
 verify_jwt = false
 ```
 

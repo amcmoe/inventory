@@ -32,6 +32,7 @@ const pairRegenerateBtn = qs('#pairRegenerateBtn');
 const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
 const pendingUploadsBadge = qs('#pendingUploadsBadge');
+const connectionBadge = qs('#connectionBadge');
 const drawerOverlay = qs('#drawerOverlay');
 const closeDrawerBtn = qs('#closeDrawerBtn');
 const drawerAssigneeEditor = qs('#drawerAssigneeEditor');
@@ -75,6 +76,17 @@ let autoRefreshTimer = null;
 let autoRefreshCount = 0;
 const AUTO_REFRESH_MS = 2 * 60 * 1000;
 const AUTO_REFRESH_MAX = 20;
+let dbConnectionPollTimer = null;
+let dbConnectionPingInFlight = false;
+let dbConnectionPingQueued = false;
+let connectionReconnectTimer = null;
+let connectionLastError = '';
+let lastConnectionRecoveryAt = 0;
+let connectionBadgeState = 'reconnecting';
+let connectionLastConnectedAt = 0;
+const CONNECTION_CONNECTED_HOLD_MS = 1500;
+let loadAssetsInFlight = false;
+let loadAssetsQueued = false;
 let selectedAsset = null;
 let selectedPerson = null;
 let personSearchDebounce = null;
@@ -331,8 +343,405 @@ function startAutoRefresh() {
     }
     if (!searchInput.value.trim()) return;
     autoRefreshCount += 1;
-    await loadAssets();
+    await loadAssets().catch((err) => toast(err.message, true));
   }, AUTO_REFRESH_MS);
+}
+
+async function pingDatabaseConnection() {
+  if (dbConnectionPingInFlight) {
+    dbConnectionPingQueued = true;
+    return;
+  }
+  dbConnectionPingInFlight = true;
+  try {
+    if (navigator.onLine) setConnectionBadge('checking');
+    let probeError = '';
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const probe = await directSupabaseReachabilityCheck(5000);
+      if (probe.ok) {
+        probeError = '';
+        break;
+      }
+      probeError = probe.error || 'Database ping failed.';
+      if (attempt === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 900));
+      }
+    }
+    if (probeError) throw new Error(probeError);
+    connectionLastError = '';
+    setConnectionBadge('connected');
+  } catch (err) {
+    connectionLastError = String(err?.message || err || 'unknown error').slice(0, 140);
+    if (!navigator.onLine) setConnectionBadge('offline');
+    else setConnectionBadge('reconnecting');
+  } finally {
+    dbConnectionPingInFlight = false;
+    if (dbConnectionPingQueued) {
+      dbConnectionPingQueued = false;
+      window.setTimeout(() => {
+        pingDatabaseConnection().catch(() => {});
+      }, 120);
+    }
+  }
+}
+
+async function directSupabaseReachabilityCheck() {
+  const url = String(window.APP_CONFIG?.SUPABASE_URL || '').trim();
+  const anonKey = String(window.APP_CONFIG?.SUPABASE_ANON_KEY || '').trim();
+  if (!url || !anonKey) return { ok: false, error: 'Supabase config missing.' };
+  const headers = { apikey: anonKey };
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`${url}/rest/v1/assets?select=id&limit=1`, {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    window.clearTimeout(timer);
+    if (response.status < 500) {
+      return { ok: true, error: '' };
+    }
+    return { ok: false, error: `HTTP ${response.status}` };
+  } catch (err) {
+    window.clearTimeout(timer);
+    if (err?.name === 'AbortError') {
+      return { ok: false, error: 'Database ping timed out.' };
+    }
+    return { ok: false, error: String(err?.message || err || 'Network error') };
+  }
+}
+
+function getFunctionUrl(name) {
+  const base = String(window.APP_CONFIG?.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/functions/v1/${name}`;
+}
+
+async function renderPairingQr(canvas, payload, size = 220) {
+  if (!canvas) throw new Error('QR canvas missing.');
+  if (window.QRCode?.toCanvas) {
+    try {
+      await withTimeout(
+        window.QRCode.toCanvas(canvas, payload, { width: size, margin: 1 }),
+        3500,
+        'QR render timed out.'
+      );
+      return;
+    } catch {
+      // Fall through to fallback image render.
+    }
+  }
+  const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await withTimeout(
+    new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = fallbackUrl;
+    }),
+    6000,
+    'QR image load timed out.'
+  );
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+}
+
+function isUnauthorizedFunctionError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  const status = Number(error?.status || error?.context?.status || 0);
+  return status === 401 || message.includes('unauthorized');
+}
+
+function readTokenFromStoredSessionPayload(payload) {
+  if (!payload) return '';
+  if (typeof payload === 'string') {
+    const value = payload.trim();
+    return value.split('.').length === 3 ? value : '';
+  }
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const token = readTokenFromStoredSessionPayload(item);
+      if (token) return token;
+    }
+    return '';
+  }
+  if (typeof payload === 'object') {
+    const direct = String(payload.access_token || '').trim();
+    if (direct) return direct;
+    const current = String(payload.currentSession?.access_token || '').trim();
+    if (current) return current;
+    const session = String(payload.session?.access_token || '').trim();
+    if (session) return session;
+    for (const key of Object.keys(payload)) {
+      const token = readTokenFromStoredSessionPayload(payload[key]);
+      if (token) return token;
+    }
+  }
+  return '';
+}
+
+function readSupabaseTokenFromLocalStorage() {
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = String(localStorage.key(i) || '');
+      if (!key) continue;
+      const lowered = key.toLowerCase();
+      if (!lowered.includes('auth') && !lowered.includes('supabase') && !lowered.includes('sb-')) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      let parsed = raw;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = raw;
+      }
+      const token = readTokenFromStoredSessionPayload(parsed);
+      if (token) return token;
+    }
+  } catch {
+    // ignore localStorage access/parsing failures
+  }
+  return '';
+}
+
+function isLikelyUsableJwt(token) {
+  const value = String(token || '').trim();
+  if (!value || value.split('.').length !== 3) return false;
+  try {
+    const payloadPart = value.split('.')[1];
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
+    const decoded = atob(padded);
+    const payload = JSON.parse(decoded);
+    const exp = Number(payload?.exp || 0) * 1000;
+    if (!Number.isFinite(exp) || exp <= 0) return true;
+    return (exp - Date.now()) > 5_000;
+  } catch {
+    return true;
+  }
+}
+
+async function waitForAuthToken(totalMs = 7000) {
+  const deadline = Date.now() + Math.max(1200, totalMs);
+  while (Date.now() < deadline) {
+    try {
+      const session = await withTimeout(
+        getSession(),
+        Math.min(900, Math.max(450, deadline - Date.now())),
+        'Session lookup timed out.'
+      );
+      const token = String(session?.access_token || '').trim();
+      if (isLikelyUsableJwt(token)) return token;
+    } catch {
+      // continue
+    }
+    const fallbackToken = readSupabaseTokenFromLocalStorage();
+    if (isLikelyUsableJwt(fallbackToken)) return fallbackToken;
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+  }
+  return '';
+}
+
+async function getFunctionAuthHeaders(timeoutMs = 5000) {
+  const bounded = Math.max(1200, Math.min(timeoutMs, 5000));
+  let session = null;
+  try {
+    session = await withTimeout(
+      getSession(),
+      Math.max(900, Math.min(timeoutMs, 2200)),
+      'Session lookup timed out.'
+    );
+  } catch {
+    session = null;
+  }
+  const existingToken = String(session?.access_token || '').trim();
+  if (isLikelyUsableJwt(existingToken)) {
+    return { Authorization: `Bearer ${existingToken}` };
+  }
+  try {
+    session = await withTimeout(ensureSessionFresh(), bounded, 'Session refresh timed out.');
+  } catch {
+    session = null;
+  }
+  if (!session) {
+    try {
+      session = await withTimeout(
+        getSession(),
+        Math.max(900, Math.min(timeoutMs, 2200)),
+        'Session lookup timed out.'
+      );
+    } catch {
+      session = null;
+    }
+  }
+  const token = String(session?.access_token || '').trim();
+  if (isLikelyUsableJwt(token)) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  const waitedToken = await withTimeout(
+    waitForAuthToken(Math.max(1400, timeoutMs)),
+    Math.max(1500, Math.min(timeoutMs + 800, 9000)),
+    'Session token wait timed out.'
+  ).catch(() => '');
+  return waitedToken ? { Authorization: `Bearer ${waitedToken}` } : {};
+}
+
+async function invokeFunctionDirect(name, body, timeoutMs = 12000, authHeaders = null) {
+  const url = getFunctionUrl(name);
+  const anonKey = String(window.APP_CONFIG?.SUPABASE_ANON_KEY || '').trim();
+  if (!url || !anonKey) {
+    throw new Error('Supabase config missing.');
+  }
+  const resolvedAuthHeaders = (
+    authHeaders &&
+    typeof authHeaders === 'object' &&
+    Object.keys(authHeaders).length > 0
+  )
+    ? authHeaders
+    : await getFunctionAuthHeaders(timeoutMs);
+  const headers = {
+    'Content-Type': 'application/json',
+    apikey: anonKey,
+    ...resolvedAuthHeaders
+  };
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body || {}),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) {
+      const message = payload?.error || payload?.message || `Function ${name} failed (${response.status})`;
+      const err = new Error(message);
+      err.status = response.status;
+      throw err;
+    }
+    return payload;
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`Function ${name} timed out.`);
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function invokeFunctionRobust(name, body, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  const remainingMs = () => Math.max(0, timeoutMs - (Date.now() - startedAt));
+  const bounded = (maxMs, floorMs = 1200) => Math.max(floorMs, Math.min(maxMs, remainingMs()));
+  const preferDirect = name === 'pairing-create';
+  let authHeaders = {};
+  try {
+    authHeaders = await getFunctionAuthHeaders(bounded(4500));
+  } catch {
+    authHeaders = {};
+  }
+  if (preferDirect) {
+    try {
+      if (!authHeaders.Authorization) {
+        authHeaders = await getFunctionAuthHeaders(bounded(6500)).catch(() => ({}));
+      }
+      if (!authHeaders.Authorization) {
+        throw new Error('Session not ready. Please log out and back in, then try Pair Phone Scanner again.');
+      }
+      return await invokeFunctionDirect(name, body, bounded(7000), authHeaders);
+    } catch (directFirstErr) {
+      if (isUnauthorizedFunctionError(directFirstErr) && remainingMs() > 3000) {
+        try {
+          await withTimeout(ensureSessionFresh(), bounded(3000), 'Session refresh timed out.');
+        } catch {
+          // keep going with best-effort token refresh
+        }
+        authHeaders = await getFunctionAuthHeaders(bounded(3000)).catch(() => ({}));
+        return await invokeFunctionDirect(name, body, bounded(6000), authHeaders);
+      }
+      if (remainingMs() <= 0) throw directFirstErr;
+      // As a final fallback, try SDK invoke once.
+      const sdkRetry = await withTimeout(
+        supabase.functions.invoke(name, { body, headers: authHeaders }),
+        bounded(4500),
+        `Function ${name} timed out.`
+      );
+      if (sdkRetry.error) throw sdkRetry.error;
+      return sdkRetry.data;
+    }
+  }
+  try {
+    if (remainingMs() <= 0) throw new Error(`Function ${name} timed out.`);
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke(name, { body, headers: authHeaders }),
+      bounded(5000),
+      `Function ${name} timed out.`
+    );
+    if (!error) return data;
+    throw error;
+  } catch (firstErr) {
+    if (isUnauthorizedFunctionError(firstErr) && remainingMs() > 3000) {
+      authHeaders = await getFunctionAuthHeaders(bounded(5000)).catch(() => ({}));
+      if (authHeaders.Authorization) {
+        const retry = await withTimeout(
+          supabase.functions.invoke(name, { body, headers: authHeaders }),
+          bounded(4500),
+          `Function ${name} timed out.`
+        );
+        if (!retry.error) {
+          return retry.data;
+        }
+      }
+    }
+    try {
+      if (remainingMs() <= 0) throw firstErr;
+      return await invokeFunctionDirect(name, body, bounded(5000), authHeaders);
+    } catch (directErr) {
+      try {
+        if (remainingMs() > 2500) {
+          await withTimeout(ensureSessionFresh(), bounded(3000), 'Session refresh timed out.');
+          authHeaders = await getFunctionAuthHeaders(bounded(3000)).catch(() => authHeaders);
+        }
+      } catch {
+        // ignore and allow one final direct retry
+      }
+      if (remainingMs() <= 0) throw (directErr || firstErr);
+      return await invokeFunctionDirect(name, body, bounded(5000), authHeaders).catch((retryErr) => {
+        throw retryErr || directErr || firstErr;
+      });
+    }
+  }
+}
+
+function startDbConnectionPoller() {
+  if (dbConnectionPollTimer) window.clearInterval(dbConnectionPollTimer);
+  dbConnectionPollTimer = window.setInterval(() => {
+    if (document.hidden) {
+      setConnectionBadge('reconnecting');
+      return;
+    }
+    pingDatabaseConnection().catch(() => {});
+  }, 15000);
+  pingDatabaseConnection().catch(() => {});
+}
+
+function clearConnectionReconnectCountdown() {
+  if (connectionReconnectTimer) {
+    window.clearInterval(connectionReconnectTimer);
+    connectionReconnectTimer = null;
+  }
 }
 
 function renderSearchPrompt() {
@@ -519,80 +928,115 @@ async function startScanner() {
 }
 
 async function loadAssets() {
-  await ensureSessionFresh();
-  const term = sanitizeFilterTerm(searchInput.value);
-  if (!term) {
-    renderSearchPrompt();
+  if (loadAssetsInFlight) {
+    loadAssetsQueued = true;
     return;
   }
-
-  let query = supabase
-    .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
-    .order('asset_tag', { ascending: true })
-    .limit(200);
-
-  const status = statusFilter.value;
-
-  query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
-
-  if (status) {
-    query = query.eq('status', status);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    toast(error.message, true);
-    return;
-  }
-
-  // Secondary assignee-name search path (kept separate to avoid PostgREST logic-tree parsing issues).
-  const { data: assigneeRows, error: assigneeError } = await supabase
-    .from('asset_current')
-    .select('asset_id, people!inner(display_name)')
-    .ilike('people.display_name', `%${term}%`)
-    .limit(200);
-
-  if (assigneeError) {
-    toast(assigneeError.message, true);
-    return;
-  }
-
-  const assigneeAssetIds = [...new Set((assigneeRows || []).map((r) => r.asset_id).filter(Boolean))];
-  let assigneeAssets = [];
-  if (assigneeAssetIds.length) {
-    let assigneeQuery = supabase
-      .from('assets')
-      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
-      .in('id', assigneeAssetIds)
-      .order('asset_tag', { ascending: true })
-      .limit(200);
-    if (status) {
-      assigneeQuery = assigneeQuery.eq('status', status);
-    }
-    const { data: assigneeAssetData, error: assigneeAssetError } = await assigneeQuery;
-    if (assigneeAssetError) {
-      toast(assigneeAssetError.message, true);
+  loadAssetsInFlight = true;
+  try {
+    setConnectionBadge('checking');
+    ensureSessionFresh().catch(() => {});
+    const term = sanitizeFilterTerm(searchInput.value);
+    if (!term) {
+      renderSearchPrompt();
+      setConnectionBadge('connected');
       return;
     }
-    assigneeAssets = assigneeAssetData || [];
+
+    let query = supabase
+      .from('assets')
+      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+      .order('asset_tag', { ascending: true })
+      .limit(200);
+
+    const status = statusFilter.value;
+
+    query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(error.message || 'Search failed.');
+    }
+
+    // Secondary assignee-name search path (kept separate to avoid PostgREST logic-tree parsing issues).
+    const { data: assigneeRows, error: assigneeError } = await supabase
+      .from('asset_current')
+      .select('asset_id, people!inner(display_name)')
+      .ilike('people.display_name', `%${term}%`)
+      .limit(200);
+
+    if (assigneeError) {
+      throw new Error(assigneeError.message || 'Assignee lookup failed.');
+    }
+
+    const assigneeAssetIds = [...new Set((assigneeRows || []).map((r) => r.asset_id).filter(Boolean))];
+    let assigneeAssets = [];
+    if (assigneeAssetIds.length) {
+      let assigneeQuery = supabase
+        .from('assets')
+        .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+        .in('id', assigneeAssetIds)
+        .order('asset_tag', { ascending: true })
+        .limit(200);
+      if (status) {
+        assigneeQuery = assigneeQuery.eq('status', status);
+      }
+      const { data: assigneeAssetData, error: assigneeAssetError } = await assigneeQuery;
+      if (assigneeAssetError) {
+        throw new Error(assigneeAssetError.message || 'Assignee asset lookup failed.');
+      }
+      assigneeAssets = assigneeAssetData || [];
+    }
+
+    const merged = new Map();
+    [...(data || []), ...assigneeAssets].forEach((asset) => {
+      if (asset?.id) merged.set(asset.id, asset);
+    });
+
+    renderAssets(Array.from(merged.values()));
+    setConnectionBadge('connected');
+  } catch (err) {
+    if (!navigator.onLine) setConnectionBadge('offline');
+    else setConnectionBadge('reconnecting');
+    toast(err.message || 'Search connection lost. Please try again.', true);
+  } finally {
+    loadAssetsInFlight = false;
+    if (loadAssetsQueued) {
+      loadAssetsQueued = false;
+      window.setTimeout(() => {
+        loadAssets().catch((queueErr) => toast(queueErr.message, true));
+      }, 120);
+    }
   }
+}
 
-  const merged = new Map();
-  [...(data || []), ...assigneeAssets].forEach((asset) => {
-    if (asset?.id) merged.set(asset.id, asset);
-  });
-
-  renderAssets(Array.from(merged.values()));
+function triggerConnectionRecovery() {
+  const now = Date.now();
+  if (now - lastConnectionRecoveryAt < 700) return;
+  lastConnectionRecoveryAt = now;
+  setConnectionBadge(navigator.onLine ? 'reconnecting' : 'offline');
+  ensureSessionFresh().catch(() => {});
+  pingDatabaseConnection().catch(() => {});
+  window.setTimeout(() => {
+    pingDatabaseConnection().catch(() => {});
+  }, 700);
 }
 
 function bindSearch() {
   [searchInput, statusFilter].forEach((el) => {
     el.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(loadAssets, 220);
+      debounceTimer = window.setTimeout(() => {
+        loadAssets().catch((err) => toast(err.message, true));
+      }, 220);
     });
-    el.addEventListener('change', loadAssets);
+    el.addEventListener('change', () => {
+      loadAssets().catch((err) => toast(err.message, true));
+    });
   });
 }
 
@@ -606,7 +1050,7 @@ async function initAuthedUI(session) {
   window.scrollTo(0, 0);
 
   try {
-    currentProfile = await getCurrentProfile();
+    currentProfile = await getCurrentProfile(session);
   } catch (err) {
     currentProfile = {
       role: 'viewer',
@@ -621,6 +1065,7 @@ async function initAuthedUI(session) {
 
   renderSearchPrompt();
   startAutoRefresh();
+  startDbConnectionPoller();
 }
 
 async function searchPeople(term) {
@@ -1121,6 +1566,34 @@ function clearAllDamageDrafts() {
   updatePendingUploadsBadge();
 }
 
+async function discardDamageDraftForCurrentAsset() {
+  const assetId = String(selectedAsset?.assetId || '').trim();
+  const photosToDrop = capturedDamagePhotos.slice();
+  photosToDrop.forEach((p) => {
+    const url = String(p?.url || '').trim();
+    if (url) URL.revokeObjectURL(url);
+  });
+  const remotePaths = photosToDrop
+    .map((p) => String(p?.remotePath || '').trim())
+    .filter(Boolean);
+  if (drawerDamageNotes) drawerDamageNotes.value = '';
+  if (drawerDamagePhotos) drawerDamagePhotos.value = '';
+  capturedDamagePhotos = [];
+  expandedDamagePhotoId = null;
+  if (assetId) {
+    damageDraftsByAssetId.delete(assetId);
+  }
+  renderCapturedDamageThumbs();
+  updatePendingUploadsBadge();
+  for (const path of remotePaths) {
+    try {
+      await dismissAndDeleteRemoteDamagePath(path);
+    } catch (err) {
+      toast(`Temp photo delete failed: ${err?.message || 'unknown error'}`, true);
+    }
+  }
+}
+
 async function startDrawerDamageCamera() {
   if (drawerDamageCameraStream) return;
   try {
@@ -1246,10 +1719,11 @@ function clearPersistedRemoteSession() {
 function setRemoteBadge(state = 'off', text = '') {
   if (!remoteBadge) return;
   remoteBadge.classList.remove('is-on', 'is-off', 'is-expired');
+  remoteBadge.hidden = state !== 'on';
   if (state === 'on') remoteBadge.classList.add('is-on');
   else if (state === 'expired') remoteBadge.classList.add('is-expired');
   else remoteBadge.classList.add('is-off');
-  remoteBadge.textContent = text || (state === 'on' ? 'Remote Scanner: Connected' : 'Remote Scanner: Idle');
+  remoteBadge.textContent = text || 'Remote Scanner: Connected';
   if (remoteScanBtn) {
     remoteScanBtn.classList.remove('is-disconnecting');
     const isConnected = state === 'on';
@@ -1257,6 +1731,58 @@ function setRemoteBadge(state = 'off', text = '') {
     remoteScanBtn.setAttribute('aria-label', isConnected ? 'Disconnect phone scanner' : 'Pair phone scanner');
     remoteScanBtn.title = isConnected ? 'Disconnect Phone Scanner' : 'Pair Phone Scanner';
   }
+}
+
+function setConnectionBadge(state = 'connected', text = '') {
+  if (!connectionBadge) return;
+  const now = Date.now();
+  if (
+    (state === 'checking' || state === 'reconnecting') &&
+    connectionBadgeState === 'connected' &&
+    (now - connectionLastConnectedAt) < CONNECTION_CONNECTED_HOLD_MS
+  ) {
+    return;
+  }
+  connectionBadgeState = state;
+  if (state === 'connected') {
+    connectionLastConnectedAt = now;
+  }
+  if (state !== 'reconnecting' || document.hidden) clearConnectionReconnectCountdown();
+  connectionBadge.classList.remove('is-connected', 'is-reconnecting', 'is-offline', 'is-checking');
+  if (state === 'offline') connectionBadge.classList.add('is-offline');
+  else if (state === 'checking') connectionBadge.classList.add('is-checking');
+  else if (state === 'reconnecting') connectionBadge.classList.add('is-reconnecting');
+  else connectionBadge.classList.add('is-connected');
+  if (text) {
+    connectionBadge.title = text;
+    connectionBadge.setAttribute('aria-label', text);
+    connectionBadge.innerHTML = '<span class="connection-label">Database</span>';
+    return;
+  }
+  if (state === 'offline') {
+    const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
+    connectionBadge.title = `Database connection: offline${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database connection: offline');
+  } else if (state === 'checking') {
+    const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
+    connectionBadge.title = `Database connection: checking${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database connection: checking');
+  } else if (state === 'reconnecting') {
+    const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
+    connectionBadge.title = `Database connection: reconnecting${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database connection: reconnecting');
+    connectionBadge.innerHTML = '<span class="connection-label">Database</span><span class="connection-reconnect-dots" aria-hidden="true"><span></span><span></span><span></span></span>';
+    if (!document.hidden && !connectionReconnectTimer) {
+      connectionReconnectTimer = window.setInterval(() => {
+        pingDatabaseConnection().catch(() => {});
+      }, 5000);
+    }
+    return;
+  } else {
+    connectionBadge.title = 'Database connection: connected';
+    connectionBadge.setAttribute('aria-label', 'Database connection: connected');
+  }
+  connectionBadge.innerHTML = '<span class="connection-label">Database</span>';
 }
 
 async function clearRemoteSessionLocal(reasonText = 'Session ended.') {
@@ -1626,9 +2152,7 @@ async function generatePairingQr(force = false) {
     }
     if (staleSessionId) {
       try {
-        await supabase.functions.invoke('scan-session-end', {
-          body: { scan_session_id: staleSessionId }
-        });
+        await invokeFunctionRobust('scan-session-end', { scan_session_id: staleSessionId }, 5000);
       } catch {
         // ignore; stale session may already be ended
       }
@@ -1645,7 +2169,7 @@ async function generatePairingQr(force = false) {
       pairStatus.textContent = 'Preparing new pairing...';
       pairMeta.textContent = '';
     }
-    await withTimeout(ensureSessionFresh(), 8000, 'Session refresh timed out. Please try again.');
+    ensureSessionFresh().catch(() => {});
     pairStatus.textContent = 'Generating pairing QR...';
     pairMeta.textContent = '';
     remotePairingId = null;
@@ -1653,39 +2177,18 @@ async function generatePairingQr(force = false) {
       const ctx = pairQrCanvas.getContext('2d');
       ctx?.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
     }
-    const { data, error } = await withTimeout(
-      supabase.functions.invoke('pairing-create', {
-        body: { context: 'search', ttl_seconds: 45 }
-      }),
-      12000,
+    const data = await withTimeout(
+      invokeFunctionRobust('pairing-create', { context: 'search', ttl_seconds: 45 }, 12000),
+      13000,
       'Pairing request timed out. Please try again.'
     );
-    if (error) {
-      pairStatus.textContent = 'Failed to create pairing.';
-      toast(error.message, true);
-      return;
-    }
     remotePairingId = data.pairing_id;
     const payload = data.pairing_qr_payload || JSON.stringify({
       type: 'scan_pairing',
       pairing_id: data.pairing_id,
       challenge: data.challenge
     });
-    if (window.QRCode?.toCanvas) {
-      await window.QRCode.toCanvas(pairQrCanvas, payload, { width: 220, margin: 1 });
-    } else {
-      const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload)}`;
-      const ctx = pairQrCanvas.getContext('2d');
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = fallbackUrl;
-      });
-      ctx.clearRect(0, 0, pairQrCanvas.width, pairQrCanvas.height);
-      ctx.drawImage(img, 0, 0, pairQrCanvas.width, pairQrCanvas.height);
-    }
+    await renderPairingQr(pairQrCanvas, payload, 220);
     pairStatus.textContent = 'Scan this QR with the shared phone.';
     pairMeta.textContent = `Pairing expires at ${new Date(data.expires_at).toLocaleTimeString()}`;
     await waitForPairedSession(remotePairingId);
@@ -1724,12 +2227,16 @@ async function endRemoteSession() {
       setRemoteBadge('off', 'Remote Scanner: Idle');
       return;
     }
-    const { error } = await supabase.functions.invoke('scan-session-end', {
+    const { data, error } = await supabase.functions.invoke('scan-session-end', {
       body: { scan_session_id: remoteSessionId }
     });
     if (error) {
       toast(error.message, true);
       return;
+    }
+    if (data?.event_emitted === false) {
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      await syncRemoteSessionState().catch(() => {});
     }
     await clearRemoteSessionLocal('Session ended.');
   } finally {
@@ -1826,6 +2333,7 @@ async function init() {
     })().catch((err) => toast(err.message, true));
   });
   setRemoteBadge('off', 'Remote Scanner: Idle');
+  setConnectionBadge(navigator.onLine ? 'reconnecting' : 'offline');
   updatePendingUploadsBadge();
   if (pendingUploadsBadge) {
     pendingUploadsBadge.setAttribute('role', 'button');
@@ -1873,7 +2381,14 @@ async function init() {
   });
   drawerDamageUploadBtn?.addEventListener('click', () => drawerDamagePhotos?.click());
   damageDrawerCloseBtn?.addEventListener('click', () => setDamageDrawerOpen(false));
-  damageDrawerCancelBtn?.addEventListener('click', () => setDamageDrawerOpen(false));
+  damageDrawerCancelBtn?.addEventListener('click', () => {
+    discardDamageDraftForCurrentAsset()
+      .then(() => setDamageDrawerOpen(false))
+      .catch((err) => {
+        toast(err.message, true);
+        setDamageDrawerOpen(false);
+      });
+  });
   drawerOverlay?.addEventListener('click', () => setDamageDrawerOpen(false));
   closeDrawerBtn?.addEventListener('click', () => setDamageDrawerOpen(false));
   document.addEventListener('keydown', (event) => {
@@ -1951,6 +2466,11 @@ async function init() {
       assetTbody.innerHTML = '';
       stopScanner();
       stopAutoRefresh();
+      if (dbConnectionPollTimer) {
+        window.clearInterval(dbConnectionPollTimer);
+        dbConnectionPollTimer = null;
+      }
+      clearConnectionReconnectCountdown();
       setDamageDrawerOpen(false);
       clearAllDamageDrafts();
       pendingRemoteDamagePhotos = [];
@@ -1967,6 +2487,8 @@ async function init() {
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
+      triggerConnectionRecovery();
+      startDbConnectionPoller();
       if (!autoRefreshTimer) {
         startAutoRefresh();
       }
@@ -1977,7 +2499,25 @@ async function init() {
           flushPendingRemoteDamagePhotosForSelectedAsset().catch(() => {});
         }
       }
+      if (searchInput?.value?.trim()) {
+        loadAssets().catch((err) => toast(err.message, true));
+      }
+    } else {
+      setConnectionBadge('reconnecting');
     }
+  });
+  window.addEventListener('online', () => {
+    triggerConnectionRecovery();
+    if (searchInput?.value?.trim()) {
+      loadAssets().catch((err) => toast(err.message, true));
+    }
+  });
+  window.addEventListener('focus', () => {
+    triggerConnectionRecovery();
+    startDbConnectionPoller();
+  });
+  window.addEventListener('offline', () => {
+    setConnectionBadge('offline');
   });
 
   syncScannerToggleButton();
@@ -1997,6 +2537,7 @@ async function init() {
     if (pendingRemotePurgeTimer) window.clearInterval(pendingRemotePurgeTimer);
     if (pendingRemoteFlushTimer) window.clearInterval(pendingRemoteFlushTimer);
     if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
+    if (dbConnectionPollTimer) window.clearInterval(dbConnectionPollTimer);
     stopRemoteSubscription().catch(() => {});
   });
   window.addEventListener('beforeunload', stopAutoRefresh);

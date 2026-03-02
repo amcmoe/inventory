@@ -41,6 +41,7 @@
           <div class="subtext">Build and export asset reports (CSV, HTML, PDF).</div>
         </div>
         <div class="controls">
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database connection: reconnecting">Database</span>
           <button class="btn" id="refreshReportBtn" type="button">Refresh</button>
           <button class="btn" id="signOutBtn" type="button">Log Out</button>
         </div>
@@ -54,6 +55,29 @@
       </section>
 
       <section class="panel" id="reportsMainSection" hidden>
+        <section class="kpis" aria-label="Summary">
+          <div class="kpi">
+            <div class="label">Total assets</div>
+            <div class="value" id="kpiTotal">0</div>
+            <div class="hint">All tracked items</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Assigned</div>
+            <div class="value" id="kpiAssigned">0</div>
+            <div class="hint">Assigned to users</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Available</div>
+            <div class="value" id="kpiAvailable">0</div>
+            <div class="hint">Ready to deploy</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Needs attention</div>
+            <div class="value" id="kpiAttention">0</div>
+            <div class="hint">Repair / retired</div>
+          </div>
+        </section>
+
         <div class="panel-header">
           <div class="controls">
             <div class="field small">

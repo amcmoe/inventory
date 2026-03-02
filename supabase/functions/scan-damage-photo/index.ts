@@ -119,7 +119,15 @@ Deno.serve(async (req) => {
         barcode: payload,
         source: 'remote_damage_photo'
       });
-    if (eventError) throw eventError;
+    if (eventError) {
+      // Compensating delete: avoid orphaning temp files when event emit fails.
+      try {
+        await admin.storage.from('asset-damage-photos').remove([path]);
+      } catch {
+        // no-op; main error is returned below
+      }
+      throw eventError;
+    }
 
     return new Response(JSON.stringify({ ok: true, path }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -89,4 +89,16 @@ grant select on public.scan_sessions to authenticated;
 grant select on public.scan_events to authenticated;
 
 -- Stream remote scans to desktop subscribers.
-alter publication supabase_realtime add table public.scan_events;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'scan_events'
+  ) then
+    alter publication supabase_realtime add table public.scan_events;
+  end if;
+end
+$$;

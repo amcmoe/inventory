@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth, signOut } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
+import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
 
 const reportsTopbar = qs('#reportsTopbar');
 const reportsNav = qs('#reportsNav');
@@ -11,9 +11,14 @@ const reportsBody = qs('#reportsBody');
 const reportStatusFilter = qs('#reportStatusFilter');
 const reportTypeFilter = qs('#reportTypeFilter');
 const reportSearch = qs('#reportSearch');
+const kpiTotal = qs('#kpiTotal');
+const kpiAssigned = qs('#kpiAssigned');
+const kpiAvailable = qs('#kpiAvailable');
+const kpiAttention = qs('#kpiAttention');
 
 let rowsCache = [];
 let debounce = null;
+let stopConnectionBadgeMonitor = null;
 
 function displayStatus(status) {
   const raw = String(status || '');
@@ -57,6 +62,24 @@ function renderRows(rows) {
   `).join('');
 }
 
+function updateReportKpis(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const total = list.length;
+  const assigned = list.filter((r) => {
+    const s = String(r.status || '').toLowerCase();
+    return s === 'checked_out' || s.includes('assigned');
+  }).length;
+  const available = list.filter((r) => String(r.status || '').toLowerCase().includes('available')).length;
+  const attention = list.filter((r) => {
+    const s = String(r.status || '').toLowerCase();
+    return s.includes('repair') || s.includes('retired') || s.includes('maintenance');
+  }).length;
+  if (kpiTotal) kpiTotal.textContent = total.toLocaleString();
+  if (kpiAssigned) kpiAssigned.textContent = assigned.toLocaleString();
+  if (kpiAvailable) kpiAvailable.textContent = available.toLocaleString();
+  if (kpiAttention) kpiAttention.textContent = attention.toLocaleString();
+}
+
 function applyClientFilters() {
   const q = reportSearch.value.trim().toLowerCase();
   const status = reportStatusFilter.value;
@@ -70,6 +93,7 @@ function applyClientFilters() {
     return hay.includes(q);
   });
   renderRows(rows);
+  updateReportKpis(rows);
   return rows;
 }
 
@@ -146,6 +170,7 @@ function exportPdf(rows) {
 }
 
 async function loadRows() {
+  await ensureSessionFresh();
   const { data, error } = await supabase
     .from('assets')
     .select('asset_tag, serial, equipment_type, model, status, building, room, asset_current(assignee_person_id, people(display_name))')
@@ -178,6 +203,11 @@ async function init() {
   const profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
   initAdminNav();
+  stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh,
+    badgeSelector: '#connectionBadge'
+  });
 
   reportsLoadingPanel.hidden = true;
   reportsTopbar.hidden = false;
@@ -195,6 +225,16 @@ async function init() {
   qs('#exportCsvBtn').addEventListener('click', () => exportCsv(applyClientFilters()));
   qs('#exportHtmlBtn').addEventListener('click', () => exportHtml(applyClientFilters()));
   qs('#exportPdfBtn').addEventListener('click', () => exportPdf(applyClientFilters()));
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      loadRows().catch((err) => toast(err.message, true));
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (stopConnectionBadgeMonitor) stopConnectionBadgeMonitor();
+  });
 
   await loadRows();
 }

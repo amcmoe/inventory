@@ -43,7 +43,8 @@
           <div class="subtext">Create and maintain assets.</div>
         </div>
         <div class="controls">
-          <span class="remote-badge" id="remoteBadge" aria-live="polite">Remote Scanner: Idle</span>
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database connection: reconnecting">Database</span>
+          <span class="remote-badge" id="remoteBadge" aria-live="polite" hidden>Remote Scanner: Connected</span>
           <button class="bulk-icon-btn remote-scan-btn" id="bulkRemoteScanBtn" type="button" aria-label="Pair phone scanner" title="Pair Phone Scanner">
             <svg class="icon-pair" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3" y="5" width="10" height="14" rx="2"></rect>
