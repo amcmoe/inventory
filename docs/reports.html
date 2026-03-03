@@ -41,8 +41,7 @@
           <div class="subtext">Build and export asset reports (CSV, HTML, PDF).</div>
         </div>
         <div class="controls">
-          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database connection: reconnecting">Database</span>
-          <button class="btn" id="refreshReportBtn" type="button">Refresh</button>
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database status: reconnecting">Database</span>
           <button class="btn" id="signOutBtn" type="button">Log Out</button>
         </div>
       </header>
@@ -87,36 +86,85 @@
 
         <section class="panel reports-builder-panel" aria-label="Report builder">
           <div class="panel-header">
-            <div class="controls">
-              <div class="field small">
-                <select id="reportStatusFilter">
-                  <option value="">All status</option>
-                  <option value="available">Available</option>
-                  <option value="checked_out">Assigned</option>
-                  <option value="repair">Repair</option>
-                  <option value="retired">Retired</option>
-                </select>
+            <strong>Report Builder</strong>
+            <div class="controls report-builder-header-actions" id="reportExportActions" hidden>
+              <div class="export-popover" id="exportPopoverRoot">
+                <button class="btn" id="exportAsBtn" type="button" aria-haspopup="true" aria-expanded="false">Export As</button>
+                <div class="export-popover-menu" id="exportPopoverMenu" hidden>
+                  <button class="btn ghost export-option" id="exportCsvBtn" type="button">CSV (Excel/Sheets)</button>
+                  <button class="btn ghost export-option" id="exportXlsxBtn" type="button">XLSX (Workbook)</button>
+                  <button class="btn ghost export-option" id="exportHtmlBtn" type="button">HTML (Web Report)</button>
+                  <button class="btn ghost export-option" id="exportPdfBtn" type="button">PDF (Printable)</button>
+                </div>
               </div>
-              <div class="field small">
-                <select id="reportTypeFilter">
-                  <option value="">All types</option>
-                </select>
-              </div>
-              <div class="field">
-                <input id="reportSearch" type="search" placeholder="Search serial, model, assignee, building...">
-              </div>
-            </div>
-            <div class="controls">
-              <button class="btn" id="exportCsvBtn" type="button">Export CSV</button>
-              <button class="btn" id="exportHtmlBtn" type="button">Export HTML</button>
-              <button class="btn primary" id="exportPdfBtn" type="button">Export PDF</button>
             </div>
           </div>
+          <div class="panel-body reports-builder-body">
+            <div class="report-builder-controls">
+              <div class="report-filter-grid">
+                <div class="field small select-field">
+                  <select id="reportStatusFilter">
+                    <option value="">All status</option>
+                    <option value="available">Available</option>
+                    <option value="checked_out">Assigned</option>
+                    <option value="repair">Repair</option>
+                    <option value="retired">Retired</option>
+                  </select>
+                </div>
+                <div class="field small select-field">
+                  <select id="reportTypeFilter">
+                    <option value="">All types</option>
+                  </select>
+                </div>
+                <div class="field select-field">
+                  <select id="reportManufacturerFilter">
+                    <option value="">All manufacturers</option>
+                  </select>
+                </div>
+                <div class="field select-field">
+                  <select id="reportModelFilter">
+                    <option value="">All models</option>
+                  </select>
+                </div>
+                <div class="field select-field">
+                  <select id="reportBuildingFilter">
+                    <option value="">All buildings</option>
+                  </select>
+                </div>
+                <div class="field select-field">
+                  <select id="reportRoomFilter">
+                    <option value="">All rooms</option>
+                  </select>
+                </div>
+                <div class="field select-field report-ownership-field">
+                  <select id="reportOwnershipFilter">
+                    <option value="">Owned/leased</option>
+                    <option value="owned">Owned</option>
+                    <option value="leased">Leased</option>
+                  </select>
+                </div>
+                <div class="field select-field">
+                  <select id="reportObsoleteFilter">
+                    <option value="">All lifecycle</option>
+                    <option value="false">Active only</option>
+                    <option value="true">Obsolete only</option>
+                  </select>
+                </div>
+              </div>
+              <div class="controls report-builder-actions">
+                <button class="btn" id="generateReportBtn" type="button">Generate</button>
+                <button class="btn ghost" id="resetReportBtn" type="button" hidden>Reset</button>
+              </div>
+            </div>
 
-          <div class="table-wrap">
+          </div>
+
+          <div id="reportResultsSection" hidden>
+            <div class="table-wrap">
             <table aria-label="Report data">
               <thead>
                 <tr>
+                  <th>Manufacturer</th>
                   <th>Serial</th>
                   <th>Type</th>
                   <th>Model</th>
@@ -125,8 +173,32 @@
                   <th>Building / Room</th>
                 </tr>
               </thead>
-              <tbody id="reportsBody"></tbody>
+            <tbody id="reportsBody"></tbody>
             </table>
+          </div>
+          <div class="panel-body report-pager-row">
+            <div class="report-pager-left" id="reportPagerLeft">
+              <span id="reportResultInfo" class="muted">Results: 0</span>
+            </div>
+            <div class="report-pager" id="reportPagerControls">
+              <div class="report-page-block">
+                <span id="reportCurrentPage" class="report-page-number">1</span>
+                <span id="reportPageInfo" class="muted">of 1 pages</span>
+              </div>
+              <button class="btn icon report-nav-btn" id="reportPrevBtn" type="button" aria-label="Previous page">&#8249;</button>
+              <button class="btn icon report-nav-btn" id="reportNextBtn" type="button" aria-label="Next page">&#8250;</button>
+              <div class="report-items-block">
+                <div class="field small select-field report-page-size-field">
+                <select id="reportPageSize">
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+                </div>
+                <span class="muted">items per page</span>
+              </div>
+            </div>
+          </div>
           </div>
         </section>
       </section>
@@ -135,6 +207,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="./config.js"></script>
   <script type="module" src="./js/reports.js"></script>
   <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">

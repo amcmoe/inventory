@@ -192,19 +192,19 @@ export function initConnectionBadgeMonitor({
 
     if (state === 'offline') {
       const hint = lastErrorText ? ` (last error: ${lastErrorText})` : '';
-      badge.title = `Database connection: offline${hint}`;
-      badge.setAttribute('aria-label', 'Database connection: offline');
+      badge.title = `Database status: offline${hint}`;
+      badge.setAttribute('aria-label', 'Database status: offline');
     } else if (state === 'checking') {
       const hint = lastErrorText ? ` (last error: ${lastErrorText})` : '';
-      badge.title = `Database connection: checking${hint}`;
-      badge.setAttribute('aria-label', 'Database connection: checking');
+      badge.title = `Database status: checking${hint}`;
+      badge.setAttribute('aria-label', 'Database status: checking');
     } else if (state === 'reconnecting') {
       const hint = lastErrorText ? ` (last error: ${lastErrorText})` : '';
-      badge.title = `Database connection: reconnecting${hint}`;
-      badge.setAttribute('aria-label', 'Database connection: reconnecting');
+      badge.title = `Database status: reconnecting${hint}`;
+      badge.setAttribute('aria-label', 'Database status: reconnecting');
     } else {
-      badge.title = 'Database connection: connected';
-      badge.setAttribute('aria-label', 'Database connection: connected');
+      badge.title = 'Database status: connected';
+      badge.setAttribute('aria-label', 'Database status: connected');
     }
   };
 

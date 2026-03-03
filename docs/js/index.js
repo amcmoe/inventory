@@ -1761,16 +1761,16 @@ function setConnectionBadge(state = 'connected', text = '') {
   }
   if (state === 'offline') {
     const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
-    connectionBadge.title = `Database connection: offline${hint}`;
-    connectionBadge.setAttribute('aria-label', 'Database connection: offline');
+    connectionBadge.title = `Database status: offline${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database status: offline');
   } else if (state === 'checking') {
     const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
-    connectionBadge.title = `Database connection: checking${hint}`;
-    connectionBadge.setAttribute('aria-label', 'Database connection: checking');
+    connectionBadge.title = `Database status: checking${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database status: checking');
   } else if (state === 'reconnecting') {
     const hint = connectionLastError ? ` (last error: ${connectionLastError})` : '';
-    connectionBadge.title = `Database connection: reconnecting${hint}`;
-    connectionBadge.setAttribute('aria-label', 'Database connection: reconnecting');
+    connectionBadge.title = `Database status: reconnecting${hint}`;
+    connectionBadge.setAttribute('aria-label', 'Database status: reconnecting');
     connectionBadge.innerHTML = '<span class="connection-label">Database</span><span class="connection-reconnect-dots" aria-hidden="true"><span></span><span></span><span></span></span>';
     if (!document.hidden && !connectionReconnectTimer) {
       connectionReconnectTimer = window.setInterval(() => {
@@ -1779,8 +1779,8 @@ function setConnectionBadge(state = 'connected', text = '') {
     }
     return;
   } else {
-    connectionBadge.title = 'Database connection: connected';
-    connectionBadge.setAttribute('aria-label', 'Database connection: connected');
+    connectionBadge.title = 'Database status: connected';
+    connectionBadge.setAttribute('aria-label', 'Database status: connected');
   }
   connectionBadge.innerHTML = '<span class="connection-label">Database</span>';
 }
