@@ -36,6 +36,12 @@ function getTag() {
   return params.get('tag');
 }
 
+function getTargetReportId() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get('report') || '').trim();
+  return raw ? Number(raw) : null;
+}
+
 function statusBadge(status) {
   const raw = String(status || '');
   const label = raw === 'checked_out' ? 'Assigned' : raw;
@@ -275,6 +281,8 @@ async function loadDamageReports() {
   }
 
   damageList.innerHTML = data.map((report) => {
+    const targetReportId = getTargetReportId();
+    const isTarget = Number.isFinite(targetReportId) && Number(report?.id) === targetReportId;
     const assignee = resolveReportAssignee(report);
     const photos = report.damage_photos || [];
     const renderedPhotos = photos.map((photo) => {
@@ -289,7 +297,7 @@ async function loadDamageReports() {
       : '<div class="muted">No photos uploaded.</div>';
 
     return `
-      <div class="damage-item">
+      <div class="damage-item${isTarget ? ' is-target' : ''}" id="damage-report-${escapeHtml(String(report.id || ''))}">
         <div class="row row-between">
           <strong>${escapeHtml(report.summary)}</strong>
           <span class="badge status-${escapeHtml(report.status)}">${escapeHtml(report.status)}</span>
@@ -302,6 +310,13 @@ async function loadDamageReports() {
       </div>
     `;
   }).join('');
+  const targetReportId = getTargetReportId();
+  if (Number.isFinite(targetReportId)) {
+    const el = document.getElementById(`damage-report-${targetReportId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
   if (asset) {
     await loadAsset();
   }

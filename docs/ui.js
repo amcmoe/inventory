@@ -183,6 +183,7 @@ function enhanceAssetTable() {
       const assetTag = tr.dataset.assetTag || serial || "";
       const manufacturer = tr.dataset.manufacturer || "";
       const equipmentType = tr.dataset.equipmentType || "";
+      const assigneeId = tr.dataset.assigneeId || "";
       const building = tr.dataset.building || "";
       const room = tr.dataset.room || "";
       const serviceStartDate = tr.dataset.serviceStartDate || "";
@@ -191,6 +192,7 @@ function enhanceAssetTable() {
       const obsolete = tr.dataset.obsolete || "No";
       currentRowData = {
         assetId, serial, assetTag, model, assignedTo, status,
+        assigneeId,
         building: buildingCell,
         manufacturer, equipmentType, building, room, serviceStartDate,
         ownership, warrantyExpirationDate, obsolete,

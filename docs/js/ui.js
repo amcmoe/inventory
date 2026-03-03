@@ -86,7 +86,7 @@ export function bindSignOut(signOutFn, redirectUrl = './index.html') {
 }
 
 export function initAdminNav() {
-  const groups = document.querySelectorAll('.nav-group-admin');
+  const groups = document.querySelectorAll('.nav-group');
   if (!groups.length) return;
 
   groups.forEach((group) => {

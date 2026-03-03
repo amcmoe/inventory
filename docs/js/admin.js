@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
@@ -555,12 +555,119 @@ function setForm(asset) {
   qs('#building').value = asset.building || '';
   qs('#room').value = asset.room || '';
   qs('#serviceStartDate').value = asset.service_start_date || '';
-  qs('#comments').value = asset.comments || '';
+  const cleanComments = String(asset.comments || '')
+    .replace(/\s*\(tx\s+\d+\)/gi, '')
+    .replace(/\s*-\s*OUT to\s+/gi, ' - Assigned to ')
+    .replace(/\s*-\s*IN from\s+/gi, ' - Returned by ');
+  qs('#comments').value = cleanComments;
+  const damageHistoryList = qs('#damageHistoryList');
+  if (damageHistoryList) damageHistoryList.textContent = 'Load an asset to view damage history.';
   qs('#ownership').value = asset.ownership || '';
   qs('#warrantyExpirationDate').value = asset.warranty_expiration_date || '';
   qs('#obsolete').value = asset.obsolete ? 'true' : 'false';
   qs('#status').value = editableStatus;
   setEditMode(Boolean(asset.id));
+}
+
+function formatHistoryTime(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts || '-');
+  return d.toLocaleString([], {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+async function loadAssignmentHistory(assetId, fallbackComments = '') {
+  const commentsField = qs('#comments');
+  if (!commentsField) return;
+  commentsField.value = 'Loading...';
+
+  const { data: txRows, error: txError } = await supabase
+    .from('transactions')
+    .select('id, action, occurred_at, assignee_person_id, performed_by_user_id, people(display_name)')
+    .eq('asset_id', assetId)
+    .order('occurred_at', { ascending: false })
+    .limit(200);
+
+  if (txError) {
+    commentsField.value = String(fallbackComments || '').replace(/\s*\(tx\s+\d+\)/gi, '');
+    return;
+  }
+
+  const rows = Array.isArray(txRows) ? txRows : [];
+  if (!rows.length) {
+    commentsField.value = String(fallbackComments || '').replace(/\s*\(tx\s+\d+\)/gi, '') || 'No assignment history yet.';
+    return;
+  }
+
+  const performerIds = [...new Set(rows.map((r) => String(r?.performed_by_user_id || '').trim()).filter(Boolean))];
+  const performerNameById = new Map();
+  if (performerIds.length) {
+    const { data: profRows } = await supabase
+      .from('profiles')
+      .select('user_id, display_name')
+      .in('user_id', performerIds);
+    (profRows || []).forEach((p) => {
+      performerNameById.set(String(p.user_id), String(p.display_name || '').trim() || 'Unknown');
+    });
+  }
+
+  const historyLines = rows.map((row) => {
+    const when = formatHistoryTime(row?.occurred_at);
+    const assignee = String(row?.people?.display_name || '').trim() || 'Unassigned';
+    const tech = performerNameById.get(String(row?.performed_by_user_id || '')) || 'Unknown';
+    if (row?.action === 'out') return `${when} - Assigned to ${assignee}`;
+    if (row?.action === 'in') return `${when} - Returned by ${tech}`;
+    return `${when} - ${String(row?.action || 'update').toUpperCase()}`;
+  });
+  commentsField.value = historyLines.join('\n');
+}
+
+function formatDamageHistoryRow(row) {
+  const when = row?.created_at
+    ? new Date(row.created_at).toLocaleString()
+    : '-';
+  const note = String(row?.notes || row?.summary || '').trim() || '-';
+  const assignee = String(row?.assignee_name || '').trim() || 'Unassigned';
+  const reporter = String(row?.reported_by_name || '').trim() || 'Unknown';
+  return `${when} - ${note} (Assigned: ${assignee}, Reported by: ${reporter})`;
+}
+
+async function loadDamageHistory(assetId, assetTag) {
+  const damageList = qs('#damageHistoryList');
+  if (!damageList) return;
+  damageList.textContent = 'Loading...';
+  const { data, error } = await supabase
+    .from('damage_reports')
+    .select('id, created_at, summary, notes, assignee_name, reported_by_name')
+    .eq('asset_id', assetId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    damageList.textContent = 'Could not load damage history.';
+    return;
+  }
+  if (!Array.isArray(data) || !data.length) {
+    damageList.textContent = 'No damage reports yet.';
+    return;
+  }
+  const tag = String(assetTag || '').trim();
+  damageList.innerHTML = data.map((row) => {
+    const reportText = escapeHtml(formatDamageHistoryRow(row));
+    const reportId = Number(row?.id);
+    const linkHref = `./index.html?tag=${encodeURIComponent(tag)}&open=damage${Number.isFinite(reportId) ? `&report=${encodeURIComponent(String(reportId))}` : ''}`;
+    return `
+      <div class="admin-damage-item">
+        <div class="admin-damage-text">${reportText}</div>
+        <a class="btn ghost" href="${linkHref}" target="_blank" rel="noopener noreferrer">Open</a>
+      </div>
+    `;
+  }).join('');
 }
 
 async function saveAsset() {
@@ -604,6 +711,8 @@ async function loadByTag() {
   }
 
   setForm(data);
+  await loadAssignmentHistory(data.id, data.comments || '');
+  await loadDamageHistory(data.id, data.asset_tag || data.serial || '');
   if (data.status === 'checked_out') {
     toast('Checked-out status is managed by checkout/checkin RPC only.');
   }
@@ -1241,6 +1350,11 @@ async function init() {
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
+  qs('#assetTag').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    loadByTag().catch((err) => toast(err.message, true));
+  });
   qs('#bulkCreateBtn').addEventListener('click', bulkCreateAssets);
   qs('#clearBulkSerialsBtn').addEventListener('click', () => {
     const hasSerials = (qs('#bulkSerials').value || '').trim().length > 0;

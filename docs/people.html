@@ -14,10 +14,13 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
+        <div class="logo itam-logo" aria-hidden="true">
+          <span class="itam-row itam-row-top"><span class="itam-i" aria-hidden="true"></span><span>T</span></span>
+          <span class="itam-row itam-row-bottom"><span>A</span><span>M</span></span>
+        </div>
         <div class="title">
-          <strong>IT Asset Inventory</strong>
-          <span>Team workspace</span>
+          <strong>IT Asset Management</strong>
+          <span>SMSD Tech Team</span>
         </div>
       </div>
       <nav class="nav" id="peopleNav" hidden>
@@ -32,7 +35,17 @@
             <a class="nav-subitem active" href="./people.html"><span>User Management</span></a>
           </div>
         </div>
-        <a href="./reports.html"><span>Reports</span></a>
+        <div class="nav-group nav-group-reports">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span>Reports</span>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem" href="./kpi-reports.html"><span>KPI Reports</span></a>
+            <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
+            <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
+          </div>
+        </div>
       </nav>
     </aside>
 

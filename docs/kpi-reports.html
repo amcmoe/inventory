@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Inventory - KPI Reports</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo itam-logo" aria-hidden="true">
+          <span class="itam-row itam-row-top"><span class="itam-i" aria-hidden="true"></span><span>T</span></span>
+          <span class="itam-row itam-row-bottom"><span>A</span><span>M</span></span>
+        </div>
+        <div class="title">
+          <strong>IT Asset Management</strong>
+          <span>SMSD Tech Team</span>
+        </div>
+      </div>
+      <nav class="nav" id="kpiReportsNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <div class="nav-group nav-group-admin" data-role-min="admin">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span>Admin</span>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
+            <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+          </div>
+        </div>
+        <div class="nav-group nav-group-reports is-pinned" data-open-default="true">
+          <button class="nav-group-toggle active" type="button" aria-expanded="true">
+            <span>Reports</span>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem active" href="./kpi-reports.html"><span>KPI Reports</span></a>
+            <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
+            <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="kpiReportsTopbar" hidden>
+        <div>
+          <h1>KPI Reports</h1>
+          <div class="subtext">Summary metrics for inventory reporting.</div>
+        </div>
+        <div class="controls">
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database status: reconnecting">Database</span>
+          <button class="btn" id="signOutBtn" type="button">Log Out</button>
+        </div>
+      </header>
+
+      <section class="panel" id="kpiReportsLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session.</p>
+        </div>
+      </section>
+
+      <section class="reports-sections" id="kpiReportsMainSection" hidden>
+        <section class="panel reports-summary-panel" aria-label="Summary">
+          <div class="panel-header">
+            <strong>Summary</strong>
+          </div>
+          <div class="panel-body">
+            <section class="kpis" aria-label="Summary KPIs">
+              <div class="kpi">
+                <div class="label">Total assets</div>
+                <div class="value" id="kpiTotal">0</div>
+                <div class="hint">All tracked items</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Assigned</div>
+                <div class="value" id="kpiAssigned">0</div>
+                <div class="hint">Assigned to users</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Available</div>
+                <div class="value" id="kpiAvailable">0</div>
+                <div class="hint">Ready to deploy</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Needs attention</div>
+                <div class="value" id="kpiAttention">0</div>
+                <div class="hint">Repair / retired</div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><strong>Upcoming KPI Reports</strong></div>
+          <div class="panel-body">
+            <p class="muted">This section is a placeholder for future KPI dashboards and trend reports.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/kpi-reports.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
+</body>
+</html>

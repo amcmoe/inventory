@@ -27,7 +27,6 @@ const reportResultInfo = qs('#reportResultInfo');
 const reportPagerLeft = qs('#reportPagerLeft');
 const reportPagerControls = qs('#reportPagerControls');
 const reportResultsSection = qs('#reportResultsSection');
-const reportExportActions = qs('#reportExportActions');
 const exportPopoverRoot = qs('#exportPopoverRoot');
 const exportAsBtn = qs('#exportAsBtn');
 const exportPopoverMenu = qs('#exportPopoverMenu');
@@ -144,7 +143,7 @@ function setPagerState() {
 
 function setReportRunState(hasRun) {
   if (reportResultsSection) reportResultsSection.hidden = !hasRun;
-  if (reportExportActions) reportExportActions.hidden = !hasRun;
+  if (exportPopoverRoot) exportPopoverRoot.hidden = !hasRun;
   if (resetReportBtn) resetReportBtn.hidden = !hasRun;
   if (!hasRun) closeExportPopover();
 }

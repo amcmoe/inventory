@@ -116,6 +116,7 @@ let pendingRemoteFlushTimer = null;
 let remoteSessionWatchdogTimer = null;
 const dismissedRemoteDamagePaths = new Set();
 let damageHistoryLoadSeq = 0;
+let pendingDeepLink = null;
 
 function getDismissedRemoteDamageStorageKey(sessionId = remoteSessionId) {
   const id = String(sessionId || '').trim();
@@ -771,12 +772,13 @@ function renderAssets(assets) {
   assetTbody.innerHTML = assets.map((asset) => {
     const current = Array.isArray(asset.asset_current) ? asset.asset_current[0] : asset.asset_current;
     const assignedTo = current?.people?.display_name || '';
+    const assigneeId = current?.assignee_person_id || '';
     const serial = asset.serial || asset.asset_tag || '';
     const lookupTag = asset.asset_tag || serial;
     const buildingLabel = asset.building || '';
     const canWrite = Boolean(currentProfile && (currentProfile.role === 'admin' || currentProfile.role === 'tech'));
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-id="${escapeHtml(asset.id || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-status="${escapeHtml(asset.status || '')}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-id="${escapeHtml(asset.id || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-assignee-id="${escapeHtml(assigneeId || '')}" data-status="${escapeHtml(asset.status || '')}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
         <td>${escapeHtml(serial)}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
@@ -1040,6 +1042,73 @@ function bindSearch() {
   });
 }
 
+function readPendingDeepLinkFromUrl() {
+  const params = new URLSearchParams(window.location.search || '');
+  const tag = String(params.get('tag') || '').trim();
+  const open = String(params.get('open') || '').trim().toLowerCase();
+  const report = String(params.get('report') || '').trim();
+  if (!tag && !open && !report) return null;
+  return {
+    tag,
+    open,
+    report
+  };
+}
+
+function clearDeepLinkFromUrl() {
+  if (!window?.history?.replaceState) return;
+  const clean = window.location.pathname + window.location.hash;
+  window.history.replaceState({}, document.title, clean);
+}
+
+function highlightDamageReportById(reportId) {
+  if (!drawerDamageHistoryList || !reportId) return;
+  const wanted = String(reportId).trim();
+  if (!wanted) return;
+  const target = Array.from(drawerDamageHistoryList.querySelectorAll('.damage-history-item[data-report-id]'))
+    .find((node) => String(node.getAttribute('data-report-id') || '') === wanted);
+  if (!target) return;
+  target.classList.add('is-target');
+  try {
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch {
+    target.scrollIntoView();
+  }
+  window.setTimeout(() => {
+    target.classList.remove('is-target');
+  }, 2200);
+}
+
+async function applyPendingDeepLink() {
+  if (!pendingDeepLink) return;
+  const link = pendingDeepLink;
+  pendingDeepLink = null;
+  clearDeepLinkFromUrl();
+
+  if (!link.tag) return;
+  if (searchInput) searchInput.value = link.tag;
+  await loadAssets();
+
+  const rows = Array.from(assetTbody?.querySelectorAll('tr[data-asset-tag]') || []);
+  const wanted = String(link.tag || '').toLowerCase();
+  let row = rows.find((node) => String(node.dataset.assetTag || '').toLowerCase() === wanted);
+  if (!row && rows.length) row = rows[0];
+  if (!row) {
+    toast(`Asset not found: ${link.tag}`, true);
+    return;
+  }
+
+  row.click();
+  if (link.open === 'damage') {
+    window.setTimeout(() => {
+      openDamageDrawerForSelectedAsset();
+      if (link.report) {
+        window.setTimeout(() => highlightDamageReportById(link.report), 260);
+      }
+    }, 90);
+  }
+}
+
 async function initAuthedUI(session) {
   authPanel.hidden = true;
   authShell.hidden = true;
@@ -1066,6 +1135,7 @@ async function initAuthedUI(session) {
   renderSearchPrompt();
   startAutoRefresh();
   startDbConnectionPoller();
+  await applyPendingDeepLink();
 }
 
 async function searchPeople(term) {
@@ -1233,7 +1303,10 @@ async function submitDamageFromDrawer() {
       asset_id: selectedAsset.assetId,
       summary,
       notes,
-      related_transaction_id: relatedTransactionId
+      related_transaction_id: relatedTransactionId,
+      assignee_person_id: selectedAsset.assigneeId || null,
+      assignee_name: selectedAsset.assigneeName || 'Unassigned',
+      reported_by_name: currentProfile?.display_name || session?.user?.email || 'Unknown'
     })
     .select('id')
     .single();
@@ -1294,7 +1367,7 @@ async function loadDamageHistoryForSelectedAsset() {
 
   const { data: reports, error } = await supabase
     .from('damage_reports')
-    .select('id, created_at, summary, notes, damage_photos(storage_path)')
+    .select('id, created_at, summary, notes, assignee_name, reported_by_name, damage_photos(storage_path)')
     .eq('asset_id', assetId)
     .order('created_at', { ascending: false })
     .limit(15);
@@ -1339,10 +1412,26 @@ async function loadDamageHistoryForSelectedAsset() {
   if (seq !== damageHistoryLoadSeq) return;
 
   const html = reports.map((report) => {
-    const createdLabel = report?.created_at
-      ? new Date(report.created_at).toLocaleString()
-      : '-';
+    let createdLabel = '-';
+    if (report?.created_at) {
+      const dt = new Date(report.created_at);
+      if (!Number.isNaN(dt.getTime())) {
+        createdLabel = dt
+          .toLocaleString([], {
+            month: 'numeric',
+            day: 'numeric',
+            year: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit'
+          })
+          .replace(',', '')
+          .replace(' AM', 'am')
+          .replace(' PM', 'pm');
+      }
+    }
     const note = String(report?.notes || report?.summary || '').trim() || '-';
+    const currentAssigneeName = String(selectedAsset?.assigneeName || selectedAsset?.assignee || '').trim() || 'Unassigned';
+    const reporterName = String(report?.reported_by_name || '').trim() || 'Unknown';
     const photos = Array.isArray(report?.damage_photos) ? report.damage_photos : [];
     const photoHtml = photos
       .map((photo) => {
@@ -1355,8 +1444,9 @@ async function loadDamageHistoryForSelectedAsset() {
       .join('');
 
     return `
-      <div class="damage-history-item">
-        <div class="meta">${escapeHtml(createdLabel)}</div>
+      <div class="damage-history-item" data-report-id="${escapeAttr(String(report?.id || ''))}">
+        <div class="meta">${escapeHtml(`${createdLabel} by ${reporterName}`)}</div>
+        <div class="meta">${escapeHtml(`Assigned to: ${currentAssigneeName}`)}</div>
         <div class="note">${escapeHtml(note)}</div>
         ${photoHtml ? `<div class="damage-history-photos">${photoHtml}</div>` : ''}
       </div>
@@ -2284,6 +2374,7 @@ async function restoreGlobalRemoteSession() {
 async function init() {
   initTheme();
   bindThemeToggle();
+  pendingDeepLink = readPendingDeepLinkFromUrl();
   if (!requireConfig()) {
     authMessage.textContent = 'Update config.js with Supabase URL and anon key.';
     return;
@@ -2408,6 +2499,8 @@ async function init() {
       model: detail.model || '',
       status: detail.status || '',
       assignee: detail.assignedTo || '',
+      assigneeId: detail.assigneeId || '',
+      assigneeName: detail.assignedTo || '',
       notes: detail.notes || ''
     };
     selectedPerson = null;
