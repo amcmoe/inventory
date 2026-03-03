@@ -280,14 +280,22 @@ textarea::placeholder {
 }
 
 .nav-caret {
-  font-size: 12px;
-  color: var(--muted-2);
-  transition: transform 140ms ease;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 2px;
+  font-size: 0;
+  border-right: 1.75px solid var(--muted-2);
+  border-bottom: 1.75px solid var(--muted-2);
+  transform-origin: 50% 55%;
+  transform: rotate(45deg);
+  transition: transform 650ms cubic-bezier(0.22, 1, 0.36, 1), border-color 340ms ease;
 }
 
 .nav-group:hover .nav-caret,
 .nav-group.is-pinned .nav-caret {
-  transform: rotate(180deg);
+  transform: rotate(-135deg);
+  border-color: var(--text);
 }
 
 .nav-submenu {
@@ -300,7 +308,7 @@ textarea::placeholder {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-2px);
-  transition: max-height 260ms ease, opacity 210ms ease, transform 210ms ease;
+  transition: max-height 1200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 850ms ease, transform 850ms ease;
 }
 
 .nav-group:hover .nav-submenu,
@@ -308,6 +316,80 @@ textarea::placeholder {
   max-height: 180px;
   opacity: 1;
   transform: translateY(0);
+}
+
+.asset-jump-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.asset-jump-link:hover {
+  color: var(--text);
+}
+
+.user-report-current-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(105, 240, 174, 0.35);
+  background: rgba(105, 240, 174, 0.14);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.user-report-assignee-field {
+  min-width: min(820px, 100%);
+  flex-basis: min(820px, 100%);
+}
+
+.user-report-for-row {
+  padding-top: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-filter-grid .field.user-report-assignee-field {
+  flex: 0 0 min(820px, 100%);
+  max-width: min(820px, 100%);
+}
+
+.user-report-photo-cell {
+  display: grid;
+  gap: 8px;
+}
+
+.user-report-photo-count {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.user-report-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-report-photo-thumb {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.user-report-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .nav-subitem {

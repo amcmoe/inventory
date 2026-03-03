@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Inventory - User Reports</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <title>Inventory - User Device History Report</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -50,7 +52,7 @@
     <main class="main">
       <header class="topbar" id="userReportsTopbar" hidden>
         <div>
-          <h1>User Reports</h1>
+          <h1>User Device History Report</h1>
           <div class="subtext">Generate assignment and damage history by assignee.</div>
         </div>
         <div class="controls">
@@ -68,18 +70,26 @@
 
       <section class="panel" id="userReportsMainSection" hidden>
         <div class="panel-header">
-          <strong>User Reports</strong>
+          <strong>User Device History Report</strong>
           <div class="controls report-builder-header-actions">
             <button class="btn" id="generateUserReportBtn" type="button">Generate</button>
             <button class="btn ghost" id="resetUserReportBtn" type="button" hidden>Reset</button>
+            <div class="export-popover" id="userReportExportPopoverRoot" hidden>
+              <button class="btn" id="userReportExportAsBtn" type="button" aria-haspopup="true" aria-expanded="false">Export As</button>
+              <div class="export-popover-menu" id="userReportExportPopoverMenu" hidden>
+                <button class="btn ghost export-option" id="userReportExportCsvBtn" type="button">CSV (Excel/Sheets)</button>
+                <button class="btn ghost export-option" id="userReportExportXlsxBtn" type="button">XLSX (Workbook)</button>
+                <button class="btn ghost export-option" id="userReportExportHtmlBtn" type="button">HTML (Web Report)</button>
+                <button class="btn ghost export-option" id="userReportExportPdfBtn" type="button">PDF (Printable)</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="panel-body reports-builder-body">
-          <p class="muted">Search for an assignee to generate an asset report per user.</p>
           <div class="report-builder-controls">
             <div class="report-filter-grid">
-              <div class="field report-assignee-field">
-                <input id="userReportAssigneeFilter" placeholder="Assignee">
+              <div class="field report-assignee-field user-report-assignee-field">
+                <input id="userReportAssigneeFilter" placeholder="Search for an assignee to generate an asset history report.">
                 <div id="userReportAssigneeSuggestions" class="suggestions report-assignee-suggestions" hidden></div>
               </div>
             </div>
@@ -87,8 +97,11 @@
         </div>
 
         <div id="userReportResultsSection" hidden>
+          <div class="panel-body user-report-for-row" id="userReportForRow" hidden>
+            <strong id="userReportForText">User report for -</strong>
+          </div>
           <div class="panel-header">
-            <strong>Asset Report</strong>
+            <strong>Assignment history</strong>
           </div>
           <div class="table-wrap">
             <table aria-label="User asset history">
@@ -96,6 +109,7 @@
                 <tr>
                   <th>Serial</th>
                   <th>Model</th>
+                  <th>Date Assigned</th>
                   <th>Status</th>
                   <th>Current Assignee</th>
                   <th>Building / Room</th>
@@ -112,8 +126,8 @@
             <table aria-label="User damage history">
               <thead>
                 <tr>
-                  <th>Date</th>
                   <th>Serial</th>
+                  <th>Date</th>
                   <th>Summary</th>
                   <th>Reported By</th>
                   <th>Photos</th>
@@ -127,6 +141,9 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="./config.js"></script>
   <script type="module" src="./js/user-reports.js"></script>
   <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">

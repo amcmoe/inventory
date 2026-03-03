@@ -94,9 +94,10 @@ export function initAdminNav() {
     if (!toggle || toggle.dataset.bound === '1') return;
     toggle.dataset.bound = '1';
 
-    // Always default to collapsed on load; do not persist in localStorage.
-    group.classList.remove('is-pinned');
-    toggle.setAttribute('aria-expanded', 'false');
+    // Respect per-page default-open markers (e.g. reports pages).
+    const openByDefault = String(group.dataset.openDefault || '').toLowerCase() === 'true';
+    group.classList.toggle('is-pinned', openByDefault);
+    toggle.setAttribute('aria-expanded', openByDefault ? 'true' : 'false');
 
     toggle.addEventListener('click', (event) => {
       event.preventDefault();
