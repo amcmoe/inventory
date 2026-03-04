@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Inventory - Account Settings</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo itam-logo" aria-hidden="true">
+          <span class="itam-row itam-row-top"><span class="itam-i" aria-hidden="true"></span><span>T</span></span>
+          <span class="itam-row itam-row-bottom"><span>A</span><span>M</span></span>
+        </div>
+        <div class="title">
+          <strong>IT Asset Management</strong>
+          <span>SMSD Tech Team</span>
+        </div>
+      </div>
+      <nav class="nav" id="accountSettingsNav" hidden>
+        <a href="./index.html"><span>Search</span></a>
+        <div class="nav-group nav-group-admin is-pinned" data-role-min="admin" data-open-default="true">
+          <button class="nav-group-toggle" type="button" aria-expanded="true">
+            <span>Admin</span>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
+            <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+            <a class="nav-subitem active" href="./account-settings.html"><span>Account Settings</span></a>
+          </div>
+        </div>
+        <div class="nav-group nav-group-reports">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span>Reports</span>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-submenu">
+            <a class="nav-subitem" href="./kpi-reports.html"><span>KPI Reports</span></a>
+            <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
+            <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="accountSettingsTopbar" hidden>
+        <div>
+          <h1>Account Settings</h1>
+          <div class="subtext">Customize site branding and account-level display settings.</div>
+        </div>
+        <div class="controls">
+          <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database status: reconnecting">Database</span>
+          <button class="btn" id="signOutBtn" type="button">Log Out</button>
+        </div>
+      </header>
+
+      <section class="panel" id="accountSettingsLoadingPanel">
+        <div class="panel-body">
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session and role.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="accountSettingsMainSection" hidden>
+        <div class="panel-body">
+          <h2>Branding</h2>
+          <p class="muted">These values update the left sidebar title across this browser profile.</p>
+          <div class="grid cols-2">
+            <div>
+              <label for="settingsSiteName">Site Name</label>
+              <input id="settingsSiteName" placeholder="IT Asset Management">
+            </div>
+            <div>
+              <label for="settingsCompanyName">Company Name</label>
+              <input id="settingsCompanyName" placeholder="SMSD Tech Team">
+            </div>
+          </div>
+          <div class="row form-actions">
+            <button class="btn primary" id="saveBrandingBtn" type="button">Save</button>
+            <button class="btn" id="resetBrandingBtn" type="button">Reset to Defaults</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./js/account-settings.js"></script>
+  <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
+    <span class="theme-toggle-glyph" aria-hidden="true"></span>
+  </button>
+</body>
+</html>

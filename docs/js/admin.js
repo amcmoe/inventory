@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
@@ -1323,6 +1323,10 @@ async function init() {
     window.location.href = './index.html';
     return;
   }
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh
+  });
 
   if (adminLoadingPanel) {
     adminLoadingPanel.hidden = true;

@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, sendMagicLink, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
 const peopleTopbar = qs('#peopleTopbar');
@@ -366,6 +366,10 @@ async function init() {
     window.location.href = './index.html';
     return;
   }
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh
+  });
 
   if (peopleLoadingPanel) peopleLoadingPanel.hidden = true;
   if (peopleTopbar) peopleTopbar.hidden = false;

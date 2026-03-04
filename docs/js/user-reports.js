@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const userReportsTopbar = qs('#userReportsTopbar');
 const userReportsNav = qs('#userReportsNav');
@@ -545,6 +545,10 @@ async function init() {
   const profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
   initAdminNav();
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh
+  });
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,
     ensureSessionFreshFn: ensureSessionFresh,

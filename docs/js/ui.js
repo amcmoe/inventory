@@ -56,9 +56,11 @@ export function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') {
     document.documentElement.setAttribute('data-theme', saved);
+    applySiteBranding();
     return;
   }
   document.documentElement.setAttribute('data-theme', 'light');
+  applySiteBranding();
 }
 
 export function bindThemeToggle() {
@@ -70,6 +72,150 @@ export function bindThemeToggle() {
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
   });
+}
+
+const BRANDING_STORAGE_KEY = 'inventorySiteBrandingV1';
+const DEFAULT_BRANDING = {
+  siteName: 'IT Asset Management',
+  companyName: 'SMSD Tech Team'
+};
+
+const SETTINGS_STORAGE_KEY = 'inventorySiteSettingsV1';
+
+function normalizeBranding(input = {}) {
+  const siteName = String(input?.siteName || DEFAULT_BRANDING.siteName).trim() || DEFAULT_BRANDING.siteName;
+  const companyName = String(input?.companyName || DEFAULT_BRANDING.companyName).trim() || DEFAULT_BRANDING.companyName;
+  return { siteName, companyName };
+}
+
+export function getSiteBranding() {
+  try {
+    const raw = localStorage.getItem(BRANDING_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_BRANDING };
+    const parsed = JSON.parse(raw);
+    return normalizeBranding(parsed);
+  } catch {
+    return { ...DEFAULT_BRANDING };
+  }
+}
+
+export function applySiteBranding(branding = getSiteBranding()) {
+  const next = normalizeBranding(branding);
+  document.querySelectorAll('.brand .title strong').forEach((el) => {
+    el.textContent = next.siteName;
+  });
+  document.querySelectorAll('.brand .title span').forEach((el) => {
+    el.textContent = next.companyName;
+  });
+  return next;
+}
+
+export function saveSiteBranding(partial = {}) {
+  const next = normalizeBranding({ ...getSiteBranding(), ...partial });
+  try {
+    localStorage.setItem(BRANDING_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage write failures
+  }
+  applySiteBranding(next);
+  return next;
+}
+
+export function getSiteSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveSiteSettings(partial = {}) {
+  const current = getSiteSettings();
+  const next = { ...current, ...(partial || {}) };
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage write failures
+  }
+  return next;
+}
+
+export function resetSiteBranding() {
+  try {
+    localStorage.removeItem(BRANDING_STORAGE_KEY);
+    localStorage.removeItem(SETTINGS_STORAGE_KEY);
+  } catch {
+    // ignore storage remove failures
+  }
+  return applySiteBranding({ ...DEFAULT_BRANDING });
+}
+
+export async function loadSiteBrandingFromServer({
+  supabaseClient,
+  ensureSessionFreshFn
+} = {}) {
+  if (!supabaseClient || typeof supabaseClient.rpc !== 'function') {
+    return applySiteBranding();
+  }
+  try {
+    if (typeof ensureSessionFreshFn === 'function') {
+      await ensureSessionFreshFn();
+    }
+    const { data, error } = await supabaseClient.rpc('get_site_settings');
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return applySiteBranding();
+    const next = normalizeBranding({
+      siteName: row.site_name,
+      companyName: row.company_name
+    });
+    const extraSettings = (row?.settings && typeof row.settings === 'object' && !Array.isArray(row.settings))
+      ? row.settings
+      : {};
+    try {
+      localStorage.setItem(BRANDING_STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(extraSettings));
+    } catch {
+      // ignore storage write failures
+    }
+    return applySiteBranding(next);
+  } catch {
+    return applySiteBranding();
+  }
+}
+
+export async function saveSiteBrandingToServer({
+  supabaseClient,
+  ensureSessionFreshFn,
+  siteName,
+  companyName,
+  settingsPatch = {}
+} = {}) {
+  const local = saveSiteBranding({ siteName, companyName });
+  const localSettings = saveSiteSettings(settingsPatch);
+  if (!supabaseClient || typeof supabaseClient.rpc !== 'function') {
+    return { ...local, settings: localSettings };
+  }
+  if (typeof ensureSessionFreshFn === 'function') {
+    await ensureSessionFreshFn();
+  }
+  const { data, error } = await supabaseClient.rpc('admin_upsert_site_settings', {
+    p_site_name: local.siteName,
+    p_company_name: local.companyName,
+    p_settings_patch: settingsPatch
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { ...local, settings: localSettings };
+  const branding = saveSiteBranding({
+    siteName: row.site_name,
+    companyName: row.company_name
+  });
+  const settings = saveSiteSettings(row?.settings || {});
+  return { ...branding, settings };
 }
 
 export function bindSignOut(signOutFn, redirectUrl = './index.html') {

@@ -33,6 +33,7 @@
           <div class="nav-submenu">
             <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
             <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+            <a class="nav-subitem" href="./account-settings.html"><span>Account Settings</span></a>
           </div>
         </div>
         <div class="nav-group nav-group-reports is-pinned" data-open-default="true">
@@ -99,16 +100,190 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-header"><strong>Upcoming KPI Reports</strong></div>
-          <div class="panel-body">
-            <p class="muted">This section is a placeholder for future KPI dashboards and trend reports.</p>
+        <section class="panel" aria-label="IT Asset Lifecycle">
+          <div class="panel-header">
+            <strong>IT Asset Lifecycle</strong>
+          </div>
+          <div class="panel-body lifecycle-panel-body">
+            <section class="lifecycle-kpis" aria-label="Lifecycle quick stats">
+              <div class="kpi">
+                <div class="label">Average age</div>
+                <div class="value" id="lifecycleAvgAge">0.0y</div>
+                <div class="hint">Across devices with service date</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Refresh soon</div>
+                <div class="value" id="lifecycleRefreshSoon">0</div>
+                <div class="hint">4 years or older</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Refresh overdue</div>
+                <div class="value" id="lifecycleRefreshOverdue">0</div>
+                <div class="hint">6 years or older</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Missing service date</div>
+                <div class="value" id="lifecycleMissingDate">0</div>
+                <div class="hint">No in-service date recorded</div>
+              </div>
+            </section>
+
+            <section class="lifecycle-visuals" aria-label="Lifecycle charts">
+              <div class="lifecycle-card">
+                <h3>Device Age Distribution</h3>
+                <div class="lifecycle-bar-chart" id="lifecycleBarChart"></div>
+              </div>
+              <div class="lifecycle-card">
+                <h3>Lifecycle Segmentation</h3>
+                <div class="lifecycle-donut-wrap">
+                  <div class="lifecycle-donut" id="lifecycleDonut" aria-label="Lifecycle segmentation chart">
+                    <div class="lifecycle-donut-center">
+                      <strong id="lifecycleDonutTotal">0</strong>
+                      <span>tracked</span>
+                    </div>
+                  </div>
+                  <div class="lifecycle-legend" id="lifecycleLegend"></div>
+                </div>
+              </div>
+            </section>
           </div>
         </section>
+
+        <section class="panel" aria-label="Damage Insights">
+          <div class="panel-header">
+            <strong>Damage Insights</strong>
+          </div>
+          <div class="panel-body damage-insights-body">
+            <section class="damage-kpis" aria-label="Damage KPI cards">
+              <div class="kpi">
+                <div class="label">Damage rate</div>
+                <div class="value" id="damageRateKpi">0%</div>
+                <div class="hint" id="damageRateHint">0 of 0 assets have reports</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Damage reports</div>
+                <div class="value" id="damageReportsKpi">0</div>
+                <div class="hint" id="damageReportsHint">All-time reports in selection</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Last 30 days</div>
+                <div class="value" id="damageRecent30Kpi">0</div>
+                <div class="hint">Very recent incidents</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Last 90 days</div>
+                <div class="value" id="damageRecentKpi">0</div>
+                <div class="hint">Recent incident volume</div>
+              </div>
+              <div class="kpi">
+                <div class="label">Reports per damaged asset</div>
+                <div class="value" id="damagePerAssetKpi">0.0</div>
+                <div class="hint">Repeat-incident indicator</div>
+              </div>
+            </section>
+
+            <section class="damage-visuals" aria-label="Damage charts">
+              <div class="damage-card">
+                <h3>Damage Trend (Last 12 Months)</h3>
+                <div class="damage-trend-chart" id="damageTrendChart"></div>
+              </div>
+              <div class="damage-card">
+                <h3>Damage Rate by Building</h3>
+                <div class="damage-rate-chart" id="damageBuildingRateChart"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <div class="insight-duo-row" aria-label="Warranty and churn insights">
+          <section class="panel insight-panel panel-warranty" aria-label="Warranty Status">
+            <div class="panel-header">
+              <strong>Warranty Status</strong>
+            </div>
+            <div class="panel-body">
+              <div class="warranty-layout">
+                <div class="insight-visual bars-visual" id="warrantyExpiryBand"></div>
+                <div class="insight-visual insight-list" id="warrantyBuildingList"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel insight-panel panel-churn" aria-label="Assignment Churn">
+            <div class="panel-header">
+              <strong>Assignment Churn</strong>
+            </div>
+            <div class="panel-body">
+              <section class="kpi-insight-grid" aria-label="Churn KPIs">
+                <div class="kpi"><div class="label">Reassignments (90d)</div><div class="value" id="churn90Count">0</div><div class="hint">Checkout events in last 90 days</div></div>
+                <div class="kpi"><div class="label">Devices reassigned 3+ times (120d)</div><div class="value" id="churnRepeatAssets">0</div><div class="hint">Potential device issue</div></div>
+              </section>
+              <div class="churn-layout">
+                <div class="insight-visual churn-table" id="churnTopAssets"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="insight-duo-row" aria-label="Damage leaderboard insights">
+          <section class="panel insight-panel panel-hotspot" aria-label="Top Device Damagers">
+            <div class="panel-header">
+              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_device_damagers">Top Device Damagers</a>
+            </div>
+            <div class="panel-body">
+              <div class="insight-visual hbar-chart" id="damageByUserBars"></div>
+            </div>
+          </section>
+
+          <section class="panel insight-panel panel-hotspot" aria-label="Top damaged devices">
+            <div class="panel-header">
+              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_damaged_devices">Top Damaged Devices</a>
+            </div>
+            <div class="panel-body">
+              <div class="insight-visual hbar-chart" id="damageBySerialBars"></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="insight-duo-row util-quality-row" aria-label="Utilization and data quality insights">
+          <section class="panel insight-panel panel-utilization" aria-label="Student Device Utilization">
+            <div class="panel-header">
+              <strong>Student Device Utilization</strong>
+            </div>
+            <div class="panel-body">
+              <section class="kpi-insight-grid" aria-label="Utilization KPIs">
+                <div class="kpi"><div class="label">Assigned laptops</div><div class="value" id="utilAssignedPct">0</div><div class="hint">Currently checked out</div></div>
+                <div class="kpi"><div class="label">Available laptops</div><div class="value" id="utilAvailablePct">0</div><div class="hint">Ready for assignment</div></div>
+                <div class="kpi"><div class="label">Idle >60 days</div><div class="value" id="utilIdle60">0</div><div class="hint">Long idle laptop candidates</div></div>
+              </section>
+              <div class="insight-visual util-donut-wrap">
+                <div class="util-donut-canvas-wrap">
+                  <canvas id="utilDonutChart" aria-label="Asset utilization doughnut chart"></canvas>
+                </div>
+                <div class="util-donut-meta" id="utilDonutMeta"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel insight-panel panel-quality" aria-label="Data Quality Health">
+            <div class="panel-header">
+              <strong>Data Quality Health</strong>
+            </div>
+            <div class="panel-body">
+              <section class="kpi-insight-grid" aria-label="Data Quality KPIs">
+                <div class="kpi"><div class="label">Missing critical fields</div><div class="value" id="dqMissingCritical">0</div><div class="hint">Serial/model/building/service date/warranty</div></div>
+                <div class="kpi"><div class="label">Duplicate serials</div><div class="value" id="dqDuplicateSerials">0</div><div class="hint">Potential record collisions</div></div>
+                <div class="kpi"><div class="label">Status mismatch</div><div class="value" id="dqStatusMismatch">0</div><div class="hint">Status and assignment out of sync</div></div>
+              </section>
+              <div class="insight-visual bars-visual" id="dqIssueBands"></div>
+            </div>
+          </section>
+        </div>
+
       </section>
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="./config.js"></script>
   <script type="module" src="./js/kpi-reports.js"></script>
   <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">

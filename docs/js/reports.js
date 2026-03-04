@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const reportsTopbar = qs('#reportsTopbar');
 const reportsNav = qs('#reportsNav');
@@ -27,6 +27,13 @@ const reportResultInfo = qs('#reportResultInfo');
 const reportPagerLeft = qs('#reportPagerLeft');
 const reportPagerControls = qs('#reportPagerControls');
 const reportResultsSection = qs('#reportResultsSection');
+const reportHeadRow = qs('#reportHeadRow');
+const reportCustomBanner = qs('#reportCustomBanner');
+const prebuiltQueriesBtn = qs('#prebuiltQueriesBtn');
+const prebuiltQueriesOverlay = qs('#prebuiltQueriesOverlay');
+const prebuiltQueriesDrawer = qs('#prebuiltQueriesDrawer');
+const prebuiltQueriesDrawerList = qs('#prebuiltQueriesDrawerList');
+const prebuiltQueriesCloseBtn = qs('#prebuiltQueriesCloseBtn');
 const exportPopoverRoot = qs('#exportPopoverRoot');
 const exportAsBtn = qs('#exportAsBtn');
 const exportPopoverMenu = qs('#exportPopoverMenu');
@@ -42,10 +49,111 @@ let currentPage = 1;
 let totalPages = 1;
 let totalCount = 0;
 let lastGenerated = false;
+let activeCustomFilter = new URLSearchParams(window.location.search).get('kpi_custom') || '';
+const defaultReportColumns = [
+  { key: 'manufacturer', label: 'Manufacturer' },
+  { key: 'serial', label: 'Serial' },
+  { key: 'type', label: 'Type' },
+  { key: 'model', label: 'Model' },
+  { key: 'assignee', label: 'Assigned To' },
+  { key: 'status', label: 'Status' },
+  { key: 'buildingRoom', label: 'Building / Room' }
+];
+let currentReportColumns = [...defaultReportColumns];
+
+const customFilterLabels = {
+  missing_serial_tag: 'Data Quality: Missing serial/tag',
+  missing_model: 'Data Quality: Missing model',
+  missing_building: 'Data Quality: Missing building',
+  missing_service_date: 'Data Quality: Missing service date',
+  missing_warranty_date: 'Data Quality: Missing warranty date',
+  top_device_damagers: 'Top 25 Device Damagers',
+  top_damaged_devices: 'Top 25 Damaged Devices'
+};
+
+const prebuiltCustomQuerySections = [
+  {
+    title: 'Damage Insights',
+    keys: ['top_device_damagers', 'top_damaged_devices']
+  },
+  {
+    title: 'Data Quality Health',
+    keys: [
+      'missing_serial_tag',
+      'missing_model',
+      'missing_building',
+      'missing_service_date',
+      'missing_warranty_date'
+    ]
+  }
+];
 
 function displayStatus(status) {
   const raw = String(status || '');
   return raw === 'checked_out' ? 'Assigned' : raw;
+}
+
+function isTop25CustomFilter(value = activeCustomFilter) {
+  return value === 'top_device_damagers' || value === 'top_damaged_devices';
+}
+
+function renderReportHeaders(columns = defaultReportColumns) {
+  if (!reportHeadRow) return;
+  reportHeadRow.innerHTML = columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('');
+}
+
+function formatReportCell(columnKey, value) {
+  if (columnKey === 'status') return displayStatus(value);
+  return value;
+}
+
+function updateCustomReportBanner() {
+  if (!reportCustomBanner) return;
+  const label = customFilterLabels[activeCustomFilter];
+  if (!label) {
+    reportCustomBanner.hidden = true;
+    reportCustomBanner.textContent = '';
+    return;
+  }
+  reportCustomBanner.hidden = false;
+  reportCustomBanner.textContent = `Custom Report: ${label}`;
+}
+
+function syncCustomFilterUrl() {
+  if (!window?.history?.replaceState) return;
+  const params = new URLSearchParams(window.location.search);
+  if (activeCustomFilter) params.set('kpi_custom', activeCustomFilter);
+  else params.delete('kpi_custom');
+  const qs = params.toString();
+  const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash || ''}`;
+  window.history.replaceState({}, document.title, next);
+}
+
+function renderPrebuiltCustomQueriesDrawer() {
+  if (!prebuiltQueriesDrawerList) return;
+  const sectionMarkup = prebuiltCustomQuerySections.map((section) => {
+    const items = section.keys.map((key) => {
+      const label = customFilterLabels[key] || key;
+      const isActive = activeCustomFilter === key ? ' is-active' : '';
+      return `<button class="btn ghost export-option prebuilt-query-option${isActive}" type="button" data-kpi-custom="${escapeHtml(key)}">${escapeHtml(label)}</button>`;
+    }).join('');
+    return `<div class="prebuilt-query-section"><div class="prebuilt-query-section-title">${escapeHtml(section.title)}</div>${items}</div>`;
+  }).join('');
+  prebuiltQueriesDrawerList.innerHTML = sectionMarkup;
+}
+
+async function selectPrebuiltCustomQuery(nextFilter = '') {
+  activeCustomFilter = String(nextFilter || '').trim();
+  syncCustomFilterUrl();
+  resetReportBuilder(true);
+  renderPrebuiltCustomQueriesDrawer();
+  setPrebuiltQueriesDrawerOpen(false);
+  if (activeCustomFilter && customFilterLabels[activeCustomFilter]) {
+    toast(`Loaded custom report: ${customFilterLabels[activeCustomFilter]}`);
+    await generateReport(true);
+    return;
+  }
+  toast('Custom query cleared.');
 }
 
 function fileSafeTs() {
@@ -71,18 +179,19 @@ function rowToView(a) {
 
 function renderRows(rows) {
   if (!rows.length) {
-    reportsBody.innerHTML = '<tr><td colspan="7" class="dim">No assets match the current report filters.</td></tr>';
+    const emptyText = isTop25CustomFilter()
+      ? 'No rows found for this custom Top 25 report.'
+      : 'No assets match the current report filters.';
+    reportsBody.innerHTML = `<tr><td colspan="${currentReportColumns.length}" class="dim">${escapeHtml(emptyText)}</td></tr>`;
     return;
   }
   reportsBody.innerHTML = rows.map((r) => `
     <tr>
-      <td>${escapeHtml(r.manufacturer || '-')}</td>
-      <td class="mono">${escapeHtml(r.serial)}</td>
-      <td>${escapeHtml(r.type)}</td>
-      <td>${escapeHtml(r.model)}</td>
-      <td>${escapeHtml(r.assignee)}</td>
-      <td>${escapeHtml(displayStatus(r.status))}</td>
-      <td>${escapeHtml(r.buildingRoom)}</td>
+      ${currentReportColumns.map((col) => {
+        const raw = formatReportCell(col.key, r?.[col.key] ?? '');
+        const isMono = col.key === 'serial';
+        return `<td${isMono ? ' class="mono"' : ''}>${escapeHtml(String(raw || '-'))}</td>`;
+      }).join('')}
     </tr>
   `).join('');
 }
@@ -125,10 +234,27 @@ function applyFilters(query, filters, ignoreStatus = false) {
   if (filters.room) q = q.eq('room', filters.room);
   if (filters.ownership) q = q.eq('ownership', filters.ownership);
   if (filters.obsolete) q = q.eq('obsolete', filters.obsolete === 'true');
+  if (activeCustomFilter === 'missing_serial_tag') q = q.or('serial.is.null,serial.eq."",asset_tag.is.null,asset_tag.eq.""');
+  if (activeCustomFilter === 'missing_model') q = q.or('model.is.null,model.eq.""');
+  if (activeCustomFilter === 'missing_building') q = q.or('building.is.null,building.eq.""');
+  if (activeCustomFilter === 'missing_service_date') q = q.is('service_start_date', null);
+  if (activeCustomFilter === 'missing_warranty_date') q = q.is('warranty_expiration_date', null);
   return q;
 }
 
 function setPagerState() {
+  if (isTop25CustomFilter()) {
+    if (reportPagerLeft) reportPagerLeft.hidden = false;
+    if (reportPagerControls) reportPagerControls.hidden = true;
+    if (reportCurrentPage) reportCurrentPage.textContent = '1';
+    if (reportPageInfo) reportPageInfo.textContent = 'of 1 pages';
+    if (reportResultInfo) {
+      const label = customFilterLabels[activeCustomFilter] || 'Top 25';
+      reportResultInfo.textContent = `Results: ${(totalCount || 0).toLocaleString()} (${label})`;
+    }
+    return;
+  }
+
   const page = Math.min(currentPage, totalPages || 1);
   const pageSize = Number(reportPageSize?.value || 20);
   const showPager = totalCount > pageSize;
@@ -136,7 +262,11 @@ function setPagerState() {
   if (reportPagerControls) reportPagerControls.hidden = !showPager;
   if (reportCurrentPage) reportCurrentPage.textContent = String(page);
   reportPageInfo.textContent = `of ${Math.max(totalPages, 1)} pages`;
-  if (reportResultInfo) reportResultInfo.textContent = `Results: ${(totalCount || 0).toLocaleString()}`;
+  if (reportResultInfo) {
+    const label = customFilterLabels[activeCustomFilter];
+    const base = `Results: ${(totalCount || 0).toLocaleString()}`;
+    reportResultInfo.textContent = label ? `${base} (${label})` : base;
+  }
   reportPrevBtn.disabled = page <= 1;
   reportNextBtn.disabled = page >= totalPages;
 }
@@ -148,7 +278,7 @@ function setReportRunState(hasRun) {
   if (!hasRun) closeExportPopover();
 }
 
-function resetReportBuilder() {
+function resetReportBuilder(keepCustomFilter = false) {
   reportStatusFilter.value = '';
   reportTypeFilter.value = '';
   reportManufacturerFilter.value = '';
@@ -158,8 +288,14 @@ function resetReportBuilder() {
   reportOwnershipFilter.value = '';
   reportObsoleteFilter.value = '';
   reportPageSize.value = '20';
+  if (!keepCustomFilter) {
+    activeCustomFilter = '';
+    syncCustomFilterUrl();
+  }
 
   currentRows = [];
+  currentReportColumns = [...defaultReportColumns];
+  renderReportHeaders(currentReportColumns);
   currentPage = 1;
   totalPages = 1;
   totalCount = 0;
@@ -169,6 +305,8 @@ function resetReportBuilder() {
   if (reportCurrentPage) reportCurrentPage.textContent = '1';
   if (reportPageInfo) reportPageInfo.textContent = 'of 1 pages';
   setReportRunState(false);
+  updateCustomReportBanner();
+  renderPrebuiltCustomQueriesDrawer();
 }
 
 function closeExportPopover() {
@@ -179,13 +317,120 @@ function closeExportPopover() {
 
 function toggleExportPopover() {
   if (!exportPopoverMenu || !exportAsBtn) return;
+  setPrebuiltQueriesDrawerOpen(false);
   const next = exportPopoverMenu.hidden;
   exportPopoverMenu.hidden = !next;
   exportAsBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
 }
 
+function setPrebuiltQueriesDrawerOpen(open) {
+  const isOpen = Boolean(open);
+  if (!prebuiltQueriesDrawer || !prebuiltQueriesOverlay || !prebuiltQueriesBtn) return;
+  if (isOpen) {
+    closeExportPopover();
+    renderPrebuiltCustomQueriesDrawer();
+  }
+  prebuiltQueriesOverlay.classList.toggle('open', isOpen);
+  prebuiltQueriesDrawer.classList.toggle('open', isOpen);
+  prebuiltQueriesDrawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  prebuiltQueriesBtn.hidden = isOpen;
+  prebuiltQueriesBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function togglePrebuiltQueriesDrawer() {
+  if (!prebuiltQueriesDrawer) return;
+  const next = !prebuiltQueriesDrawer.classList.contains('open');
+  setPrebuiltQueriesDrawerOpen(next);
+}
+
+async function generateTop25CustomReport() {
+  const topLimit = 25;
+
+  if (activeCustomFilter === 'top_device_damagers') {
+    const { data, error } = await supabase
+      .from('damage_reports')
+      .select('assignee_name, reported_by_name')
+      .limit(50000);
+    if (error) throw error;
+
+    const counts = new Map();
+    (data || []).forEach((row) => {
+      const name = String(row?.assignee_name || row?.reported_by_name || '').trim() || 'Unassigned';
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+
+    currentReportColumns = [
+      { key: 'rank', label: '#' },
+      { key: 'user', label: 'User' },
+      { key: 'damage_reports', label: 'Damage Reports' }
+    ];
+    renderReportHeaders(currentReportColumns);
+    currentRows = [...counts.entries()]
+      .map(([user, damage_reports]) => ({ user, damage_reports }))
+      .sort((a, b) => b.damage_reports - a.damage_reports)
+      .slice(0, topLimit)
+      .map((row, idx) => ({ rank: idx + 1, ...row }));
+  } else if (activeCustomFilter === 'top_damaged_devices') {
+    const { data, error } = await supabase
+      .from('damage_reports')
+      .select('asset_id, assets(serial, asset_tag, model)')
+      .limit(50000);
+    if (error) throw error;
+
+    const bySerial = new Map();
+    (data || []).forEach((row) => {
+      const asset = row?.assets || {};
+      const serial = String(asset?.serial || asset?.asset_tag || '').trim() || 'Unknown';
+      const model = String(asset?.model || '').trim() || '-';
+      const key = `${serial}||${model}`;
+      const existing = bySerial.get(key) || { serial, model, damage_reports: 0 };
+      existing.damage_reports += 1;
+      bySerial.set(key, existing);
+    });
+
+    currentReportColumns = [
+      { key: 'rank', label: '#' },
+      { key: 'serial', label: 'Serial' },
+      { key: 'model', label: 'Model' },
+      { key: 'damage_reports', label: 'Damage Reports' }
+    ];
+    renderReportHeaders(currentReportColumns);
+    currentRows = [...bySerial.values()]
+      .sort((a, b) => b.damage_reports - a.damage_reports)
+      .slice(0, topLimit)
+      .map((row, idx) => ({ rank: idx + 1, ...row }));
+  } else {
+    currentReportColumns = [...defaultReportColumns];
+    renderReportHeaders(currentReportColumns);
+    currentRows = [];
+  }
+
+  totalCount = currentRows.length;
+  currentPage = 1;
+  totalPages = 1;
+  renderRows(currentRows);
+  setPagerState();
+  lastGenerated = true;
+  setReportRunState(true);
+}
+
 async function generateReport(resetPage = true) {
   await ensureSessionFresh();
+  updateCustomReportBanner();
+  if (isTop25CustomFilter()) {
+    generateReportBtn.disabled = true;
+    generateReportBtn.textContent = 'Generating...';
+    try {
+      await generateTop25CustomReport();
+    } catch (err) {
+      toast(err.message || 'Failed to generate report', true);
+    } finally {
+      generateReportBtn.disabled = false;
+      generateReportBtn.textContent = 'Generate';
+    }
+    return;
+  }
+
   if (resetPage) currentPage = 1;
   const pageSize = Number(reportPageSize.value || 20);
   const from = (currentPage - 1) * pageSize;
@@ -196,6 +441,8 @@ async function generateReport(resetPage = true) {
   generateReportBtn.textContent = 'Generating...';
 
   try {
+    currentReportColumns = [...defaultReportColumns];
+    renderReportHeaders(currentReportColumns);
     let query = supabase
       .from('assets')
       .select('id, asset_tag, serial, manufacturer, equipment_type, model, status, building, room, ownership, obsolete, asset_current(assignee_person_id, people(display_name))', { count: 'exact' })
@@ -299,27 +546,24 @@ function downloadBlob(filename, mime, content) {
   URL.revokeObjectURL(url);
 }
 
+function exportCellValue(row, key) {
+  return formatReportCell(key, row?.[key] ?? '');
+}
+
 function exportCsv(rows) {
-  const headers = ['Manufacturer', 'Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Building / Room'];
+  const headers = currentReportColumns.map((c) => c.label);
   const escapeCsv = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`;
   const lines = [
     headers.join(','),
-    ...rows.map((r) => [r.manufacturer, r.serial, r.type, r.model, r.assignee, displayStatus(r.status), r.buildingRoom].map(escapeCsv).join(','))
+    ...rows.map((r) => currentReportColumns.map((c) => exportCellValue(r, c.key)).map(escapeCsv).join(','))
   ];
   downloadBlob(`asset-report-${fileSafeTs()}.csv`, 'text/csv;charset=utf-8', lines.join('\n'));
 }
 
 function exportHtml(rows) {
+  const th = currentReportColumns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('');
   const tableRows = rows.map((r) => `
-    <tr>
-      <td>${escapeHtml(r.manufacturer)}</td>
-      <td>${escapeHtml(r.serial)}</td>
-      <td>${escapeHtml(r.type)}</td>
-      <td>${escapeHtml(r.model)}</td>
-      <td>${escapeHtml(r.assignee)}</td>
-      <td>${escapeHtml(displayStatus(r.status))}</td>
-      <td>${escapeHtml(r.buildingRoom)}</td>
-    </tr>
+    <tr>${currentReportColumns.map((c) => `<td>${escapeHtml(String(exportCellValue(r, c.key) ?? ''))}</td>`).join('')}</tr>
   `).join('');
 
   const html = `<!doctype html>
@@ -335,7 +579,7 @@ th{background:#f3f3f3;}
 </head><body>
 <h1>Asset Report</h1>
 <p>Generated ${new Date().toLocaleString()}</p>
-<table><thead><tr><th>Manufacturer</th><th>Serial</th><th>Type</th><th>Model</th><th>Assigned To</th><th>Status</th><th>Building / Room</th></tr></thead>
+<table><thead><tr>${th}</tr></thead>
 <tbody>${tableRows}</tbody></table>
 </body></html>`;
 
@@ -353,10 +597,12 @@ function exportPdf(rows) {
   doc.text('Asset Report', 14, 14);
   doc.setFontSize(10);
   doc.text(`Generated ${new Date().toLocaleString()}`, 14, 20);
+  const head = [currentReportColumns.map((c) => c.label)];
+  const body = rows.map((r) => currentReportColumns.map((c) => String(exportCellValue(r, c.key) ?? '')));
   doc.autoTable({
     startY: 25,
-    head: [['Manufacturer', 'Serial', 'Type', 'Model', 'Assigned To', 'Status', 'Building / Room']],
-    body: rows.map((r) => [r.manufacturer, r.serial, r.type, r.model, r.assignee, displayStatus(r.status), r.buildingRoom]),
+    head,
+    body,
     styles: { fontSize: 8 }
   });
   doc.save(`asset-report-${fileSafeTs()}.pdf`);
@@ -367,15 +613,13 @@ function exportXlsx(rows) {
     toast('XLSX library not loaded.', true);
     return;
   }
-  const exportRows = rows.map((r) => ({
-    Manufacturer: r.manufacturer || '',
-    Serial: r.serial || '',
-    Type: r.type || '',
-    Model: r.model || '',
-    'Assigned To': r.assignee || '',
-    Status: displayStatus(r.status),
-    'Building / Room': r.buildingRoom || ''
-  }));
+  const exportRows = rows.map((r) => {
+    const row = {};
+    currentReportColumns.forEach((c) => {
+      row[c.label] = exportCellValue(r, c.key);
+    });
+    return row;
+  });
   const wb = window.XLSX.utils.book_new();
   const ws = window.XLSX.utils.json_to_sheet(exportRows);
   window.XLSX.utils.book_append_sheet(wb, ws, 'Assets');
@@ -393,7 +637,7 @@ async function exportWith(fn) {
       toast('Run a report first.', true);
       return;
     }
-    const rows = await fetchAllMatchingRows();
+    const rows = isTop25CustomFilter() ? currentRows.slice() : await fetchAllMatchingRows();
     if (!rows.length) {
       toast('No rows to export for current report filters.', true);
       return;
@@ -419,6 +663,10 @@ async function init() {
   const profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
   initAdminNav();
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh
+  });
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,
     ensureSessionFreshFn: ensureSessionFresh,
@@ -429,6 +677,7 @@ async function init() {
   reportsTopbar.hidden = false;
   reportsNav.hidden = false;
   reportsMainSection.hidden = false;
+  if (prebuiltQueriesBtn) prebuiltQueriesBtn.hidden = false;
 
   generateReportBtn.addEventListener('click', () => generateReport(true));
   reportPageSize.addEventListener('change', () => {
@@ -450,14 +699,26 @@ async function init() {
   qs('#exportHtmlBtn').addEventListener('click', () => exportWith(exportHtml));
   qs('#exportPdfBtn').addEventListener('click', () => exportWith(exportPdf));
   resetReportBtn?.addEventListener('click', () => resetReportBuilder());
+  prebuiltQueriesBtn?.addEventListener('click', () => togglePrebuiltQueriesDrawer());
+  prebuiltQueriesCloseBtn?.addEventListener('click', () => setPrebuiltQueriesDrawerOpen(false));
+  prebuiltQueriesOverlay?.addEventListener('click', () => setPrebuiltQueriesDrawerOpen(false));
+  prebuiltQueriesDrawerList?.addEventListener('click', (event) => {
+    const target = event.target?.closest?.('[data-kpi-custom]');
+    if (!target) return;
+    const nextFilter = target.getAttribute('data-kpi-custom') || '';
+    selectPrebuiltCustomQuery(nextFilter).catch((err) => toast(err.message || 'Failed to load custom report', true));
+  });
   exportAsBtn?.addEventListener('click', () => toggleExportPopover());
   exportPopoverMenu?.addEventListener('click', () => closeExportPopover());
   document.addEventListener('click', (event) => {
-    if (!exportPopoverRoot) return;
-    if (!exportPopoverRoot.contains(event.target)) closeExportPopover();
+    const target = event.target;
+    if (exportPopoverRoot && !exportPopoverRoot.contains(target)) closeExportPopover();
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeExportPopover();
+    if (event.key === 'Escape') {
+      closeExportPopover();
+      setPrebuiltQueriesDrawerOpen(false);
+    }
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -471,7 +732,12 @@ async function init() {
   });
 
   await loadSummaryAndFilters();
-  resetReportBuilder();
+  renderPrebuiltCustomQueriesDrawer();
+  resetReportBuilder(true);
+  if (activeCustomFilter && customFilterLabels[activeCustomFilter]) {
+    toast(`Loaded custom report: ${customFilterLabels[activeCustomFilter]}`);
+    await generateReport(true);
+  }
 }
 
 init().catch((err) => toast(err.message, true));

@@ -1,6 +1,6 @@
 import { supabase, ROLES, roleCanWrite, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initConnectionBadgeMonitor } from './ui.js';
+import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const bucket = 'asset-damage-photos';
 
@@ -532,6 +532,10 @@ async function init() {
 
   profile = await getCurrentProfile();
   setRoleVisibility(profile.role);
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase,
+    ensureSessionFreshFn: ensureSessionFresh
+  });
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,
     ensureSessionFreshFn: ensureSessionFresh,

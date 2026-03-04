@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, sendMagicLink, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, loadSiteBrandingFromServer } from './ui.js';
 
 const authPanel = qs('#authPanel');
 const authShell = qs('#authShell');
@@ -1130,6 +1130,9 @@ async function initAuthedUI(session) {
 
   setRoleVisibility(currentProfile.role || 'viewer');
   initAdminNav();
+  await loadSiteBrandingFromServer({
+    supabaseClient: supabase
+  });
   userMeta.textContent = `${currentProfile.display_name || session.user.email} (${currentProfile.role || 'viewer'})`;
 
   renderSearchPrompt();
