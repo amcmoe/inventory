@@ -29,14 +29,18 @@ const reportPagerControls = qs('#reportPagerControls');
 const reportResultsSection = qs('#reportResultsSection');
 const reportHeadRow = qs('#reportHeadRow');
 const reportCustomBanner = qs('#reportCustomBanner');
-const prebuiltQueriesBtn = qs('#prebuiltQueriesBtn');
-const prebuiltQueriesOverlay = qs('#prebuiltQueriesOverlay');
-const prebuiltQueriesDrawer = qs('#prebuiltQueriesDrawer');
-const prebuiltQueriesDrawerList = qs('#prebuiltQueriesDrawerList');
-const prebuiltQueriesCloseBtn = qs('#prebuiltQueriesCloseBtn');
 const exportPopoverRoot = qs('#exportPopoverRoot');
 const exportAsBtn = qs('#exportAsBtn');
 const exportPopoverMenu = qs('#exportPopoverMenu');
+
+const reportBuilderBody = qs('#reportBuilderBody');
+const reportBuilderToggle = qs('#reportBuilderToggle');
+const reportPrebuiltCards = qs('#reportPrebuiltCards');
+const reportFilterChips = qs('#reportFilterChips');
+const reportSummaryBar = qs('#reportSummaryBar');
+const reportColumnsToolbar = qs('#reportColumnsToolbar');
+const reportColumnsBtn = qs('#reportColumnsBtn');
+const reportColumnsDropdown = qs('#reportColumnsDropdown');
 
 const kpiTotal = qs('#kpiTotal');
 const kpiAssigned = qs('#kpiAssigned');
@@ -88,6 +92,28 @@ const prebuiltCustomQuerySections = [
   }
 ];
 
+const filterDisplayConfig = {
+  status: { label: 'Status', display: { checked_out: 'Assigned', available: 'Available', repair: 'Repair', retired: 'Retired' } },
+  type: { label: 'Type' },
+  manufacturer: { label: 'Manufacturer' },
+  model: { label: 'Model' },
+  building: { label: 'Building' },
+  room: { label: 'Room' },
+  ownership: { label: 'Ownership' },
+  obsolete: { label: 'Lifecycle', display: { 'true': 'Obsolete', 'false': 'Active' } }
+};
+
+const filterSelectMap = {
+  status: () => reportStatusFilter,
+  type: () => reportTypeFilter,
+  manufacturer: () => reportManufacturerFilter,
+  model: () => reportModelFilter,
+  building: () => reportBuildingFilter,
+  room: () => reportRoomFilter,
+  ownership: () => reportOwnershipFilter,
+  obsolete: () => reportObsoleteFilter
+};
+
 function displayStatus(status) {
   const raw = String(status || '');
   if (raw === 'checked_out') return 'Assigned';
@@ -130,31 +156,120 @@ function syncCustomFilterUrl() {
   window.history.replaceState({}, document.title, next);
 }
 
-function renderPrebuiltCustomQueriesDrawer() {
-  if (!prebuiltQueriesDrawerList) return;
-  const sectionMarkup = prebuiltCustomQuerySections.map((section) => {
-    const items = section.keys.map((key) => {
+function renderPrebuiltStrip() {
+  if (!reportPrebuiltCards) return;
+  const cards = prebuiltCustomQuerySections.flatMap((section) =>
+    section.keys.map((key) => {
       const label = customFilterLabels[key] || key;
       const isActive = activeCustomFilter === key ? ' is-active' : '';
-      return `<button class="btn ghost export-option prebuilt-query-option${isActive}" type="button" data-kpi-custom="${escapeHtml(key)}">${escapeHtml(label)}</button>`;
-    }).join('');
-    return `<div class="prebuilt-query-section"><div class="prebuilt-query-section-title">${escapeHtml(section.title)}</div>${items}</div>`;
-  }).join('');
-  prebuiltQueriesDrawerList.innerHTML = sectionMarkup;
+      return `<button class="report-prebuilt-card${isActive}" type="button" data-kpi-custom="${escapeHtml(key)}">${escapeHtml(label)}</button>`;
+    })
+  );
+  reportPrebuiltCards.innerHTML = cards.join('');
 }
 
 async function selectPrebuiltCustomQuery(nextFilter = '') {
   activeCustomFilter = String(nextFilter || '').trim();
   syncCustomFilterUrl();
   resetReportBuilder(true);
-  renderPrebuiltCustomQueriesDrawer();
-  setPrebuiltQueriesDrawerOpen(false);
+  renderPrebuiltStrip();
   if (activeCustomFilter && customFilterLabels[activeCustomFilter]) {
     toast(`Loaded custom report: ${customFilterLabels[activeCustomFilter]}`);
     await generateReport(true);
     return;
   }
   toast('Custom query cleared.');
+}
+
+function renderFilterChips() {
+  if (!reportFilterChips) return;
+  const filters = getFilters();
+  const chips = [];
+  for (const [key, value] of Object.entries(filters)) {
+    if (!value) continue;
+    const config = filterDisplayConfig[key];
+    if (!config) continue;
+    const displayValue = config.display?.[value] || value;
+    chips.push(
+      `<span class="report-filter-chip">` +
+      `${escapeHtml(config.label)}: <strong>${escapeHtml(displayValue)}</strong>` +
+      `<button type="button" aria-label="Remove ${escapeHtml(config.label)} filter" data-clear-filter="${escapeHtml(key)}">×</button>` +
+      `</span>`
+    );
+  }
+  if (!chips.length) {
+    reportFilterChips.hidden = true;
+    return;
+  }
+  reportFilterChips.hidden = false;
+  reportFilterChips.innerHTML =
+    `<span class="report-filter-chips-label">Filtered by</span>` +
+    chips.join('') +
+    `<button class="btn ghost report-clear-chips-btn" type="button" id="clearAllFiltersBtn">Clear all</button>`;
+}
+
+function updateSummaryBar() {
+  if (!reportSummaryBar) return;
+  const count = totalCount || 0;
+  const noun = count === 1 ? 'asset' : 'assets';
+  const customLabel = customFilterLabels[activeCustomFilter];
+  let parts = [`<strong>${count.toLocaleString()}</strong> ${escapeHtml(noun)}`];
+  if (customLabel) {
+    parts.push(`Custom: ${escapeHtml(customLabel)}`);
+  } else {
+    const filters = getFilters();
+    const activeLabels = Object.entries(filters)
+      .filter(([, v]) => v)
+      .map(([k, v]) => {
+        const cfg = filterDisplayConfig[k];
+        return escapeHtml(cfg?.display?.[v] || v);
+      });
+    if (activeLabels.length) parts.push(`Filtered by ${activeLabels.join(', ')}`);
+  }
+  reportSummaryBar.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  reportSummaryBar.hidden = false;
+}
+
+function renderColumnsDropdown() {
+  if (!reportColumnsDropdown) return;
+  reportColumnsDropdown.innerHTML = defaultReportColumns.map((col) => {
+    const checked = currentReportColumns.some((c) => c.key === col.key);
+    return (
+      `<label class="report-columns-item">` +
+      `<input type="checkbox" data-col="${escapeHtml(col.key)}"${checked ? ' checked' : ''}>` +
+      `${escapeHtml(col.label)}` +
+      `</label>`
+    );
+  }).join('');
+}
+
+function closeColumnsDropdown() {
+  if (reportColumnsDropdown) reportColumnsDropdown.hidden = true;
+}
+
+function toggleColumnsDropdown() {
+  if (!reportColumnsDropdown) return;
+  reportColumnsDropdown.hidden = !reportColumnsDropdown.hidden;
+}
+
+function toggleColumn(key) {
+  const col = defaultReportColumns.find((c) => c.key === key);
+  if (!col) return;
+  const idx = currentReportColumns.findIndex((c) => c.key === key);
+  if (idx === -1) {
+    const origIdx = defaultReportColumns.findIndex((c) => c.key === key);
+    let insertAt = currentReportColumns.length;
+    for (let i = 0; i < currentReportColumns.length; i++) {
+      const currOrig = defaultReportColumns.findIndex((c) => c.key === currentReportColumns[i].key);
+      if (currOrig > origIdx) { insertAt = i; break; }
+    }
+    currentReportColumns.splice(insertAt, 0, col);
+  } else {
+    if (currentReportColumns.length <= 1) return;
+    currentReportColumns.splice(idx, 1);
+  }
+  renderReportHeaders(currentReportColumns);
+  renderRows(currentRows);
 }
 
 function fileSafeTs() {
@@ -274,9 +389,15 @@ function setPagerState() {
 
 function setReportRunState(hasRun) {
   if (reportResultsSection) reportResultsSection.hidden = !hasRun;
-  if (exportPopoverRoot) exportPopoverRoot.hidden = !hasRun;
   if (resetReportBtn) resetReportBtn.hidden = !hasRun;
   if (!hasRun) closeExportPopover();
+
+  if (reportBuilderBody) reportBuilderBody.classList.toggle('is-collapsed', hasRun);
+  if (reportBuilderToggle) {
+    reportBuilderToggle.hidden = !hasRun;
+    reportBuilderToggle.setAttribute('aria-expanded', hasRun ? 'false' : 'true');
+    reportBuilderToggle.setAttribute('aria-label', hasRun ? 'Expand filters' : 'Collapse filters');
+  }
 }
 
 function resetReportBuilder(keepCustomFilter = false) {
@@ -305,9 +426,13 @@ function resetReportBuilder(keepCustomFilter = false) {
   if (reportResultInfo) reportResultInfo.textContent = 'Results: 0';
   if (reportCurrentPage) reportCurrentPage.textContent = '1';
   if (reportPageInfo) reportPageInfo.textContent = 'of 1 pages';
+  if (reportFilterChips) reportFilterChips.hidden = true;
+  if (reportSummaryBar) reportSummaryBar.hidden = true;
+  if (reportColumnsToolbar) reportColumnsToolbar.hidden = true;
+  closeColumnsDropdown();
   setReportRunState(false);
   updateCustomReportBanner();
-  renderPrebuiltCustomQueriesDrawer();
+  renderPrebuiltStrip();
 }
 
 function closeExportPopover() {
@@ -318,30 +443,9 @@ function closeExportPopover() {
 
 function toggleExportPopover() {
   if (!exportPopoverMenu || !exportAsBtn) return;
-  setPrebuiltQueriesDrawerOpen(false);
   const next = exportPopoverMenu.hidden;
   exportPopoverMenu.hidden = !next;
   exportAsBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
-}
-
-function setPrebuiltQueriesDrawerOpen(open) {
-  const isOpen = Boolean(open);
-  if (!prebuiltQueriesDrawer || !prebuiltQueriesOverlay || !prebuiltQueriesBtn) return;
-  if (isOpen) {
-    closeExportPopover();
-    renderPrebuiltCustomQueriesDrawer();
-  }
-  prebuiltQueriesOverlay.classList.toggle('open', isOpen);
-  prebuiltQueriesDrawer.classList.toggle('open', isOpen);
-  prebuiltQueriesDrawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-  prebuiltQueriesBtn.hidden = isOpen;
-  prebuiltQueriesBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-}
-
-function togglePrebuiltQueriesDrawer() {
-  if (!prebuiltQueriesDrawer) return;
-  const next = !prebuiltQueriesDrawer.classList.contains('open');
-  setPrebuiltQueriesDrawerOpen(next);
 }
 
 async function generateTop25CustomReport() {
@@ -413,6 +517,9 @@ async function generateTop25CustomReport() {
   setPagerState();
   lastGenerated = true;
   setReportRunState(true);
+  renderFilterChips();
+  updateSummaryBar();
+  if (reportColumnsToolbar) reportColumnsToolbar.hidden = true;
 }
 
 async function generateReport(resetPage = true) {
@@ -461,6 +568,10 @@ async function generateReport(resetPage = true) {
     setPagerState();
     lastGenerated = true;
     setReportRunState(true);
+    renderFilterChips();
+    updateSummaryBar();
+    if (reportColumnsToolbar) reportColumnsToolbar.hidden = false;
+    renderColumnsDropdown();
   } catch (err) {
     toast(err.message || 'Failed to generate report', true);
   } finally {
@@ -678,7 +789,6 @@ async function init() {
   reportsTopbar.hidden = false;
   reportsNav.hidden = false;
   reportsMainSection.hidden = false;
-  if (prebuiltQueriesBtn) prebuiltQueriesBtn.hidden = false;
 
   generateReportBtn.addEventListener('click', () => generateReport(true));
   reportPageSize.addEventListener('change', () => {
@@ -700,25 +810,64 @@ async function init() {
   qs('#exportHtmlBtn').addEventListener('click', () => exportWith(exportHtml));
   qs('#exportPdfBtn').addEventListener('click', () => exportWith(exportPdf));
   resetReportBtn?.addEventListener('click', () => resetReportBuilder());
-  prebuiltQueriesBtn?.addEventListener('click', () => togglePrebuiltQueriesDrawer());
-  prebuiltQueriesCloseBtn?.addEventListener('click', () => setPrebuiltQueriesDrawerOpen(false));
-  prebuiltQueriesOverlay?.addEventListener('click', () => setPrebuiltQueriesDrawerOpen(false));
-  prebuiltQueriesDrawerList?.addEventListener('click', (event) => {
+
+  reportPrebuiltCards?.addEventListener('click', (event) => {
     const target = event.target?.closest?.('[data-kpi-custom]');
     if (!target) return;
     const nextFilter = target.getAttribute('data-kpi-custom') || '';
     selectPrebuiltCustomQuery(nextFilter).catch((err) => toast(err.message || 'Failed to load custom report', true));
   });
+
+  reportBuilderToggle?.addEventListener('click', () => {
+    const isCollapsed = reportBuilderBody?.classList.contains('is-collapsed');
+    reportBuilderBody?.classList.toggle('is-collapsed');
+    reportBuilderToggle.setAttribute('aria-expanded', isCollapsed ? 'true' : 'false');
+    reportBuilderToggle.setAttribute('aria-label', isCollapsed ? 'Collapse filters' : 'Expand filters');
+  });
+
+  reportFilterChips?.addEventListener('click', (e) => {
+    const clearBtn = e.target?.closest?.('[data-clear-filter]');
+    if (clearBtn) {
+      const key = clearBtn.getAttribute('data-clear-filter');
+      const el = filterSelectMap[key]?.();
+      if (el) {
+        el.value = '';
+        generateReport(true).catch((err) => toast(err.message || 'Failed', true));
+      }
+      return;
+    }
+    if (e.target?.id === 'clearAllFiltersBtn' || e.target?.closest?.('#clearAllFiltersBtn')) {
+      resetReportBuilder();
+    }
+  });
+
+  reportColumnsBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleColumnsDropdown();
+  });
+
+  reportColumnsDropdown?.addEventListener('change', (e) => {
+    const cb = e.target?.closest?.('input[data-col]');
+    if (!cb) return;
+    toggleColumn(cb.getAttribute('data-col'));
+  });
+
   exportAsBtn?.addEventListener('click', () => toggleExportPopover());
   exportPopoverMenu?.addEventListener('click', () => closeExportPopover());
+
   document.addEventListener('click', (event) => {
     const target = event.target;
     if (exportPopoverRoot && !exportPopoverRoot.contains(target)) closeExportPopover();
+    if (reportColumnsDropdown && !reportColumnsDropdown.hidden) {
+      const wrap = qs('.report-columns-toggle-wrap');
+      if (wrap && !wrap.contains(target)) closeColumnsDropdown();
+    }
   });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       closeExportPopover();
-      setPrebuiltQueriesDrawerOpen(false);
+      closeColumnsDropdown();
     }
   });
 
@@ -733,7 +882,7 @@ async function init() {
   });
 
   await loadSummaryAndFilters();
-  renderPrebuiltCustomQueriesDrawer();
+  renderPrebuiltStrip();
   resetReportBuilder(true);
   if (activeCustomFilter && customFilterLabels[activeCustomFilter]) {
     toast(`Loaded custom report: ${customFilterLabels[activeCustomFilter]}`);

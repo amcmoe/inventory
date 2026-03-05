@@ -73,9 +73,7 @@ function hideSuggestions() {
 
 function setRunState(hasRun) {
   if (resultsSection) resultsSection.hidden = !hasRun;
-  if (reportForRow) reportForRow.hidden = !hasRun;
   if (resetBtn) resetBtn.hidden = !hasRun;
-  if (exportPopoverRoot) exportPopoverRoot.hidden = !hasRun;
   if (!hasRun) closeExportPopover();
 }
 

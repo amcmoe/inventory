@@ -32,6 +32,8 @@ const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
+const knownModels = ['ThinkPad L13 G3', 'ThinkPad L13 G4', 'ThinkPad L13 G6', 'Chromebook 3100', 'Chromebook 3110', 'Chromebook 3120'];
+const knownEquipmentTypes = ['Laptop', 'Chromebook', 'Tablet'];
 let bulkScannerStream = null;
 let bulkScannerTimer = null;
 let bulkScannerDetector = null;
@@ -503,6 +505,68 @@ function setManufacturerValue(value) {
   qs('#manufacturerCustom').hidden = false;
 }
 
+function currentModelValue() {
+  const selected = qs('#model').value;
+  if (selected === '__custom__') {
+    return qs('#modelCustom').value.trim() || null;
+  }
+  return selected || null;
+}
+
+function syncModelInput() {
+  const showCustom = qs('#model').value === '__custom__';
+  qs('#modelCustom').hidden = !showCustom;
+}
+
+function setModelValue(value) {
+  if (!value) {
+    qs('#model').value = '';
+    qs('#modelCustom').value = '';
+    qs('#modelCustom').hidden = true;
+    return;
+  }
+  if (knownModels.includes(value)) {
+    qs('#model').value = value;
+    qs('#modelCustom').value = '';
+    qs('#modelCustom').hidden = true;
+    return;
+  }
+  qs('#model').value = '__custom__';
+  qs('#modelCustom').value = value;
+  qs('#modelCustom').hidden = false;
+}
+
+function currentEquipmentTypeValue() {
+  const selected = qs('#equipmentType').value;
+  if (selected === '__custom__') {
+    return qs('#equipmentTypeCustom').value.trim() || null;
+  }
+  return selected || null;
+}
+
+function syncEquipmentTypeInput() {
+  const showCustom = qs('#equipmentType').value === '__custom__';
+  qs('#equipmentTypeCustom').hidden = !showCustom;
+}
+
+function setEquipmentTypeValue(value) {
+  if (!value) {
+    qs('#equipmentType').value = '';
+    qs('#equipmentTypeCustom').value = '';
+    qs('#equipmentTypeCustom').hidden = true;
+    return;
+  }
+  if (knownEquipmentTypes.includes(value)) {
+    qs('#equipmentType').value = value;
+    qs('#equipmentTypeCustom').value = '';
+    qs('#equipmentTypeCustom').hidden = true;
+    return;
+  }
+  qs('#equipmentType').value = '__custom__';
+  qs('#equipmentTypeCustom').value = value;
+  qs('#equipmentTypeCustom').hidden = false;
+}
+
 function setEditMode(isEditMode) {
   editOnlyFields.forEach((node) => {
     node.hidden = !isEditMode;
@@ -518,7 +582,7 @@ function sanitizeLookupTerm(term) {
 
 function getFormValues() {
   const assetTag = qs('#assetTag').value.trim() || null;
-  const model = qs('#model').value.trim() || null;
+  const model = currentModelValue();
   const derivedDeviceName = model || assetTag;
   return {
     p_id: qs('#assetId').value.trim() || null,
@@ -528,7 +592,7 @@ function getFormValues() {
     p_device_name: derivedDeviceName,
     p_manufacturer: currentManufacturerValue(),
     p_model: model,
-    p_equipment_type: qs('#equipmentType').value.trim() || null,
+    p_equipment_type: currentEquipmentTypeValue(),
     p_location: null,
     p_building: qs('#building').value.trim() || null,
     p_room: qs('#room').value.trim() || null,
@@ -550,8 +614,8 @@ function setForm(asset) {
   qs('#assetId').value = asset.id || '';
   qs('#assetTag').value = asset.asset_tag || '';
   setManufacturerValue(asset.manufacturer || '');
-  qs('#model').value = asset.model || '';
-  qs('#equipmentType').value = asset.equipment_type || '';
+  setModelValue(asset.model || '');
+  setEquipmentTypeValue(asset.equipment_type || '');
   qs('#building').value = asset.building || '';
   qs('#room').value = asset.room || '';
   qs('#serviceStartDate').value = asset.service_start_date || '';
@@ -1417,6 +1481,10 @@ async function init() {
   setRemoteBadge('off', 'Remote Scanner: Idle');
   qs('#manufacturer').addEventListener('change', syncManufacturerInput);
   syncManufacturerInput();
+  qs('#model').addEventListener('change', syncModelInput);
+  syncModelInput();
+  qs('#equipmentType').addEventListener('change', syncEquipmentTypeInput);
+  syncEquipmentTypeInput();
   setEditMode(false);
   updateBulkSerialCount();
   syncBulkScannerToggleLabel();

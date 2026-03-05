@@ -41,11 +41,110 @@
         <section class="panel reports-builder-panel" aria-label="Report builder">
           <div class="panel-header">
             <strong>Report Builder</strong>
-            <div class="controls report-builder-header-actions">
-              <button class="btn" id="generateReportBtn" type="button">Generate</button>
+            <button class="btn ghost report-builder-toggle" id="reportBuilderToggle" type="button" aria-label="Collapse filters" aria-expanded="true" hidden>
+              <svg class="report-builder-toggle-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 5.5L8 10.5L13 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Filters
+            </button>
+          </div>
+
+          <div class="panel-body reports-builder-body" id="reportBuilderBody">
+            <!-- Prebuilt quick reports strip -->
+            <div class="report-prebuilt-strip" id="reportPrebuiltStrip">
+              <span class="report-prebuilt-label">Quick Reports</span>
+              <div class="report-prebuilt-cards" id="reportPrebuiltCards"></div>
+            </div>
+
+            <div class="report-builder-controls">
+              <div class="report-custom-banner" id="reportCustomBanner" hidden></div>
+
+              <!-- Grouped filters -->
+              <div class="report-filter-groups">
+                <div class="report-filter-group">
+                  <span class="report-filter-group-label">Asset</span>
+                  <div class="report-filter-grid">
+                    <div class="field small select-field">
+                      <select id="reportStatusFilter">
+                        <option value="">All status</option>
+                        <option value="available">Available</option>
+                        <option value="checked_out">Assigned</option>
+                        <option value="repair">Repair</option>
+                        <option value="retired">Retired</option>
+                      </select>
+                    </div>
+                    <div class="field small select-field">
+                      <select id="reportTypeFilter">
+                        <option value="">All types</option>
+                      </select>
+                    </div>
+                    <div class="field select-field">
+                      <select id="reportManufacturerFilter">
+                        <option value="">All manufacturers</option>
+                      </select>
+                    </div>
+                    <div class="field select-field">
+                      <select id="reportModelFilter">
+                        <option value="">All models</option>
+                      </select>
+                    </div>
+                    <div class="field select-field">
+                      <select id="reportObsoleteFilter">
+                        <option value="">All lifecycle</option>
+                        <option value="false">Active only</option>
+                        <option value="true">Obsolete only</option>
+                      </select>
+                    </div>
+                    <div class="field select-field report-ownership-field">
+                      <select id="reportOwnershipFilter">
+                        <option value="">Owned/leased</option>
+                        <option value="owned">Owned</option>
+                        <option value="leased">Leased</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div class="report-filter-group">
+                  <span class="report-filter-group-label">Location</span>
+                  <div class="report-filter-grid">
+                    <div class="field select-field">
+                      <select id="reportBuildingFilter">
+                        <option value="">All buildings</option>
+                      </select>
+                    </div>
+                    <div class="field select-field">
+                      <select id="reportRoomFilter">
+                        <option value="">All rooms</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Active filter chips (shown after generate) -->
+              <div class="report-filter-chips" id="reportFilterChips" hidden></div>
+            </div>
+
+            <!-- Actions row -->
+            <div class="report-builder-actions">
+              <button class="btn primary" id="generateReportBtn" type="button">Generate</button>
               <button class="btn ghost" id="resetReportBtn" type="button" hidden>Reset</button>
-              <div class="export-popover" id="exportPopoverRoot" hidden>
-                <button class="btn" id="exportAsBtn" type="button" aria-haspopup="true" aria-expanded="false">Export As</button>
+            </div>
+          </div>
+
+          <div id="reportResultsSection" hidden>
+            <!-- Summary bar -->
+            <div class="report-summary-bar" id="reportSummaryBar" hidden></div>
+
+            <!-- Results toolbar: Columns + Export -->
+            <div class="report-columns-toolbar" id="reportColumnsToolbar" hidden>
+              <div class="report-columns-toggle-wrap">
+                <button class="btn ghost report-columns-btn" id="reportColumnsBtn" type="button">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="1" y="1" width="4" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="4" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+                  Columns
+                </button>
+                <div class="report-columns-dropdown" id="reportColumnsDropdown" hidden></div>
+              </div>
+              <div class="export-popover" id="exportPopoverRoot">
+                <button class="btn primary" id="exportAsBtn" type="button" aria-haspopup="true" aria-expanded="false">Export As</button>
                 <div class="export-popover-menu" id="exportPopoverMenu" hidden>
                   <button class="btn ghost export-option" id="exportCsvBtn" type="button">CSV (Excel/Sheets)</button>
                   <button class="btn ghost export-option" id="exportXlsxBtn" type="button">XLSX (Workbook)</button>
@@ -54,64 +153,7 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div class="panel-body reports-builder-body">
-            <div class="report-builder-controls">
-              <div class="report-custom-banner" id="reportCustomBanner" hidden></div>
-              <div class="report-filter-grid">
-                <div class="field small select-field">
-                  <select id="reportStatusFilter">
-                    <option value="">All status</option>
-                    <option value="available">Available</option>
-                    <option value="checked_out">Assigned</option>
-                    <option value="repair">Repair</option>
-                    <option value="retired">Retired</option>
-                  </select>
-                </div>
-                <div class="field small select-field">
-                  <select id="reportTypeFilter">
-                    <option value="">All types</option>
-                  </select>
-                </div>
-                <div class="field select-field">
-                  <select id="reportManufacturerFilter">
-                    <option value="">All manufacturers</option>
-                  </select>
-                </div>
-                <div class="field select-field">
-                  <select id="reportModelFilter">
-                    <option value="">All models</option>
-                  </select>
-                </div>
-                <div class="field select-field">
-                  <select id="reportBuildingFilter">
-                    <option value="">All buildings</option>
-                  </select>
-                </div>
-                <div class="field select-field">
-                  <select id="reportRoomFilter">
-                    <option value="">All rooms</option>
-                  </select>
-                </div>
-                <div class="field select-field report-ownership-field">
-                  <select id="reportOwnershipFilter">
-                    <option value="">Owned/leased</option>
-                    <option value="owned">Owned</option>
-                    <option value="leased">Leased</option>
-                  </select>
-                </div>
-                <div class="field select-field">
-                  <select id="reportObsoleteFilter">
-                    <option value="">All lifecycle</option>
-                    <option value="false">Active only</option>
-                    <option value="true">Obsolete only</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div id="reportResultsSection" hidden>
             <div class="table-wrap">
               <table aria-label="Report data">
                 <thead>
@@ -164,20 +206,6 @@
   <script src="./config.js"></script>
   <script src="./nav.js"></script>
   <script type="module" src="./js/reports.js"></script>
-  <button class="btn prebuilt-queries-fab" id="prebuiltQueriesBtn" type="button" aria-haspopup="dialog" aria-expanded="false" hidden>Prebuilt Custom Queries</button>
-  <div class="drawer-overlay" id="prebuiltQueriesOverlay"></div>
-  <aside class="drawer" id="prebuiltQueriesDrawer" aria-label="Prebuilt custom queries" aria-hidden="true">
-    <div class="drawer-header">
-      <div class="drawer-title">
-        <strong>Prebuilt Custom Queries</strong>
-        <span>Choose a KPI query to auto-run in Report Builder.</span>
-      </div>
-      <button class="btn ghost" id="prebuiltQueriesCloseBtn" type="button" aria-label="Close prebuilt custom queries">X</button>
-    </div>
-    <div class="drawer-body">
-      <div class="prebuilt-query-drawer-list" id="prebuiltQueriesDrawerList"></div>
-    </div>
-  </aside>
   <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
     <span class="theme-toggle-glyph" aria-hidden="true"></span>
   </button>

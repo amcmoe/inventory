@@ -77,11 +77,32 @@
             </div>
             <div>
               <label for="model">Model</label>
-              <input id="model">
+              <select id="model">
+                <option value="">Select model</option>
+                <optgroup label="ThinkPad">
+                  <option value="ThinkPad L13 G3">ThinkPad L13 G3</option>
+                  <option value="ThinkPad L13 G4">ThinkPad L13 G4</option>
+                  <option value="ThinkPad L13 G6">ThinkPad L13 G6</option>
+                </optgroup>
+                <optgroup label="Chromebook">
+                  <option value="Chromebook 3100">Chromebook 3100</option>
+                  <option value="Chromebook 3110">Chromebook 3110</option>
+                  <option value="Chromebook 3120">Chromebook 3120</option>
+                </optgroup>
+                <option value="__custom__">Add new...</option>
+              </select>
+              <input id="modelCustom" placeholder="Enter new model" hidden>
             </div>
             <div>
               <label for="equipmentType">Equipment Type</label>
-              <input id="equipmentType" placeholder="Laptop, Chromebook, Tablet">
+              <select id="equipmentType">
+                <option value="">Select type</option>
+                <option value="Laptop">Laptop</option>
+                <option value="Chromebook">Chromebook</option>
+                <option value="Tablet">Tablet</option>
+                <option value="__custom__">Add new...</option>
+              </select>
+              <input id="equipmentTypeCustom" placeholder="Enter new type" hidden>
             </div>
             <div>
               <label for="building">Building</label>
