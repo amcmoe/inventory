@@ -3,7 +3,7 @@ import { getSession, getCurrentProfile, requireAuth } from './auth.js';
 import { qs, toast, escapeHtml, setRoleVisibility } from './ui.js';
 
 const scannerTopbar = qs('#scannerTopbar');
-const scannerNav = qs('#scannerNav');
+const scannerNav = qs('#sidebarNav');
 const scannerLoadingPanel = qs('#scannerLoadingPanel');
 const scannerMainSection = qs('#scannerMainSection');
 const scannerResultSection = qs('#scannerResultSection');
@@ -25,7 +25,8 @@ let lastScanAt = 0;
 
 function displayStatus(status) {
   const raw = String(status || '');
-  return raw === 'checked_out' ? 'Assigned' : raw;
+  if (raw === 'checked_out') return 'Assigned';
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
 }
 
 function extractCandidates(rawValue) {

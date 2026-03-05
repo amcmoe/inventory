@@ -44,7 +44,7 @@ function getTargetReportId() {
 
 function statusBadge(status) {
   const raw = String(status || '');
-  const label = raw === 'checked_out' ? 'Assigned' : raw;
+  const label = raw === 'checked_out' ? 'Assigned' : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '-');
   return `<span class="badge status-${escapeHtml(raw)}">${escapeHtml(label)}</span>`;
 }
 

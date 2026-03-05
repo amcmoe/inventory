@@ -12,43 +12,7 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo itam-logo" aria-hidden="true">
-          <span class="itam-row itam-row-top"><span class="itam-i" aria-hidden="true"></span><span>T</span></span>
-          <span class="itam-row itam-row-bottom"><span>A</span><span>M</span></span>
-        </div>
-        <div class="title">
-          <strong>IT Asset Management</strong>
-          <span>SMSD Tech Team</span>
-        </div>
-      </div>
-      <nav class="nav" id="kpiReportsNav" hidden>
-        <a href="./index.html"><span>Search</span></a>
-        <div class="nav-group nav-group-admin" data-role-min="admin">
-          <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span>Admin</span>
-            <span class="nav-caret" aria-hidden="true">&#9662;</span>
-          </button>
-          <div class="nav-submenu">
-            <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
-            <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
-            <a class="nav-subitem" href="./account-settings.html"><span>Account Settings</span></a>
-          </div>
-        </div>
-        <div class="nav-group nav-group-reports is-pinned" data-open-default="true">
-          <button class="nav-group-toggle active" type="button" aria-expanded="true">
-            <span>Reports</span>
-            <span class="nav-caret" aria-hidden="true">&#9662;</span>
-          </button>
-          <div class="nav-submenu">
-            <a class="nav-subitem active" href="./kpi-reports.html"><span>KPI Reports</span></a>
-            <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
-            <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
-          </div>
-        </div>
-      </nav>
-    </aside>
+    <aside class="sidebar"></aside>
 
     <main class="main">
       <header class="topbar" id="kpiReportsTopbar" hidden>
@@ -74,9 +38,14 @@
       </section>
 
       <section class="reports-sections" id="kpiReportsMainSection" hidden>
+
+        <!-- Section: Summary -->
+        <div class="section-divider"><span>Summary</span></div>
+
+        <!-- 1. Fleet Summary -->
         <section class="panel reports-summary-panel" aria-label="Summary">
           <div class="panel-header">
-            <strong>Summary</strong>
+            <strong>Fleet Summary</strong>
           </div>
           <div class="panel-body">
             <section class="kpis" aria-label="Summary KPIs">
@@ -88,7 +57,7 @@
               <div class="kpi">
                 <div class="label">Assigned</div>
                 <div class="value" id="kpiAssigned">0</div>
-                <div class="hint">Assigned to users</div>
+                <div class="hint">Currently checked out</div>
               </div>
               <div class="kpi">
                 <div class="label">Available</div>
@@ -101,9 +70,136 @@
                 <div class="hint">Repair / retired</div>
               </div>
             </section>
+            <div class="fleet-status-bar-wrap">
+              <div class="fleet-status-bar" id="fleetStatusBar" aria-label="Fleet status distribution"></div>
+              <div class="fleet-status-legend">
+                <span class="fleet-legend-item"><span class="fleet-legend-dot fleet-bar-assigned"></span>Assigned</span>
+                <span class="fleet-legend-item"><span class="fleet-legend-dot fleet-bar-available"></span>Available</span>
+                <span class="fleet-legend-item"><span class="fleet-legend-dot fleet-bar-attention"></span>Attention</span>
+                <span class="fleet-legend-item"><span class="fleet-legend-dot fleet-bar-other"></span>Other</span>
+              </div>
+            </div>
           </div>
         </section>
 
+        <!-- Section: Damage -->
+        <div class="section-divider"><span>Damage</span></div>
+
+        <!-- 2. Damage Insights -->
+        <section class="panel" aria-label="Damage Insights">
+          <div class="panel-header">
+            <strong>Damage Insights</strong>
+          </div>
+          <div class="panel-body damage-insights-body">
+
+            <!-- Hero KPIs -->
+            <div class="damage-hero-kpis" aria-label="Headline damage stats">
+              <div class="damage-hero-kpi kpi-rate">
+                <div class="hero-label">Damage rate</div>
+                <div class="hero-value" id="damageRateKpi">0%</div>
+                <div class="hero-hint" id="damageRateHint">0 of 0 assets</div>
+              </div>
+              <div class="damage-hero-kpi kpi-ytd">
+                <div class="hero-label">YTD reports</div>
+                <div class="hero-value" id="damageYtdKpi">0</div>
+                <div class="hero-hint" id="damageYtdHint">School year</div>
+              </div>
+              <div class="damage-hero-kpi kpi-recent">
+                <div class="hero-label">Last 30 days</div>
+                <div class="hero-value" id="damageRecent30Kpi">0</div>
+                <div class="hero-hint">Very recent incidents</div>
+              </div>
+            </div>
+
+            <!-- Secondary stat strip -->
+            <div class="damage-stat-strip" aria-label="Secondary damage stats">
+              <div class="damage-stat-item">
+                <span class="damage-stat-label">All-time reports</span>
+                <strong class="damage-stat-value" id="damageReportsKpi">0</strong>
+              </div>
+              <div class="damage-stat-sep"></div>
+              <div class="damage-stat-item">
+                <span class="damage-stat-label">Last 90 days</span>
+                <strong class="damage-stat-value" id="damageRecentKpi">0</strong>
+              </div>
+              <div class="damage-stat-sep"></div>
+              <div class="damage-stat-item">
+                <span class="damage-stat-label">Avg per student (YTD)</span>
+                <strong class="damage-stat-value" id="damageAvgPerStudentKpi">0.0</strong>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <section class="damage-visuals" aria-label="Damage charts">
+              <div class="damage-card">
+                <h3>Damage Trend (Last 12 Months)</h3>
+                <div class="damage-trend-chart" id="damageTrendChart"></div>
+              </div>
+              <div class="damage-card">
+                <h3>Damage Rate by Building</h3>
+                <div class="damage-rate-chart" id="damageBuildingRateChart"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- 3. Damage Leaderboards (trio) -->
+        <div class="insight-trio-row" aria-label="Damage leaderboard insights">
+          <section class="panel insight-panel panel-hotspot" aria-label="Top Device Damagers">
+            <div class="panel-header">
+              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_device_damagers">Top Device Damagers</a>
+            </div>
+            <div class="panel-body">
+              <div class="insight-visual hbar-chart" id="damageByUserBars"></div>
+            </div>
+          </section>
+
+          <section class="panel insight-panel panel-hotspot" aria-label="Top Damaged Devices">
+            <div class="panel-header">
+              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_damaged_devices">Top Damaged Devices</a>
+            </div>
+            <div class="panel-body">
+              <div class="insight-visual hbar-chart" id="damageBySerialBars"></div>
+            </div>
+          </section>
+
+          <section class="panel insight-panel panel-model" aria-label="Damage by Model">
+            <div class="panel-header">
+              <strong>Damage by Model</strong>
+            </div>
+            <div class="panel-body">
+              <div class="insight-visual hbar-chart" id="damageByModelBars"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Section: Utilization -->
+        <div class="section-divider"><span>Utilization</span></div>
+
+        <!-- 4. Student Device Utilization -->
+        <section class="panel insight-panel panel-utilization" aria-label="Student Device Utilization">
+          <div class="panel-header">
+            <strong>Student Device Utilization</strong>
+          </div>
+          <div class="panel-body">
+            <section class="kpi-insight-grid" aria-label="Utilization KPIs">
+              <div class="kpi"><div class="label">Assigned laptops</div><div class="value" id="utilAssignedPct">0</div><div class="hint">Currently checked out</div></div>
+              <div class="kpi"><div class="label">Available laptops</div><div class="value" id="utilAvailablePct">0</div><div class="hint">Ready for assignment</div></div>
+              <div class="kpi"><div class="label">Idle &gt;60 days</div><div class="value" id="utilIdle60">0</div><div class="hint">Long idle laptop candidates</div></div>
+            </section>
+            <div class="insight-visual util-donut-wrap">
+              <div class="util-donut-canvas-wrap">
+                <canvas id="utilDonutChart" aria-label="Asset utilization doughnut chart"></canvas>
+              </div>
+              <div class="util-donut-meta" id="utilDonutMeta"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Lifecycle -->
+        <div class="section-divider"><span>Lifecycle</span></div>
+
+        <!-- 5. IT Asset Lifecycle -->
         <section class="panel" aria-label="IT Asset Lifecycle">
           <div class="panel-header">
             <strong>IT Asset Lifecycle</strong>
@@ -153,65 +249,27 @@
           </div>
         </section>
 
-        <section class="panel" aria-label="Damage Insights">
-          <div class="panel-header">
-            <strong>Damage Insights</strong>
-          </div>
-          <div class="panel-body damage-insights-body">
-            <section class="damage-kpis" aria-label="Damage KPI cards">
-              <div class="kpi">
-                <div class="label">Damage rate</div>
-                <div class="value" id="damageRateKpi">0%</div>
-                <div class="hint" id="damageRateHint">0 of 0 assets have reports</div>
-              </div>
-              <div class="kpi">
-                <div class="label">Damage reports</div>
-                <div class="value" id="damageReportsKpi">0</div>
-                <div class="hint" id="damageReportsHint">All-time reports in selection</div>
-              </div>
-              <div class="kpi">
-                <div class="label">Last 30 days</div>
-                <div class="value" id="damageRecent30Kpi">0</div>
-                <div class="hint">Very recent incidents</div>
-              </div>
-              <div class="kpi">
-                <div class="label">Last 90 days</div>
-                <div class="value" id="damageRecentKpi">0</div>
-                <div class="hint">Recent incident volume</div>
-              </div>
-              <div class="kpi">
-                <div class="label">Reports per damaged asset</div>
-                <div class="value" id="damagePerAssetKpi">0.0</div>
-                <div class="hint">Repeat-incident indicator</div>
-              </div>
-            </section>
+        <!-- Section: Warranty -->
+        <div class="section-divider"><span>Warranty</span></div>
 
-            <section class="damage-visuals" aria-label="Damage charts">
-              <div class="damage-card">
-                <h3>Damage Trend (Last 12 Months)</h3>
-                <div class="damage-trend-chart" id="damageTrendChart"></div>
-              </div>
-              <div class="damage-card">
-                <h3>Damage Rate by Building</h3>
-                <div class="damage-rate-chart" id="damageBuildingRateChart"></div>
-              </div>
-            </section>
+        <!-- 6. Warranty Status -->
+        <section class="panel insight-panel panel-warranty" aria-label="Warranty Status">
+          <div class="panel-header">
+            <strong>Warranty Status</strong>
+          </div>
+          <div class="panel-body">
+            <div class="warranty-layout">
+              <div class="insight-visual bars-visual" id="warrantyExpiryBand"></div>
+              <div class="insight-visual insight-list" id="warrantyBuildingList"></div>
+            </div>
           </div>
         </section>
 
-        <div class="insight-duo-row" aria-label="Warranty and churn insights">
-          <section class="panel insight-panel panel-warranty" aria-label="Warranty Status">
-            <div class="panel-header">
-              <strong>Warranty Status</strong>
-            </div>
-            <div class="panel-body">
-              <div class="warranty-layout">
-                <div class="insight-visual bars-visual" id="warrantyExpiryBand"></div>
-                <div class="insight-visual insight-list" id="warrantyBuildingList"></div>
-              </div>
-            </div>
-          </section>
+        <!-- Section: Churn & Quality -->
+        <div class="section-divider"><span>Churn &amp; Quality</span></div>
 
+        <!-- 7. Assignment Churn + Data Quality (duo) -->
+        <div class="insight-duo-row" aria-label="Churn and quality insights">
           <section class="panel insight-panel panel-churn" aria-label="Assignment Churn">
             <div class="panel-header">
               <strong>Assignment Churn</strong>
@@ -222,48 +280,9 @@
                 <div class="kpi"><div class="label">Devices reassigned 3+ times (120d)</div><div class="value" id="churnRepeatAssets">0</div><div class="hint">Potential device issue</div></div>
               </section>
               <div class="churn-layout">
+                <h3 class="churn-chart-title">Monthly Assignment Trend</h3>
+                <div class="insight-visual churn-trend" id="churnTrendChart"></div>
                 <div class="insight-visual churn-table" id="churnTopAssets"></div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="insight-duo-row" aria-label="Damage leaderboard insights">
-          <section class="panel insight-panel panel-hotspot" aria-label="Top Device Damagers">
-            <div class="panel-header">
-              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_device_damagers">Top Device Damagers</a>
-            </div>
-            <div class="panel-body">
-              <div class="insight-visual hbar-chart" id="damageByUserBars"></div>
-            </div>
-          </section>
-
-          <section class="panel insight-panel panel-hotspot" aria-label="Top damaged devices">
-            <div class="panel-header">
-              <a class="kpi-panel-link" href="./reports.html?kpi_custom=top_damaged_devices">Top Damaged Devices</a>
-            </div>
-            <div class="panel-body">
-              <div class="insight-visual hbar-chart" id="damageBySerialBars"></div>
-            </div>
-          </section>
-        </div>
-
-        <div class="insight-duo-row util-quality-row" aria-label="Utilization and data quality insights">
-          <section class="panel insight-panel panel-utilization" aria-label="Student Device Utilization">
-            <div class="panel-header">
-              <strong>Student Device Utilization</strong>
-            </div>
-            <div class="panel-body">
-              <section class="kpi-insight-grid" aria-label="Utilization KPIs">
-                <div class="kpi"><div class="label">Assigned laptops</div><div class="value" id="utilAssignedPct">0</div><div class="hint">Currently checked out</div></div>
-                <div class="kpi"><div class="label">Available laptops</div><div class="value" id="utilAvailablePct">0</div><div class="hint">Ready for assignment</div></div>
-                <div class="kpi"><div class="label">Idle >60 days</div><div class="value" id="utilIdle60">0</div><div class="hint">Long idle laptop candidates</div></div>
-              </section>
-              <div class="insight-visual util-donut-wrap">
-                <div class="util-donut-canvas-wrap">
-                  <canvas id="utilDonutChart" aria-label="Asset utilization doughnut chart"></canvas>
-                </div>
-                <div class="util-donut-meta" id="utilDonutMeta"></div>
               </div>
             </div>
           </section>

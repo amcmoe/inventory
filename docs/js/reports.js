@@ -3,7 +3,7 @@ import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh
 import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const reportsTopbar = qs('#reportsTopbar');
-const reportsNav = qs('#reportsNav');
+const reportsNav = qs('#sidebarNav');
 const reportsLoadingPanel = qs('#reportsLoadingPanel');
 const reportsMainSection = qs('#reportsMainSection');
 const reportsBody = qs('#reportsBody');
@@ -90,7 +90,8 @@ const prebuiltCustomQuerySections = [
 
 function displayStatus(status) {
   const raw = String(status || '');
-  return raw === 'checked_out' ? 'Assigned' : raw;
+  if (raw === 'checked_out') return 'Assigned';
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
 }
 
 function isTop25CustomFilter(value = activeCustomFilter) {
@@ -203,7 +204,7 @@ function updateSummaryKpis(rows) {
   const available = list.filter((r) => String(r.status || '').toLowerCase() === 'available').length;
   const attention = list.filter((r) => {
     const s = String(r.status || '').toLowerCase();
-    return s === 'repair' || s === 'retired' || s === 'maintenance';
+    return s === 'repair' || s === 'retired';
   }).length;
   if (kpiTotal) kpiTotal.textContent = total.toLocaleString();
   if (kpiAssigned) kpiAssigned.textContent = assigned.toLocaleString();

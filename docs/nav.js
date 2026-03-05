@@ -1,8 +1,87 @@
 (function () {
-  const btn = document.getElementById('sidebarToggleBtn');
-  const sidebar = document.querySelector('.sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
+  // ── Shared sidebar HTML (single source of truth for navigation) ───────────
+  const SIDEBAR_HTML = `
+<div class="brand">
+  <div class="logo itam-logo" aria-hidden="true">
+    <span class="itam-row itam-row-top"><span class="itam-i" aria-hidden="true"></span><span>T</span></span>
+    <span class="itam-row itam-row-bottom"><span>A</span><span>M</span></span>
+  </div>
+  <div class="title">
+    <strong>IT Asset Management</strong>
+    <span>SMSD Tech Team</span>
+  </div>
+</div>
+<nav class="nav" aria-label="Primary" id="sidebarNav" hidden>
+  <a href="./index.html"><span>Search</span></a>
+  <div class="nav-group nav-group-admin" data-role-min="admin">
+    <button class="nav-group-toggle" type="button" aria-expanded="false">
+      <span>Admin</span>
+      <span class="nav-caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="nav-submenu">
+      <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
+      <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
+      <a class="nav-subitem" href="./account-settings.html"><span>Account Settings</span></a>
+    </div>
+  </div>
+  <div class="nav-group nav-group-reports">
+    <button class="nav-group-toggle" type="button" aria-expanded="false">
+      <span>Reports</span>
+      <span class="nav-caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="nav-submenu">
+      <a class="nav-subitem" href="./kpi-reports.html"><span>KPI Reports</span></a>
+      <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
+      <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
+    </div>
+  </div>
+</nav>
+<div class="sidebar-footer"></div>`;
 
+  // ── Inject sidebar into the page ──────────────────────────────────────────
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.innerHTML = SIDEBAR_HTML;
+    applyActiveState();
+  }
+
+  // ── Set active link and pin the correct group based on current page ───────
+  function applyActiveState() {
+    const file = window.location.pathname.split('/').pop() || 'index.html';
+    const nav = document.getElementById('sidebarNav');
+    if (!nav) return;
+
+    const PAGE_MAP = {
+      'index.html':            { href: './index.html',             group: null },
+      'admin.html':            { href: './admin.html',             group: 'nav-group-admin' },
+      'people.html':           { href: './people.html',            group: 'nav-group-admin' },
+      'account-settings.html': { href: './account-settings.html', group: 'nav-group-admin' },
+      'kpi-reports.html':      { href: './kpi-reports.html',       group: 'nav-group-reports' },
+      'reports.html':          { href: './reports.html',           group: 'nav-group-reports' },
+      'user-reports.html':     { href: './user-reports.html',      group: 'nav-group-reports' },
+    };
+
+    const config = PAGE_MAP[file];
+    if (!config) return;
+
+    // Mark the active link
+    const link = nav.querySelector(`a[href="${config.href}"]`);
+    if (link) link.classList.add('active');
+
+    // Pin the parent group (initAdminNav reads data-open-default to set is-pinned)
+    if (config.group) {
+      const group = nav.querySelector(`.${config.group}`);
+      if (group) {
+        group.dataset.openDefault = 'true';
+        const toggle = group.querySelector('.nav-group-toggle');
+        if (toggle) toggle.classList.add('active');
+      }
+    }
+  }
+
+  // ── Hamburger toggle ──────────────────────────────────────────────────────
+  const btn = document.getElementById('sidebarToggleBtn');
+  const overlay = document.getElementById('sidebarOverlay');
   if (!btn || !sidebar || !overlay) return;
 
   function openSidebar() {

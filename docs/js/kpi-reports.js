@@ -3,7 +3,7 @@ import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh
 import { qs, toast, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const topbar = qs('#kpiReportsTopbar');
-const nav = qs('#kpiReportsNav');
+const nav = qs('#sidebarNav');
 const loadingPanel = qs('#kpiReportsLoadingPanel');
 const mainSection = qs('#kpiReportsMainSection');
 
@@ -25,14 +25,18 @@ const damageReportsKpi = qs('#damageReportsKpi');
 const damageReportsHint = qs('#damageReportsHint');
 const damageRecent30Kpi = qs('#damageRecent30Kpi');
 const damageRecentKpi = qs('#damageRecentKpi');
-const damagePerAssetKpi = qs('#damagePerAssetKpi');
+const damageYtdKpi = qs('#damageYtdKpi');
+const damageYtdHint = qs('#damageYtdHint');
+const damageAvgPerStudentKpi = qs('#damageAvgPerStudentKpi');
+const damageByModelBars = qs('#damageByModelBars');
+const fleetStatusBar = qs('#fleetStatusBar');
 const damageTrendChart = qs('#damageTrendChart');
 const damageBuildingRateChart = qs('#damageBuildingRateChart');
 const warrantyExpiryBand = qs('#warrantyExpiryBand');
 const warrantyBuildingList = qs('#warrantyBuildingList');
 const churn90Count = qs('#churn90Count');
 const churnRepeatAssets = qs('#churnRepeatAssets');
-const churnMonthlySpark = qs('#churnMonthlySpark');
+const churnTrendChart = qs('#churnTrendChart');
 const churnTopAssets = qs('#churnTopAssets');
 const damageByUserBars = qs('#damageByUserBars');
 const damageBySerialBars = qs('#damageBySerialBars');
@@ -41,16 +45,10 @@ const utilAvailablePct = qs('#utilAvailablePct');
 const utilIdle60 = qs('#utilIdle60');
 const utilDonutChart = qs('#utilDonutChart');
 const utilDonutMeta = qs('#utilDonutMeta');
-const utilIdleAssets = qs('#utilIdleAssets');
 const dqMissingCritical = qs('#dqMissingCritical');
 const dqDuplicateSerials = qs('#dqDuplicateSerials');
 const dqStatusMismatch = qs('#dqStatusMismatch');
 const dqIssueBands = qs('#dqIssueBands');
-const repairAvgDays = qs('#repairAvgDays');
-const repairMedianDays = qs('#repairMedianDays');
-const repairOpenIncidents = qs('#repairOpenIncidents');
-const repairTurnaroundSpark = qs('#repairTurnaroundSpark');
-const repairRecentList = qs('#repairRecentList');
 
 let stopConnectionBadgeMonitor = null;
 let cachedAssets = [];
@@ -59,6 +57,12 @@ let cachedTransactions = [];
 let cachedAssetCurrent = [];
 let utilDonutChartInstance = null;
 let lifecycleDonutAnimFrame = 0;
+
+function schoolYearStart() {
+  const now = new Date();
+  const year = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return new Date(year, 7, 1); // Aug 1
+}
 
 function isLaptopAsset(asset) {
   const type = normalizeText(asset?.equipment_type).toLowerCase();
@@ -75,13 +79,23 @@ function updateSummaryKpis(rows) {
   const available = list.filter((r) => String(r.status || '').toLowerCase() === 'available').length;
   const attention = list.filter((r) => {
     const s = String(r.status || '').toLowerCase();
-    return s === 'repair' || s === 'retired' || s === 'maintenance';
+    return s === 'repair' || s === 'retired';
   }).length;
 
   if (kpiTotal) kpiTotal.textContent = total.toLocaleString();
   if (kpiAssigned) kpiAssigned.textContent = assigned.toLocaleString();
   if (kpiAvailable) kpiAvailable.textContent = available.toLocaleString();
   if (kpiAttention) kpiAttention.textContent = attention.toLocaleString();
+
+  if (fleetStatusBar && total > 0) {
+    const other = Math.max(0, total - assigned - available - attention);
+    const seg = (n, tooltip) => {
+      const w = ((n / total) * 100).toFixed(2);
+      return `<div class="fleet-bar-seg fleet-bar-${tooltip.split(':')[0].toLowerCase()}" style="width:${w}%" data-kpi-tooltip="${escapeHtml(tooltip + ': ' + n.toLocaleString())}"></div>`;
+    };
+    fleetStatusBar.innerHTML = seg(assigned, 'Assigned') + seg(available, 'Available') + seg(attention, 'Attention') + (other ? seg(other, 'Other') : '');
+    animateFillDimension(fleetStatusBar, '.fleet-bar-seg', 'width', { duration: 900, stagger: 60 });
+  }
 }
 
 function yearsInService(value) {
@@ -468,32 +482,6 @@ function renderBubbleCloud(container, rows, emptyText = 'No hotspot data availab
   `;
 }
 
-function renderRepairTimeline(container, rows, emptyText = 'No repair turnaround records.') {
-  if (!container) return;
-  const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) {
-    container.innerHTML = `<div class="muted">${escapeHtml(emptyText)}</div>`;
-    return;
-  }
-  const closed = list.filter((r) => Number.isFinite(r?.days));
-  const max = Math.max(1, ...closed.map((r) => Number(r.days || 0)));
-  container.innerHTML = list.map((row, idx) => {
-    const isOpen = !Number.isFinite(row?.days);
-    const width = isOpen ? 100 : (Number(row.days || 0) / max) * 100;
-    return `
-      <div class="timeline-row anim-item" style="--a:${Math.min(idx * 45, 500)}ms">
-        <div class="timeline-top">
-          <span>${escapeHtml(row.label || '-')}</span>
-          <strong>${isOpen ? 'Open' : formatDays(row.days)}</strong>
-        </div>
-        <div class="timeline-track ${isOpen ? 'is-open' : ''}">
-          <div class="timeline-fill" style="width:${width.toFixed(1)}%"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
-  animateFillDimension(container, '.timeline-fill', 'width', { duration: 820, stagger: 45 });
-}
 
 function renderHorizontalBars(container, rows, emptyText = 'No data available.') {
   if (!container) return;
@@ -638,15 +626,25 @@ function renderDamageInsights() {
     return Number.isFinite(ts) && ts >= ninetyDaysAgo;
   }).length;
 
+  const sysStart = schoolYearStart();
+  const ytdReports = filteredReports.filter((row) => {
+    const ts = new Date(row?.created_at || '').getTime();
+    return Number.isFinite(ts) && ts >= sysStart.getTime();
+  });
+  const ytdStudents = new Set(ytdReports.map((r) => normalizeText(r?.assignee_name)).filter(Boolean));
+  const avgPerStudent = ytdStudents.size ? (ytdReports.length / ytdStudents.size) : 0;
+
   if (damageRateKpi) damageRateKpi.textContent = `${rate.toFixed(1)}%`;
-  if (damageRateHint) damageRateHint.textContent = `${damagedCount.toLocaleString()} of ${totalAssets.toLocaleString()} assets have reports`;
-  if (damageReportsKpi) damageReportsKpi.textContent = reportsCount.toLocaleString();
-  if (damageReportsHint) {
-    damageReportsHint.textContent = 'All buildings scope';
+  if (damageRateHint) damageRateHint.textContent = `${damagedCount.toLocaleString()} of ${totalAssets.toLocaleString()} assets`;
+  if (damageYtdKpi) damageYtdKpi.textContent = ytdReports.length.toLocaleString();
+  if (damageYtdHint) {
+    const yr = sysStart.getFullYear();
+    damageYtdHint.textContent = `Aug ${yr} – Jun ${yr + 1}`;
   }
   if (damageRecent30Kpi) damageRecent30Kpi.textContent = recent30Reports.toLocaleString();
+  if (damageReportsKpi) damageReportsKpi.textContent = reportsCount.toLocaleString();
   if (damageRecentKpi) damageRecentKpi.textContent = recentReports.toLocaleString();
-  if (damagePerAssetKpi) damagePerAssetKpi.textContent = perDamagedAsset.toFixed(1);
+  if (damageAvgPerStudentKpi) damageAvgPerStudentKpi.textContent = avgPerStudent.toFixed(1);
 
   const monthPoints = [];
   const now = new Date();
@@ -670,30 +668,7 @@ function renderDamageInsights() {
     const buildingName = normalizeText(assetById.get(row.asset_id)?.building) || 'Unspecified';
     point.buildingCounts.set(buildingName, (point.buildingCounts.get(buildingName) || 0) + 1);
   });
-  const maxTrend = Math.max(1, ...monthPoints.map((point) => point.count));
-  if (damageTrendChart) {
-    damageTrendChart.innerHTML = monthPoints.map((point) => {
-      const h = (point.count / maxTrend) * 100;
-      const buildingRows = [...point.buildingCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([buildingName, count]) => `<div class="damage-month-row"><span>${escapeHtml(buildingName)}</span><strong>${count}</strong></div>`)
-        .join('');
-      return `
-        <div class="damage-trend-col" tabindex="0">
-          <div class="damage-trend-value">${point.count}</div>
-          <div class="damage-month-menu" role="tooltip" aria-label="${escapeHtml(point.label)} building totals">
-            <div class="damage-month-title">${escapeHtml(point.label)}: ${point.count}</div>
-            ${buildingRows || '<div class="damage-month-empty">No reports</div>'}
-          </div>
-          <div class="damage-trend-track">
-            <div class="damage-trend-fill" style="height:${h.toFixed(1)}%"></div>
-          </div>
-          <div class="damage-trend-label">${point.label}</div>
-        </div>
-      `;
-    }).join('');
-    animateFillDimension(damageTrendChart, '.damage-trend-fill', 'height', { duration: 920, stagger: 38 });
-  }
+  renderLineTrend(damageTrendChart, monthPoints.map((p) => ({ value: p.count, label: p.label })), 'No damage reports in last 12 months.');
 
   const buildingGroups = new Map();
   cachedAssets.forEach((asset) => {
@@ -757,11 +732,18 @@ function renderWarrantyInsights() {
     return ts >= now && ts <= in365;
   });
 
-  renderMiniBars(warrantyExpiryBand, [
+  const warrantyBars = [
     { label: 'Out of warranty', value: out.length, display: out.length.toLocaleString() },
     { label: 'Expiring within 60 days', value: expiring60.length, display: expiring60.length.toLocaleString() },
     { label: 'Expiring within 365 days', value: expiring365.length, display: expiring365.length.toLocaleString() }
-  ]);
+  ].filter((item) => item.value > 0);
+  if (warrantyExpiryBand) {
+    if (warrantyBars.length) {
+      renderMiniBars(warrantyExpiryBand, warrantyBars);
+    } else {
+      warrantyExpiryBand.innerHTML = '<div class="muted">All warranties current.</div>';
+    }
+  }
 
   const buildingTotal = new Map();
   const buildingOut = new Map();
@@ -779,13 +761,21 @@ function renderWarrantyInsights() {
       return {
         main: label,
         sub: `${uncovered}/${total} out of warranty`,
-        value: `${pct(uncovered, total).toFixed(1)}%`,
+        value: `${Math.round(pct(uncovered, total))}%`,
         sort: uncovered
       };
     })
+    .filter((row) => row.sort > 0)
     .sort((a, b) => b.sort - a.sort)
     .slice(0, 8);
-  renderInsightList(warrantyBuildingList, rows, 'No building warranty data.');
+  if (warrantyBuildingList) {
+    if (rows.length) {
+      renderInsightList(warrantyBuildingList, rows, '');
+      warrantyBuildingList.style.display = '';
+    } else {
+      warrantyBuildingList.style.display = 'none';
+    }
+  }
 }
 
 function renderAssignmentChurnInsights() {
@@ -824,7 +814,7 @@ function renderAssignmentChurnInsights() {
     const point = monthMap.get(monthKey(new Date(dt.getFullYear(), dt.getMonth(), 1)));
     if (point) point.value += 1;
   });
-  renderLineTrend(churnMonthlySpark, monthPoints);
+  renderLineTrend(churnTrendChart, monthPoints);
 
   const assetById = new Map(cachedAssets.map((a) => [a.id, a]));
   const top = [...counts90.entries()]
@@ -845,6 +835,20 @@ function renderAssignmentChurnInsights() {
     top.map((r) => [r.serial, r.model, String(r.count)]),
     'No churn activity in last 90 days.'
   );
+}
+
+function renderDamageByModel() {
+  const assetById = new Map(cachedAssets.map((a) => [a.id, a]));
+  const byModel = new Map();
+  cachedDamageReports.forEach((r) => {
+    const model = normalizeText(assetById.get(r.asset_id)?.model) || 'Unknown';
+    byModel.set(model, (byModel.get(model) || 0) + 1);
+  });
+  const rows = [...byModel.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+  renderHorizontalBars(damageByModelBars, rows, 'No model data available.');
 }
 
 function renderDamageLeaderboards() {
@@ -1004,71 +1008,31 @@ function renderDataQualityInsights() {
   if (dqDuplicateSerials) dqDuplicateSerials.textContent = duplicateSerials.toLocaleString();
   if (dqStatusMismatch) dqStatusMismatch.textContent = statusMismatch.toLocaleString();
 
-  renderMiniBars(dqIssueBands, [
-    { label: 'Missing serial/tag', value: missingSerial, display: missingSerial.toLocaleString(), href: './reports.html?kpi_custom=missing_serial_tag' },
-    { label: 'Missing model', value: missingModel, display: missingModel.toLocaleString(), href: './reports.html?kpi_custom=missing_model' },
-    { label: 'Missing building', value: missingBuilding, display: missingBuilding.toLocaleString(), href: './reports.html?kpi_custom=missing_building' },
-    { label: 'Missing service date', value: missingService, display: missingService.toLocaleString(), href: './reports.html?kpi_custom=missing_service_date' },
-    { label: 'Missing warranty', value: missingWarranty, display: missingWarranty.toLocaleString(), href: './reports.html?kpi_custom=missing_warranty_date' },
-    { label: 'Status mismatch', value: statusMismatch, display: statusMismatch.toLocaleString() }
-  ]);
+  const dqItems = [
+    { main: 'Missing serial / tag', value: missingSerial.toLocaleString(), count: missingSerial, mainHref: './reports.html?kpi_custom=missing_serial_tag' },
+    { main: 'Missing model', value: missingModel.toLocaleString(), count: missingModel, mainHref: './reports.html?kpi_custom=missing_model' },
+    { main: 'Missing building', value: missingBuilding.toLocaleString(), count: missingBuilding, mainHref: './reports.html?kpi_custom=missing_building' },
+    { main: 'Missing service date', value: missingService.toLocaleString(), count: missingService, mainHref: './reports.html?kpi_custom=missing_service_date' },
+    { main: 'Missing warranty date', value: missingWarranty.toLocaleString(), count: missingWarranty, mainHref: './reports.html?kpi_custom=missing_warranty_date' },
+    { main: 'Status / assignment mismatch', value: statusMismatch.toLocaleString(), count: statusMismatch }
+  ];
+  if (dqIssueBands) {
+    dqIssueBands.innerHTML = dqItems.map((item, idx) => {
+      const hasIssue = item.count > 0;
+      const linkHtml = item.mainHref
+        ? `<a class="dq-item-label dq-link" href="${escapeHtml(item.mainHref)}">${escapeHtml(item.main)}<span class="dq-arrow" aria-hidden="true">→</span></a>`
+        : `<span class="dq-item-label">${escapeHtml(item.main)}</span>`;
+      return `
+        <div class="dq-item anim-item ${hasIssue ? 'dq-has-issue' : 'dq-ok'}" style="--a:${Math.min(idx * 55, 400)}ms">
+          <span class="dq-dot" aria-hidden="true"></span>
+          ${linkHtml}
+          <strong class="dq-count">${escapeHtml(item.value)}</strong>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
-function renderRepairTurnaroundInsights() {
-  const checkinByAsset = new Map();
-  cachedTransactions
-    .filter((t) => String(t?.action || '').toLowerCase() === 'in')
-    .forEach((tx) => {
-      if (!tx?.asset_id) return;
-      const ts = safeDate(tx?.occurred_at)?.getTime();
-      if (!Number.isFinite(ts)) return;
-      if (!checkinByAsset.has(tx.asset_id)) checkinByAsset.set(tx.asset_id, []);
-      checkinByAsset.get(tx.asset_id).push(ts);
-    });
-  checkinByAsset.forEach((arr) => arr.sort((a, b) => a - b));
-
-  const assetById = new Map(cachedAssets.map((a) => [a.id, a]));
-  const enriched = cachedDamageReports
-    .map((r) => {
-      const createdTs = safeDate(r?.created_at)?.getTime();
-      if (!Number.isFinite(createdTs)) return null;
-      const checks = checkinByAsset.get(r.asset_id) || [];
-      const closeTs = checks.find((ts) => ts >= createdTs);
-      const days = closeTs ? (closeTs - createdTs) / (24 * 60 * 60 * 1000) : null;
-      return {
-        asset: assetById.get(r.asset_id),
-        createdTs,
-        days,
-        open: days == null
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.createdTs - a.createdTs);
-
-  const closedDays = enriched.filter((e) => !e.open).map((e) => e.days).sort((a, b) => a - b);
-  const avg = closedDays.length ? (closedDays.reduce((s, v) => s + v, 0) / closedDays.length) : 0;
-  const median = closedDays.length ? closedDays[Math.floor(closedDays.length / 2)] : 0;
-  const openCount = enriched.filter((e) => e.open).length;
-
-  if (repairAvgDays) repairAvgDays.textContent = formatDays(avg);
-  if (repairMedianDays) repairMedianDays.textContent = formatDays(median);
-  if (repairOpenIncidents) repairOpenIncidents.textContent = openCount.toLocaleString();
-
-  const timelineRows = enriched.slice(0, 12).map((e) => {
-    const dt = new Date(e.createdTs);
-    return {
-      label: `${serialForAsset(e.asset)} • ${monthLabel(dt)} ${dt.getDate()}`,
-      days: e.open ? null : Number(e.days.toFixed(1))
-    };
-  });
-  renderRepairTimeline(repairTurnaroundSpark, timelineRows, 'No repair turnaround records.');
-
-  const list = enriched.slice(0, 10).map((e) => {
-    const dt = new Date(e.createdTs);
-    return [serialForAsset(e.asset), `${monthLabel(dt)} ${dt.getDate()}, ${dt.getFullYear()}`, e.open ? 'Open' : formatDays(e.days)];
-  });
-  renderRankTable(repairRecentList, ['Device', 'Reported', 'Turnaround'], list, 'No repair turnaround records.');
-}
 
 async function loadKpis() {
   await ensureSessionFresh();
@@ -1120,6 +1084,7 @@ async function loadKpis() {
   renderWarrantyInsights();
   renderAssignmentChurnInsights();
   renderDamageLeaderboards();
+  renderDamageByModel();
   renderUtilizationInsights();
   renderDataQualityInsights();
 }

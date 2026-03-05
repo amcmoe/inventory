@@ -7,7 +7,7 @@ const authShell = qs('#authShell');
 const dashboardShell = qs('#dashboardShell');
 const indexTopbar = qs('#indexTopbar');
 const searchPanel = qs('#searchPanel');
-const mainNav = qs('#mainNav');
+const mainNav = qs('#sidebarNav');
 const authMessage = qs('#authMessage');
 const userMeta = qs('#userMeta');
 
@@ -755,6 +755,13 @@ function renderEmpty() {
   window.updateKpisFromTable?.();
 }
 
+function renderSkeleton() {
+  const cell = (w) => `<td><div class="skeleton-cell" style="width:${w}%"></div></td>`;
+  assetTbody.innerHTML = Array(5).fill(null).map(() =>
+    `<tr class="skeleton-row">${cell(70)}${cell(80)}${cell(55)}${cell(42)}${cell(50)}<td></td></tr>`
+  ).join('');
+}
+
 function escapeAttr(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -944,6 +951,8 @@ async function loadAssets() {
       setConnectionBadge('connected');
       return;
     }
+
+    renderSkeleton();
 
     let query = supabase
       .from('assets')

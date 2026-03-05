@@ -82,11 +82,11 @@ themeBtn?.addEventListener("click", () => {
 
 function statusBadge(status) {
   const s = String(status || "").toLowerCase();
-  const label = s === "checked_out" ? "Assigned" : (status || "-");
+  const label = s === "checked_out" ? "Assigned" : (status ? status.charAt(0).toUpperCase() + status.slice(1) : "-");
   let cls = "info";
   if (s.includes("available")) cls = "ok";
   else if (s.includes("assigned") || s.includes("in service") || s.includes("checked_out")) cls = "info";
-  else if (s.includes("repair") || s.includes("maintenance")) cls = "warn";
+  else if (s.includes("repair")) cls = "warn";
   else if (s.includes("retire")) cls = "danger";
   return `<span class="badge ${cls}"><span class="dot"></span>${escapeHtml(label)}</span>`;
 }
@@ -289,7 +289,7 @@ function updateKpisFromTable() {
   const available = visible.filter((r) => (r.querySelectorAll("td")[3]?.textContent || "").toLowerCase().includes("available")).length;
   const attention = visible.filter((r) => {
     const s = (r.querySelectorAll("td")[3]?.textContent || "").toLowerCase();
-    return s.includes("repair") || s.includes("maintenance") || s.includes("retired");
+    return s.includes("repair") || s.includes("retired");
   }).length;
   if (kpiTotal) kpiTotal.textContent = total.toLocaleString();
   if (kpiAssigned) kpiAssigned.textContent = assigned.toLocaleString();

@@ -18,7 +18,7 @@ import {
 } from './ui.js';
 
 const topbar = qs('#accountSettingsTopbar');
-const nav = qs('#accountSettingsNav');
+const nav = qs('#sidebarNav');
 const loadingPanel = qs('#accountSettingsLoadingPanel');
 const mainSection = qs('#accountSettingsMainSection');
 

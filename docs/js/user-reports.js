@@ -3,7 +3,7 @@ import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh
 import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const userReportsTopbar = qs('#userReportsTopbar');
-const userReportsNav = qs('#userReportsNav');
+const userReportsNav = qs('#sidebarNav');
 const userReportsLoadingPanel = qs('#userReportsLoadingPanel');
 const userReportsMainSection = qs('#userReportsMainSection');
 
@@ -32,7 +32,8 @@ let currentDamagePhotoUrlMap = new Map();
 
 function displayStatus(status) {
   const raw = String(status || '');
-  return raw === 'checked_out' ? 'Assigned' : raw || '-';
+  if (raw === 'checked_out') return 'Assigned';
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '-';
 }
 
 function normalizeBuildingRoom(a) {

@@ -4,7 +4,7 @@ import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdm
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
 const peopleTopbar = qs('#peopleTopbar');
-const peopleNav = qs('#peopleNav');
+const peopleNav = qs('#sidebarNav');
 const peopleMainSection = qs('#peopleMainSection');
 const assigneeSection = qs('#assigneeSection');
 const assigneeHistorySection = qs('#assigneeHistorySection');
