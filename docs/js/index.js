@@ -1,5 +1,5 @@
 import { supabase, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, sendMagicLink, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
+import { getSession, getCurrentProfile, signInWithGoogle, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
 import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, loadSiteBrandingFromServer } from './ui.js';
 
 const authPanel = qs('#authPanel');
@@ -1130,11 +1130,18 @@ async function initAuthedUI(session) {
   try {
     currentProfile = await getCurrentProfile(session);
   } catch (err) {
-    currentProfile = {
-      role: 'viewer',
-      display_name: session.user?.email || 'User'
-    };
     toast(`Profile lookup failed: ${err.message}`, true);
+  }
+  if (!currentProfile) {
+    await signOut().catch(() => {});
+    authPanel.hidden = false;
+    authShell.hidden = false;
+    dashboardShell.hidden = true;
+    indexTopbar.hidden = true;
+    searchPanel.hidden = true;
+    mainNav.hidden = true;
+    authMessage.textContent = 'Access denied. Contact an admin to be added to the system.';
+    return;
   }
 
   setRoleVisibility(currentProfile.role || 'viewer');
@@ -2392,15 +2399,9 @@ async function init() {
     return;
   }
 
-  qs('#sendLinkBtn').addEventListener('click', async () => {
-    const email = qs('#emailInput').value.trim();
-    if (!email) {
-      toast('Enter an email first.', true);
-      return;
-    }
+  qs('#googleSignInBtn').addEventListener('click', async () => {
     try {
-      await sendMagicLink(email);
-      authMessage.textContent = `Magic link sent to ${email}. Open the email on this device.`;
+      await signInWithGoogle();
     } catch (err) {
       toast(err.message, true);
     }

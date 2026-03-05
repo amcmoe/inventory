@@ -1,5 +1,5 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
-import { getSession, getCurrentProfile, requireAuth, sendMagicLink, signOut, ensureSessionFresh } from './auth.js';
+import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
 import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
@@ -15,8 +15,6 @@ const assigneeDamageTbody = qs('#assigneeDamageTbody');
 const appUsersTbody = qs('#appUsersTbody');
 const assigneesTbody = qs('#assigneesTbody');
 const refreshAppUsersBtn = qs('#refreshAppUsersBtn');
-const appUserEmailInput = qs('#appUserEmail');
-const inviteAppUserBtn = qs('#inviteAppUserBtn');
 
 let assigneeDebounce = null;
 let selectedAssigneeId = null;
@@ -30,11 +28,6 @@ function sanitizeFilterTerm(term) {
     .trim();
 }
 
-function setInviteVisibility(visible) {
-  if (!inviteAppUserBtn) return;
-  const hasEmail = Boolean(appUserEmailInput?.value.trim());
-  inviteAppUserBtn.hidden = !(visible && hasEmail);
-}
 
 function renderAppUsers(rows) {
   if (!rows?.length) {
@@ -58,7 +51,6 @@ function renderAppUsers(rows) {
       qs('#appUserEmail').value = row.email || '';
       qs('#appUserName').value = row.display_name || '';
       qs('#appUserRole').value = row.role || 'viewer';
-      setInviteVisibility(true);
     });
   });
 }
@@ -105,20 +97,9 @@ async function saveAppUser() {
   }
 
   toast('App user saved.');
-  setInviteVisibility(true);
   await loadAppUsers();
 }
 
-async function inviteAppUser() {
-  await ensureSessionFresh();
-  const email = qs('#appUserEmail').value.trim().toLowerCase();
-  if (!email) {
-    toast('User email is required to send invite.', true);
-    return;
-  }
-  await sendMagicLink(email);
-  toast(`Magic link sent to ${email}.`);
-}
 
 function renderAssignees(rows) {
   if (!rows?.length) {
@@ -361,7 +342,7 @@ async function init() {
   }
 
   const profile = await getCurrentProfile();
-  if (profile.role !== ROLES.ADMIN) {
+  if (!profile || profile.role !== ROLES.ADMIN) {
     toast('Admin role required.', true);
     window.location.href = './index.html';
     return;
@@ -387,9 +368,6 @@ async function init() {
   qs('#saveAppUserBtn').addEventListener('click', () => {
     saveAppUser().catch((err) => toast(err.message, true));
   });
-  inviteAppUserBtn?.addEventListener('click', () => {
-    inviteAppUser().catch((err) => toast(err.message, true));
-  });
   refreshAppUsersBtn?.addEventListener('click', () => {
     loadAppUsers().catch((err) => toast(err.message, true));
   });
@@ -403,11 +381,6 @@ async function init() {
   qs('#saveAssigneeNameBtn').addEventListener('click', () => {
     saveAssigneeName().catch((err) => toast(err.message, true));
   });
-  appUserEmailInput?.addEventListener('input', () => {
-    setInviteVisibility(false);
-  });
-  setInviteVisibility(false);
-
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     loadAppUsers().catch((err) => toast(err.message, true));

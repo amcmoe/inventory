@@ -1,4 +1,4 @@
-import { supabase, ROLES } from './supabase-client.js';
+import { supabase } from './supabase-client.js';
 
 let refreshInFlight = null;
 
@@ -120,14 +120,8 @@ export function startSessionKeepAlive({ intervalMs = 60_000, refreshWindowSec = 
   };
 }
 
-export async function sendMagicLink(email) {
-  const redirectTo = window.location.origin + window.location.pathname;
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo
-    }
-  });
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
   if (error) {
     throw error;
   }
@@ -157,11 +151,7 @@ export async function getCurrentProfile(sessionOverride = null) {
   }
 
   if (!data) {
-    return {
-      user_id: session.user.id,
-      role: ROLES.VIEWER,
-      display_name: session.user.email || 'User'
-    };
+    return null;
   }
 
   return data;

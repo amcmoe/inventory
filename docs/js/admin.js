@@ -1382,7 +1382,7 @@ async function init() {
   }
 
   const profile = await getCurrentProfile();
-  if (profile.role !== ROLES.ADMIN) {
+  if (!profile || profile.role !== ROLES.ADMIN) {
     toast('Admin role required.', true);
     window.location.href = './index.html';
     return;
