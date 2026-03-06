@@ -12,7 +12,7 @@
   </div>
 </div>
 <nav class="nav" aria-label="Primary" id="sidebarNav" hidden>
-  <a href="./index.html"><span>Search</span></a>
+  <a href="./"><span>Search</span></a>
   <div class="nav-group nav-group-admin" data-role-min="admin">
     <button class="nav-group-toggle" type="button" aria-expanded="false">
       <span>Admin</span>
@@ -52,7 +52,7 @@
     if (!nav) return;
 
     const PAGE_MAP = {
-      'index.html':            { href: './index.html',             group: null },
+      'index.html':            { href: './',                        group: null },
       'admin.html':            { href: './admin.html',             group: 'nav-group-admin' },
       'people.html':           { href: './people.html',            group: 'nav-group-admin' },
       'account-settings.html': { href: './account-settings.html', group: 'nav-group-admin' },
