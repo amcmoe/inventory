@@ -818,6 +818,12 @@ async function init() {
     selectPrebuiltCustomQuery(nextFilter).catch((err) => toast(err.message || 'Failed to load custom report', true));
   });
 
+  qs('#reportPrebuiltMobileToggle')?.addEventListener('click', () => {
+    const strip = qs('#reportPrebuiltStrip');
+    const isOpen = strip?.classList.toggle('is-open');
+    qs('#reportPrebuiltMobileToggle')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
   reportBuilderToggle?.addEventListener('click', () => {
     const isCollapsed = reportBuilderBody?.classList.contains('is-collapsed');
     reportBuilderBody?.classList.toggle('is-collapsed');

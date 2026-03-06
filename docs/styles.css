@@ -1913,6 +1913,7 @@ textarea::placeholder {
   margin-left: auto;
   margin-right: auto;
   margin-top: 30px;
+  min-width: 0;
 }
 
 #kpiReportsMainSection > .panel {
@@ -2070,6 +2071,14 @@ textarea::placeholder {
   .hotspot-layout,
   .repair-layout {
     grid-template-columns: 1fr;
+  }
+
+  .reports-summary-panel .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #kpiReportsMainSection {
+    margin-top: 12px;
   }
 }
 
@@ -2346,6 +2355,10 @@ textarea::placeholder {
   align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.report-prebuilt-mobile-toggle {
+  display: none !important;
 }
 
 .report-prebuilt-label {
@@ -4540,6 +4553,53 @@ select optgroup {
 
   #reportsMainSection .report-prebuilt-cards {
     gap: 4px;
+  }
+
+  /* Mobile drawer for Quick Reports */
+  #reportsMainSection .report-prebuilt-strip {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .report-prebuilt-label {
+    display: none;
+  }
+
+  .report-prebuilt-mobile-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 2px;
+    color: var(--text);
+  }
+
+  .report-prebuilt-chevron {
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .report-prebuilt-strip.is-open .report-prebuilt-chevron {
+    transform: rotate(180deg);
+  }
+
+  #reportsMainSection .report-prebuilt-cards {
+    display: none;
+    flex-direction: column;
+    margin-top: 8px;
+  }
+
+  #reportsMainSection .report-prebuilt-strip.is-open .report-prebuilt-cards {
+    display: flex;
+  }
+
+  .report-prebuilt-card {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 8px;
   }
 
   #reportsMainSection .export-popover-menu {
