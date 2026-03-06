@@ -667,7 +667,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 18px 0 4px;
+  margin: 10px 0 2px;
   color: var(--text-muted, #888);
   font-size: 0.7rem;
   font-weight: 700;
@@ -1065,7 +1065,7 @@ textarea::placeholder {
 }
 
 .kpi-insight-grid .kpi {
-  min-height: 90px;
+  min-height: 76px;
   display: flex;
   flex-direction: column;
 }
@@ -1520,7 +1520,7 @@ textarea::placeholder {
 }
 
 .damage-hero-kpi {
-  padding: 20px 22px;
+  padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel);
@@ -1908,7 +1908,11 @@ textarea::placeholder {
 }
 
 #kpiReportsMainSection {
-  gap: 22px;
+  gap: 16px;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 30px;
 }
 
 #kpiReportsMainSection > .panel {
@@ -2092,7 +2096,7 @@ textarea::placeholder {
 
 .report-filter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 8px;
   overflow: visible;
   position: relative;
@@ -2361,34 +2365,37 @@ textarea::placeholder {
 }
 
 .report-prebuilt-card {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 4px 12px;
-  min-height: 28px;
-  border-radius: 999px;
+  padding: 7px 14px;
+  min-height: 36px;
+  border-radius: 12px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(110, 168, 255, 0.06);
   color: var(--text);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
 .report-prebuilt-card:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(110, 168, 255, 0.12);
+  border-color: rgba(110, 168, 255, 0.35);
+  transform: translateY(-1px);
 }
 
 [data-theme="light"] .report-prebuilt-card {
-  background: rgba(20, 26, 36, 0.05);
+  background: rgba(110, 168, 255, 0.08);
 }
 
 [data-theme="light"] .report-prebuilt-card:hover {
-  background: rgba(20, 26, 36, 0.09);
+  background: rgba(110, 168, 255, 0.15);
 }
 
 .report-prebuilt-card.is-active {
-  border-color: rgba(110, 168, 255, 0.6);
-  background: rgba(110, 168, 255, 0.14);
+  border-color: rgba(110, 168, 255, 0.7);
+  background: rgba(110, 168, 255, 0.18);
+  font-weight: 600;
 }
 
 /* ── Filter groups ── */
@@ -3457,6 +3464,184 @@ textarea {
 
 .form-actions {
   margin-top: 12px;
+}
+
+/* ── Admin / People / Settings page layout ───────────── */
+#assetAdminSection,
+#bulkCreateSection,
+#peopleMainSection,
+#assigneeSection,
+#siteSettingsMainSection {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 30px;
+  overflow: hidden;
+}
+
+#peopleMainSection table,
+#assigneeSection table,
+#assigneeHistorySection table,
+#siteSettingsMainSection table {
+  min-width: 0;
+}
+
+#assetAdminSection .panel-body h2,
+#bulkCreateSection .panel-body h3,
+#peopleMainSection .panel-body h2,
+#assigneeSection .panel-body h2,
+#assigneeHistorySection .panel-body h2,
+#siteSettingsMainSection .panel-body h2 {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+/* ── Search page layout ──────────────────────────────── */
+#searchPanel {
+  overflow: hidden;
+  transition: margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Idle / hero state */
+#searchPanel:not(.is-active) {
+  margin-top: 22vh;
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Active / results state */
+#searchPanel.is-active {
+  margin-top: 30px;
+  max-width: 100%;
+}
+
+/* Title: centered + prominent in idle, hidden when active */
+.search-panel-title {
+  padding: 18px 16px 14px;
+  text-align: center;
+  border-bottom: none;
+}
+
+.search-panel-title h2 {
+  border-left: none;
+  padding-left: 0;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: inline-block;
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 4px;
+}
+
+#searchPanel.is-active .search-panel-title {
+  display: none;
+}
+
+/* Table: hidden in idle state */
+#searchPanel:not(.is-active) .table-wrap {
+  display: none;
+}
+
+/* Clear button: hidden in idle state */
+#searchPanel:not(.is-active) .panel-header > .controls:last-child {
+  display: none;
+}
+
+/* Idle state: stretch search field to fill full panel width */
+#searchPanel:not(.is-active) .panel-header {
+  display: block;
+  padding: 14px 16px;
+}
+#searchPanel:not(.is-active) .panel-header > .controls:first-child {
+  width: 100%;
+}
+#searchPanel:not(.is-active) #searchField {
+  width: 100%;
+  flex: 1 1 100%;
+  max-width: 100%;
+}
+
+/* ── Report pages layout ─────────────────────────────── */
+#reportsMainSection,
+#userReportsMainSection {
+  margin-top: 30px;
+  overflow: hidden;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#reportsMainSection .panel-header strong,
+#userReportsMainSection .panel-header strong {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+
+/* Filter group cards */
+#reportsMainSection .report-filter-group {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+#reportsMainSection .report-filter-group-label {
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* Quick Reports strip separator */
+#reportsMainSection .report-prebuilt-strip {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+/* Generate button prominence */
+#reportsMainSection .report-builder-actions .btn.primary {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* ── Floating label fields ──────────────────────────── */
+.float-field {
+  position: relative;
+}
+
+.float-field input {
+  padding-top: 22px;
+  padding-bottom: 10px;
+  min-height: 58px;
+}
+
+.float-field > label {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--muted);
+  pointer-events: none;
+  transition: top 0.15s ease, font-size 0.15s ease, color 0.15s ease, font-weight 0.15s ease;
+  margin-bottom: 0;
+  line-height: 1;
+}
+
+.float-field input:focus + label,
+.float-field input:not(:placeholder-shown) + label {
+  top: 10px;
+  transform: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .admin-history-field {

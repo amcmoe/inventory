@@ -7,7 +7,7 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>ITAM - People</title>
+  <title>ITAM - User Management</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -50,9 +50,13 @@
           </div>
           <p class="muted">Create or edit users who can access this inventory application.</p>
           <div class="grid cols-2">
-            <div>
+            <div class="float-field">
+              <input id="appUserEmail" type="email" placeholder=" " required>
               <label for="appUserEmail">User Email</label>
-              <input id="appUserEmail" type="email" placeholder="name@school.org">
+            </div>
+            <div class="float-field">
+              <input id="appUserName" placeholder=" " required>
+              <label for="appUserName">Display Name</label>
             </div>
             <div>
               <label for="appUserRole">Role</label>
@@ -62,16 +66,12 @@
                 <option value="admin">Admin</option>
               </select>
             </div>
-            <div>
-              <label for="appUserName">Display Name (optional)</label>
-              <input id="appUserName">
-            </div>
           </div>
           <div class="row app-users-actions">
             <button class="btn primary" id="saveAppUserBtn" type="button">Save App User</button>
             <button class="btn" id="inviteAppUserBtn" type="button" hidden>Send Invite</button>
           </div>
-          <div class="muted app-user-help" id="appUserHelp">Tip: User must have signed in at least once (or be invited in Supabase Auth) before role can be assigned.</div>
+          <div class="muted app-user-help" id="appUserHelp">Tip: User must sign in with Google at least once before a role can be assigned.</div>
           <div class="table-wrap app-users-table-wrap">
             <table role="grid" aria-label="Application access users">
               <thead>
@@ -93,9 +93,9 @@
           <h2>Assignees</h2>
           <p class="muted">Look up assignees and edit display names.</p>
           <div class="grid cols-2 assignees-search-block">
-            <div>
+            <div class="float-field">
+              <input id="assigneeSearchInput" type="search" placeholder=" ">
               <label for="assigneeSearchInput">Search Assignees</label>
-              <input id="assigneeSearchInput" type="search" placeholder="Type name, email, employee ID...">
             </div>
           </div>
           <div class="table-wrap assignees-table-wrap">
@@ -113,9 +113,9 @@
             </table>
           </div>
           <div class="grid cols-2 assignees-edit-block">
-            <div>
+            <div class="float-field">
+              <input id="editAssigneeName" placeholder=" ">
               <label for="editAssigneeName">Selected Assignee Name</label>
-              <input id="editAssigneeName" placeholder="Select an assignee from the table">
             </div>
           </div>
           <div class="row assignees-save-row">

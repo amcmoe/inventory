@@ -55,15 +55,13 @@
       <section class="panel" id="assetAdminSection" hidden>
         <div class="panel-body">
           <h2>Create / Edit Asset</h2>
-          <p class="muted">This form uses the admin-only RPC.</p>
           <input id="assetId" type="hidden">
           <div class="grid cols-2">
-            <div>
+            <div class="float-field">
+              <input id="assetTag" placeholder=" ">
               <label for="assetTag">Serial #</label>
-              <input id="assetTag" placeholder="PW063XXX">
             </div>
             <div>
-              <label for="manufacturer">Manufacturer</label>
               <select id="manufacturer">
                 <option value="">Select manufacturer</option>
                 <option value="Apple">Apple</option>
@@ -76,7 +74,6 @@
               <input id="manufacturerCustom" placeholder="Enter new manufacturer" hidden>
             </div>
             <div>
-              <label for="model">Model</label>
               <select id="model">
                 <option value="">Select model</option>
                 <optgroup label="ThinkPad">
@@ -94,7 +91,6 @@
               <input id="modelCustom" placeholder="Enter new model" hidden>
             </div>
             <div>
-              <label for="equipmentType">Equipment Type</label>
               <select id="equipmentType">
                 <option value="">Select type</option>
                 <option value="Laptop">Laptop</option>
@@ -105,7 +101,6 @@
               <input id="equipmentTypeCustom" placeholder="Enter new type" hidden>
             </div>
             <div>
-              <label for="building">Building</label>
               <select id="building">
                 <option value="">Select building</option>
                 <option value="Boiling Springs High School">Boiling Springs High School</option>
@@ -114,9 +109,9 @@
                 <option value="W.G. Rice Elementary School">W.G. Rice Elementary School</option>
               </select>
             </div>
-            <div>
+            <div class="float-field">
+              <input id="room" placeholder=" ">
               <label for="room">Room</label>
-              <input id="room">
             </div>
             <div>
               <label for="serviceStartDate">In Service Since</label>
@@ -160,7 +155,7 @@
           </div>
           <div class="row form-actions">
             <button class="btn primary" id="saveAssetBtn">Save Asset</button>
-            <button class="btn" id="loadByTagBtn">Load by Search</button>
+            <button class="btn" id="loadByTagBtn">Find Asset</button>
           </div>
         </div>
       </section>
@@ -195,7 +190,7 @@
             </button>
           </div>
           <h3>Bulk Create Assets</h3>
-          <p class="muted">Use the same shared values above, then paste serial numbers (one per line).</p>
+          <p class="muted">Set the common details above (manufacturer, model, building, etc.), then paste or scan serial numbers below to create multiple assets at once.</p>
           <div class="grid bulk-grid">
             <div id="bulkSerialsPanel">
               <label for="bulkSerials">Serial Numbers</label>

@@ -7,7 +7,7 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>ITAM - Account Settings</title>
+  <title>ITAM - Site Settings</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -15,13 +15,13 @@
     <aside class="sidebar"></aside>
 
     <main class="main">
-      <header class="topbar" id="accountSettingsTopbar" hidden>
+      <header class="topbar" id="siteSettingsTopbar" hidden>
         <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" aria-label="Open navigation" aria-expanded="false">
           <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true"><rect width="18" height="2" rx="1" fill="currentColor"/><rect y="6" width="18" height="2" rx="1" fill="currentColor"/><rect y="12" width="18" height="2" rx="1" fill="currentColor"/></svg>
         </button>
         <div>
-          <h1>Account Settings</h1>
-          <div class="subtext">Customize site branding and account-level display settings.</div>
+          <h1>Site Settings</h1>
+          <div class="subtext">Customize branding shown in the sidebar.</div>
         </div>
         <div class="controls">
           <span class="connection-badge is-reconnecting" id="connectionBadge" aria-live="polite" title="Database status: reconnecting">Database</span>
@@ -29,7 +29,7 @@
         </div>
       </header>
 
-      <section class="panel" id="accountSettingsLoadingPanel">
+      <section class="panel" id="siteSettingsLoadingPanel">
         <div class="panel-body">
           <div class="loading-spinner" aria-hidden="true"></div>
           <h2>Checking Access</h2>
@@ -37,18 +37,18 @@
         </div>
       </section>
 
-      <section class="panel" id="accountSettingsMainSection" hidden>
+      <section class="panel" id="siteSettingsMainSection" hidden>
         <div class="panel-body">
           <h2>Branding</h2>
           <p class="muted">These values update the left sidebar title across this browser profile.</p>
           <div class="grid cols-2">
-            <div>
+            <div class="float-field">
+              <input id="settingsSiteName" placeholder=" ">
               <label for="settingsSiteName">Site Name</label>
-              <input id="settingsSiteName" placeholder="IT Asset Management">
             </div>
-            <div>
+            <div class="float-field">
+              <input id="settingsCompanyName" placeholder=" ">
               <label for="settingsCompanyName">Company Name</label>
-              <input id="settingsCompanyName" placeholder="SMSD Tech Team">
             </div>
           </div>
           <div class="row form-actions">
@@ -63,7 +63,7 @@
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <script src="./config.js"></script>
   <script src="./nav.js"></script>
-  <script type="module" src="./js/account-settings.js"></script>
+  <script type="module" src="./js/site-settings.js"></script>
   <button class="theme-toggle-fab" id="themeBtn" type="button" aria-label="Toggle theme">
     <span class="theme-toggle-glyph" aria-hidden="true"></span>
   </button>

@@ -17,10 +17,10 @@ import {
   saveSiteBrandingToServer
 } from './ui.js';
 
-const topbar = qs('#accountSettingsTopbar');
+const topbar = qs('#siteSettingsTopbar');
 const nav = qs('#sidebarNav');
-const loadingPanel = qs('#accountSettingsLoadingPanel');
-const mainSection = qs('#accountSettingsMainSection');
+const loadingPanel = qs('#siteSettingsLoadingPanel');
+const mainSection = qs('#siteSettingsMainSection');
 
 const saveBtn = qs('#saveBrandingBtn');
 const resetBtn = qs('#resetBrandingBtn');
@@ -60,7 +60,7 @@ function saveBrandingFromForm() {
     settingsPatch: extraSettings
   }).then(() => {
     loadBrandingIntoForm();
-    toast('Account settings saved.');
+    toast('Site settings saved.');
   });
 }
 
@@ -119,7 +119,7 @@ async function init() {
 
   saveBtn?.addEventListener('click', () => {
     saveBrandingFromForm().catch((err) => {
-      toast(err.message || 'Failed to save account settings.', true);
+      toast(err.message || 'Failed to save site settings.', true);
     });
   });
   resetBtn?.addEventListener('click', () => resetBrandingForm());
@@ -128,7 +128,7 @@ async function init() {
       if (event.key !== 'Enter') return;
       event.preventDefault();
       saveBrandingFromForm().catch((err) => {
-        toast(err.message || 'Failed to save account settings.', true);
+        toast(err.message || 'Failed to save site settings.', true);
       });
     });
   });

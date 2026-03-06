@@ -21,7 +21,7 @@
     <div class="nav-submenu">
       <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
       <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
-      <a class="nav-subitem" href="./account-settings.html"><span>Account Settings</span></a>
+      <a class="nav-subitem" href="./site-settings.html"><span>Site Settings</span></a>
     </div>
   </div>
   <div class="nav-group nav-group-reports">
@@ -55,7 +55,7 @@
       'index.html':            { href: './',                        group: null },
       'admin.html':            { href: './admin.html',             group: 'nav-group-admin' },
       'people.html':           { href: './people.html',            group: 'nav-group-admin' },
-      'account-settings.html': { href: './account-settings.html', group: 'nav-group-admin' },
+      'site-settings.html': { href: './site-settings.html', group: 'nav-group-admin' },
       'kpi-reports.html':      { href: './kpi-reports.html',       group: 'nav-group-reports' },
       'reports.html':          { href: './reports.html',           group: 'nav-group-reports' },
       'user-reports.html':     { href: './user-reports.html',      group: 'nav-group-reports' },

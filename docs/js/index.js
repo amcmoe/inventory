@@ -15,7 +15,6 @@ const assetTbody = qs('#assetTbody');
 
 const searchInput = qs('#searchInput');
 const searchField = qs('#searchField');
-const statusFilter = qs('#statusFilter');
 const clearFiltersBtn = qs('#clearFiltersBtn');
 const scannerToggleBtn = qs('#scannerToggleBtn');
 const scannerStage = qs('#scannerStage');
@@ -748,6 +747,7 @@ function clearConnectionReconnectCountdown() {
 function renderSearchPrompt() {
   assetTbody.innerHTML = '<tr><td colspan="6" class="dim">Type a serial or model to search for assets.</td></tr>';
   window.updateKpisFromTable?.();
+  searchPanel?.classList.remove('is-active');
 }
 
 function renderEmpty() {
@@ -798,6 +798,23 @@ function renderAssets(assets) {
 
   window.enhanceAssetTable?.();
   bindRowDamageButtons();
+
+  // Staggered row entrance animation
+  const rows = assetTbody.querySelectorAll('tr');
+  rows.forEach((row, i) => {
+    row.animate(
+      [
+        { opacity: '0', transform: 'translateY(6px)' },
+        { opacity: '1', transform: 'translateY(0)' },
+      ],
+      {
+        duration: 180,
+        delay: Math.min(i, 15) * 25,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        fill: 'both',
+      }
+    );
+  });
 }
 
 function bindRowDamageButtons() {
@@ -952,6 +969,7 @@ async function loadAssets() {
       return;
     }
 
+    searchPanel?.classList.add('is-active');
     renderSkeleton();
 
     let query = supabase
@@ -960,13 +978,7 @@ async function loadAssets() {
       .order('asset_tag', { ascending: true })
       .limit(200);
 
-    const status = statusFilter.value;
-
     query = query.or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%,asset_condition.ilike.%${term}%`);
-
-    if (status) {
-      query = query.eq('status', status);
-    }
 
     const { data, error } = await query;
     if (error) {
@@ -993,9 +1005,6 @@ async function loadAssets() {
         .in('id', assigneeAssetIds)
         .order('asset_tag', { ascending: true })
         .limit(200);
-      if (status) {
-        assigneeQuery = assigneeQuery.eq('status', status);
-      }
       const { data: assigneeAssetData, error: assigneeAssetError } = await assigneeQuery;
       if (assigneeAssetError) {
         throw new Error(assigneeAssetError.message || 'Assignee asset lookup failed.');
@@ -1038,16 +1047,11 @@ function triggerConnectionRecovery() {
 }
 
 function bindSearch() {
-  [searchInput, statusFilter].forEach((el) => {
-    el.addEventListener('input', () => {
-      window.clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(() => {
-        loadAssets().catch((err) => toast(err.message, true));
-      }, 220);
-    });
-    el.addEventListener('change', () => {
+  searchInput.addEventListener('input', () => {
+    window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
       loadAssets().catch((err) => toast(err.message, true));
-    });
+    }, 1500);
   });
 }
 
@@ -2454,7 +2458,6 @@ async function init() {
   clearFiltersBtn?.addEventListener('click', () => {
     stopScanner();
     searchInput.value = '';
-    statusFilter.value = '';
     renderSearchPrompt();
   });
   drawerAssigneeSearch?.addEventListener('input', (event) => {
