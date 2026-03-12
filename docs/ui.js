@@ -6,8 +6,6 @@ const drawer = $("#drawer");
 const overlay = $("#drawerOverlay");
 const closeDrawerBtn = $("#closeDrawerBtn");
 const toastEl = $("#toast");
-const themeBtn = $("#themeBtn");
-
 const searchInput = $("#searchInput");
 const statusFilter = $("#statusFilter");
 const clearFiltersBtn = $("#clearFiltersBtn");
@@ -69,11 +67,6 @@ function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   localStorage.setItem("theme", theme);
 }
-
-themeBtn?.addEventListener("click", () => {
-  const current = document.documentElement.getAttribute("data-theme") || "dark";
-  setTheme(current === "dark" ? "light" : "dark");
-});
 
 (function initTheme() {
   const saved = localStorage.getItem("theme");
@@ -238,6 +231,12 @@ function enhanceAssetTable() {
       }
       if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";
       window.dispatchEvent(new CustomEvent("asset-row-selected", { detail: currentRowData }));
+
+      // Check lock status
+      if (window.checkAndDisplayAssetLock && assetId) {
+        window.checkAndDisplayAssetLock(assetId).catch(() => {});
+      }
+
       openDrawer();
     });
 

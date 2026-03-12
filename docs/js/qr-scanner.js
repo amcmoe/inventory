@@ -80,7 +80,7 @@ async function lookupAsset(rawValue) {
           <div class="detail"><div class="k">Building / Room</div><div class="v">${escapeHtml(buildingParts.join(' / ') || '-')}</div></div>
         </div>
         <div class="row">
-          <a class="btn primary" href="./asset.html?tag=${encodeURIComponent(data.asset_tag)}">Open Asset</a>
+          <a class="btn primary" href="./?tag=${encodeURIComponent(data.asset_tag)}">Open Asset</a>
         </div>
       `;
       scannerResultSection.hidden = false;

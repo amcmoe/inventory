@@ -1,4 +1,17 @@
 (function () {
+  // ── Inline Lucide icons (stroke-only, 24x24 viewBox) ──────────────────────
+  const IC = {
+    search:     `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+    shield:     `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    package:    `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`,
+    users:      `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    sliders:    `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`,
+    barChart:   `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    trending:   `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+    table:      `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>`,
+    userCheck:  `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>`,
+  };
+
   // ── Shared sidebar HTML (single source of truth for navigation) ───────────
   const SIDEBAR_HTML = `
 <div class="brand">
@@ -12,31 +25,36 @@
   </div>
 </div>
 <nav class="nav" aria-label="Primary" id="sidebarNav" hidden>
-  <a href="./"><span>Search</span></a>
+  <a href="./">${IC.search}<span>Search</span></a>
   <div class="nav-group nav-group-admin" data-role-min="admin">
     <button class="nav-group-toggle" type="button" aria-expanded="false">
-      <span>Admin</span>
+      <span class="nav-group-label">${IC.shield}<span>Admin</span></span>
       <span class="nav-caret" aria-hidden="true">&#9662;</span>
     </button>
     <div class="nav-submenu">
-      <a class="nav-subitem" href="./admin.html"><span>Asset Management</span></a>
-      <a class="nav-subitem" href="./people.html"><span>User Management</span></a>
-      <a class="nav-subitem" href="./site-settings.html"><span>Site Settings</span></a>
+      <a class="nav-subitem" href="./admin.html">${IC.package}<span>Asset Management</span></a>
+      <a class="nav-subitem" href="./people.html">${IC.users}<span>User Management</span></a>
+      <a class="nav-subitem" href="./site-settings.html">${IC.sliders}<span>Site Settings</span></a>
     </div>
   </div>
   <div class="nav-group nav-group-reports">
     <button class="nav-group-toggle" type="button" aria-expanded="false">
-      <span>Reports</span>
+      <span class="nav-group-label">${IC.barChart}<span>Reports</span></span>
       <span class="nav-caret" aria-hidden="true">&#9662;</span>
     </button>
     <div class="nav-submenu">
-      <a class="nav-subitem" href="./kpi-reports.html"><span>KPI Reports</span></a>
-      <a class="nav-subitem" href="./reports.html"><span>Report Builder</span></a>
-      <a class="nav-subitem" href="./user-reports.html"><span>User Reports</span></a>
+      <a class="nav-subitem" href="./kpi-reports.html">${IC.trending}<span>KPI Reports</span></a>
+      <a class="nav-subitem" href="./reports.html">${IC.table}<span>Report Builder</span></a>
+      <a class="nav-subitem" href="./user-reports.html">${IC.userCheck}<span>User Reports</span></a>
     </div>
   </div>
 </nav>
-<div class="sidebar-footer"></div>`;
+<div class="sidebar-footer">
+  <button class="sidebar-footer-btn" id="recentActivityBtn" type="button">
+    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span>Recent Activity</span>
+  </button>
+</div>`;
 
   // ── Inject sidebar into the page ──────────────────────────────────────────
   const sidebar = document.querySelector('.sidebar');

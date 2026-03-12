@@ -32,6 +32,7 @@ const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
 const pendingUploadsBadge = qs('#pendingUploadsBadge');
 const connectionBadge = qs('#connectionBadge');
+const activityDrawer = qs('#activityDrawer');
 const drawerOverlay = qs('#drawerOverlay');
 const closeDrawerBtn = qs('#closeDrawerBtn');
 const drawerAssigneeEditor = qs('#drawerAssigneeEditor');
@@ -101,6 +102,7 @@ let remoteDamagePollTimer = null;
 const seenRemoteDamageEventIds = new Set();
 let remoteStatusFailureCount = 0;
 let stopSessionKeepAlive = null;
+let assetLocksChannel = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 const DISMISSED_REMOTE_DAMAGE_KEY_PREFIX = 'remoteDismissedDamagePaths:';
 let drawerDamageCameraStream = null;
@@ -832,6 +834,72 @@ function bindRowDamageButtons() {
   });
 }
 
+async function checkAndDisplayAssetLock(assetId) {
+  const drawerLockStatus = qs('#drawerLockStatus');
+  if (!drawerLockStatus || !assetId) return;
+
+  try {
+    const { data, error } = await supabase.rpc('check_asset_lock', {
+      p_asset_id: assetId
+    });
+
+    if (error) {
+      console.error('Lock check error:', error);
+      drawerLockStatus.hidden = true;
+      return;
+    }
+
+    if (data && data.locked && !data.is_stale) {
+      const session = await supabase.auth.getSession();
+      const currentUserId = session.data.session?.user?.id;
+
+      if (data.locked_by !== currentUserId) {
+        const lockedTime = new Date(data.locked_at).toLocaleTimeString();
+        drawerLockStatus.innerHTML = `
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+            <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"></path>
+          </svg>
+          <strong>Currently being edited by ${escapeHtml(data.locked_by_name)}</strong> since ${lockedTime}.
+        `;
+        drawerLockStatus.hidden = false;
+      } else {
+        drawerLockStatus.hidden = true;
+      }
+    } else {
+      drawerLockStatus.hidden = true;
+    }
+  } catch (err) {
+    console.error('Failed to check lock:', err);
+    drawerLockStatus.hidden = true;
+  }
+}
+
+async function subscribeToAssetLocksForSearch() {
+  if (assetLocksChannel) {
+    await supabase.removeChannel(assetLocksChannel);
+  }
+
+  assetLocksChannel = supabase
+    .channel('asset-locks-search')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'asset_locks'
+      },
+      (payload) => {
+        if (selectedAsset && payload.new?.asset_id === selectedAsset.id) {
+          checkAndDisplayAssetLock(selectedAsset.id);
+        } else if (selectedAsset && payload.old?.asset_id === selectedAsset.id) {
+          checkAndDisplayAssetLock(selectedAsset.id);
+        }
+      }
+    )
+    .subscribe();
+}
+
 function sanitizeFilterTerm(term) {
   return String(term || '')
     .replace(/[,%()]/g, ' ')
@@ -1119,6 +1187,61 @@ async function applyPendingDeepLink() {
         window.setTimeout(() => highlightDamageReportById(link.report), 260);
       }
     }, 90);
+  }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function setActivityDrawerOpen(open) {
+  if (!activityDrawer) return;
+  activityDrawer.classList.toggle('open', Boolean(open));
+  activityDrawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+async function loadRecentActivity() {
+  const activityFeed = qs('#activityFeed');
+  if (!activityFeed) return;
+  activityFeed.innerHTML = '<div class="activity-empty muted">Loading...</div>';
+  try {
+    const { data } = await supabase
+      .from('transactions')
+      .select('id, action, occurred_at, assets(asset_tag, model), people(display_name)')
+      .order('occurred_at', { ascending: false })
+      .limit(10);
+    const rows = data || [];
+    if (!rows.length) {
+      activityFeed.innerHTML = '<div class="activity-empty muted">No recent transactions.</div>';
+      return;
+    }
+    activityFeed.innerHTML = rows.map((tx) => {
+      const action = String(tx.action || '').toUpperCase();
+      const actionClass = action === 'OUT' ? 'out' : action === 'IN' ? 'in' : action === 'DAMAGE' ? 'damage' : 'other';
+      const asset = tx.assets;
+      const assetModel = escapeHtml(asset?.model || asset?.asset_tag || '—');
+      const assetTag = asset?.asset_tag ? `<span class="activity-tag muted">${escapeHtml(asset.asset_tag)}</span>` : '';
+      const person = tx.people?.display_name ? `<span class="activity-who muted">→ ${escapeHtml(tx.people.display_name)}</span>` : '';
+      return `
+        <div class="activity-item">
+          <span class="activity-badge activity-badge-${actionClass}">${escapeHtml(action)}</span>
+          <div class="activity-main">
+            <span class="activity-asset">${assetModel}</span>
+            ${assetTag}
+            ${person}
+          </div>
+          <span class="activity-time muted">${escapeHtml(timeAgo(tx.occurred_at))}</span>
+        </div>`;
+    }).join('');
+  } catch {
+    activityFeed.innerHTML = '<div class="activity-empty muted">Failed to load.</div>';
   }
 }
 
@@ -2498,6 +2621,18 @@ async function init() {
   });
   drawerOverlay?.addEventListener('click', () => setDamageDrawerOpen(false));
   closeDrawerBtn?.addEventListener('click', () => setDamageDrawerOpen(false));
+
+  qs('#activityDrawerCloseBtn')?.addEventListener('click', () => setActivityDrawerOpen(false));
+  document.getElementById('recentActivityBtn')?.addEventListener('click', () => {
+    setActivityDrawerOpen(true);
+    loadRecentActivity().catch(() => {});
+  });
+  document.addEventListener('click', (e) => {
+    if (!activityDrawer?.classList.contains('open')) return;
+    if (activityDrawer.contains(e.target)) return;
+    if (document.getElementById('recentActivityBtn')?.contains(e.target)) return;
+    setActivityDrawerOpen(false);
+  });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       setDamageDrawerOpen(false);
@@ -2564,6 +2699,9 @@ async function init() {
 
   supabase.auth.onAuthStateChange(async (_event, sessionData) => {
     if (sessionData) {
+      // If the dashboard is already visible the UI is already initialized.
+      // Any auth event (token refresh, session update, etc.) should not wipe the current state.
+      if (!dashboardShell.hidden) return;
       await initAuthedUI(sessionData);
     } else {
       authPanel.hidden = false;
@@ -2594,8 +2732,10 @@ async function init() {
     }
   });
 
+  let tabHiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
+      const hiddenMs = Date.now() - tabHiddenAt;
       triggerConnectionRecovery();
       startDbConnectionPoller();
       if (!autoRefreshTimer) {
@@ -2608,10 +2748,11 @@ async function init() {
           flushPendingRemoteDamagePhotosForSelectedAsset().catch(() => {});
         }
       }
-      if (searchInput?.value?.trim()) {
+      if (hiddenMs > 30_000 && searchInput?.value?.trim()) {
         loadAssets().catch((err) => toast(err.message, true));
       }
     } else {
+      tabHiddenAt = Date.now();
       setConnectionBadge('reconnecting');
     }
   });
@@ -2637,6 +2778,13 @@ async function init() {
   startPendingRemoteDamagePurgeTicker();
   startPendingRemoteFlushTicker();
   startRemoteSessionWatchdog();
+
+  // Subscribe to asset locks for real-time updates
+  subscribeToAssetLocksForSearch().catch((err) => console.error('Failed to subscribe to locks:', err));
+
+  // Expose lock check function for ui.js
+  window.checkAndDisplayAssetLock = checkAndDisplayAssetLock;
+
   window.addEventListener('beforeunload', stopScanner);
   window.addEventListener('beforeunload', () => {
     saveDamageDraftForCurrentAsset();
@@ -2648,6 +2796,9 @@ async function init() {
     if (remoteSessionWatchdogTimer) window.clearInterval(remoteSessionWatchdogTimer);
     if (dbConnectionPollTimer) window.clearInterval(dbConnectionPollTimer);
     stopRemoteSubscription().catch(() => {});
+    if (assetLocksChannel) {
+      supabase.removeChannel(assetLocksChannel).catch(() => {});
+    }
   });
   window.addEventListener('beforeunload', stopAutoRefresh);
 }

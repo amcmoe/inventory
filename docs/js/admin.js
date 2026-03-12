@@ -56,6 +56,10 @@ let remoteStatusTimer = null;
 const REMOTE_SESSION_KEY = 'remoteScanSession';
 let stopSessionKeepAlive = null;
 let stopConnectionBadgeMonitor = null;
+let currentAssetId = null;
+let lockHeartbeatTimer = null;
+let assetLocksChannel = null;
+let currentLockOwner = null;
 
 function withTimeout(promise, ms, timeoutMessage) {
   let timer = null;
@@ -573,6 +577,225 @@ function setEditMode(isEditMode) {
   });
 }
 
+async function acquireAssetLock(assetId) {
+  if (!assetId) return null;
+
+  const profile = await getCurrentProfile();
+  const displayName = profile?.display_name || 'Unknown User';
+
+  try {
+    const { data, error } = await supabase.rpc('acquire_asset_lock', {
+      p_asset_id: assetId,
+      p_locked_by_name: displayName
+    });
+
+    if (error) {
+      console.error('Lock acquisition error:', error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error('Failed to acquire lock:', err);
+    return null;
+  }
+}
+
+async function releaseAssetLock(assetId) {
+  if (!assetId) return;
+
+  try {
+    await supabase.rpc('release_asset_lock', {
+      p_asset_id: assetId
+    });
+  } catch (err) {
+    console.error('Failed to release lock:', err);
+  }
+}
+
+function stopLockHeartbeat() {
+  if (lockHeartbeatTimer) {
+    window.clearInterval(lockHeartbeatTimer);
+    lockHeartbeatTimer = null;
+  }
+}
+
+function startLockHeartbeat(assetId) {
+  stopLockHeartbeat();
+
+  if (!assetId) return;
+
+  lockHeartbeatTimer = window.setInterval(async () => {
+    try {
+      const profile = await getCurrentProfile();
+      const displayName = profile?.display_name || 'Unknown User';
+
+      await supabase.rpc('acquire_asset_lock', {
+        p_asset_id: assetId,
+        p_locked_by_name: displayName
+      });
+    } catch (err) {
+      console.error('Heartbeat failed:', err);
+    }
+  }, 60000);
+}
+
+async function subscribeToAssetLocks() {
+  if (assetLocksChannel) {
+    await supabase.removeChannel(assetLocksChannel);
+  }
+
+  assetLocksChannel = supabase
+    .channel('asset-locks-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'asset_locks'
+      },
+      (payload) => {
+        handleLockChange(payload);
+      }
+    )
+    .subscribe();
+}
+
+function handleLockChange(payload) {
+  const newRecord = payload.new;
+  const oldRecord = payload.old;
+  const eventType = payload.eventType;
+
+  if (!currentAssetId) return;
+
+  if (eventType === 'INSERT' || eventType === 'UPDATE') {
+    if (newRecord.asset_id === currentAssetId) {
+      const session = supabase.auth.getSession().then(({ data }) => {
+        const currentUserId = data.session?.user?.id;
+
+        if (newRecord.locked_by !== currentUserId) {
+          currentLockOwner = {
+            user_id: newRecord.locked_by,
+            name: newRecord.locked_by_name,
+            locked_at: newRecord.locked_at
+          };
+          updateLockUI();
+        } else {
+          currentLockOwner = null;
+          updateLockUI();
+        }
+      });
+    }
+  } else if (eventType === 'DELETE') {
+    if (oldRecord.asset_id === currentAssetId) {
+      currentLockOwner = null;
+      updateLockUI();
+    }
+  }
+}
+
+function updateLockUI() {
+  const formContainer = assetAdminSection?.querySelector('.panel-body');
+  if (!formContainer) return;
+
+  let lockBanner = formContainer.querySelector('.asset-lock-banner');
+
+  if (currentLockOwner) {
+    if (!lockBanner) {
+      lockBanner = document.createElement('div');
+      lockBanner.className = 'asset-lock-banner';
+      const h2 = formContainer.querySelector('h2');
+      if (h2) {
+        h2.after(lockBanner);
+      } else {
+        formContainer.prepend(lockBanner);
+      }
+    }
+
+    const lockedTime = new Date(currentLockOwner.locked_at).toLocaleTimeString();
+    lockBanner.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+        <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"></path>
+      </svg>
+      <strong>Locked by ${escapeHtml(currentLockOwner.name)}</strong> at ${lockedTime}.
+      This asset is currently being edited by another user.
+    `;
+
+    const saveBtn = qs('#saveAssetBtn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.title = 'Asset is locked by another user';
+    }
+
+    const inputs = formContainer.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+      if (input.id !== 'assetTag' && input.id !== 'assetId') {
+        input.disabled = true;
+      }
+    });
+  } else {
+    if (lockBanner) {
+      lockBanner.remove();
+    }
+
+    const saveBtn = qs('#saveAssetBtn');
+    if (saveBtn && currentAssetId) {
+      saveBtn.disabled = false;
+      saveBtn.title = '';
+    }
+
+    const inputs = formContainer.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+      input.disabled = false;
+    });
+  }
+}
+
+async function handleAssetLoad(assetId) {
+  console.log('[LOCK] handleAssetLoad called with assetId:', assetId);
+
+  if (currentAssetId && currentAssetId !== assetId) {
+    await releaseAssetLock(currentAssetId);
+    stopLockHeartbeat();
+  }
+
+  currentAssetId = assetId;
+  currentLockOwner = null;
+
+  if (!assetId) {
+    console.log('[LOCK] No assetId, skipping lock');
+    updateLockUI();
+    return;
+  }
+
+  console.log('[LOCK] Attempting to acquire lock for asset:', assetId);
+  const lockResult = await acquireAssetLock(assetId);
+  console.log('[LOCK] Lock result:', lockResult);
+
+  if (lockResult && !lockResult.success) {
+    console.log('[LOCK] Lock acquisition failed - asset is locked by another user');
+    console.log('[LOCK] Lock owner details:', lockResult);
+    currentLockOwner = {
+      user_id: lockResult.locked_by,
+      name: lockResult.locked_by_name,
+      locked_at: lockResult.locked_at
+    };
+    updateLockUI();
+    toast(`Asset is locked by ${lockResult.locked_by_name}`, true);
+  } else if (lockResult && lockResult.success) {
+    console.log('[LOCK] Lock acquired successfully');
+    console.log('[LOCK] You now own this lock');
+    if (lockResult.is_stale && lockResult.previous_lock_owner) {
+      toast(`Took over stale lock from ${lockResult.previous_lock_owner}`);
+    }
+    startLockHeartbeat(assetId);
+    updateLockUI();
+  } else {
+    console.log('[LOCK] Unexpected lock result:', lockResult);
+  }
+}
+
 function sanitizeLookupTerm(term) {
   return String(term || '')
     .replace(/[,%()]/g, ' ')
@@ -775,6 +998,7 @@ async function loadByTag() {
   }
 
   setForm(data);
+  await handleAssetLoad(data.id);
   await loadAssignmentHistory(data.id, data.comments || '');
   await loadDamageHistory(data.id, data.asset_tag || data.serial || '');
   if (data.status === 'checked_out') {
@@ -1496,12 +1720,28 @@ async function init() {
   }
   window.addEventListener('resize', syncBulkScannerHeight);
   window.addEventListener('orientationchange', syncBulkScannerHeight);
+  subscribeToAssetLocks().catch((err) => toast(err.message, true));
+
   window.addEventListener('beforeunload', stopBulkScanner);
   window.addEventListener('beforeunload', () => {
+    if (currentAssetId) {
+      releaseAssetLock(currentAssetId).catch(() => {});
+    }
+    stopLockHeartbeat();
+    if (assetLocksChannel) {
+      supabase.removeChannel(assetLocksChannel).catch(() => {});
+    }
     if (stopConnectionBadgeMonitor) stopConnectionBadgeMonitor();
     if (stopSessionKeepAlive) stopSessionKeepAlive();
     clearRemoteTimers();
     stopRemoteSubscription().catch(() => {});
+  });
+
+  window.addEventListener('pagehide', () => {
+    if (currentAssetId) {
+      navigator.sendBeacon?.('/api/release-lock', JSON.stringify({ asset_id: currentAssetId }));
+      releaseAssetLock(currentAssetId).catch(() => {});
+    }
   });
 }
 

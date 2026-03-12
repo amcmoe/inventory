@@ -140,7 +140,7 @@ function renderAssigneeHistoryRows(rows) {
     <tr>
       <td>${escapeHtml(new Date(row.occurred_at).toLocaleString())}</td>
       <td>${escapeHtml(String(row.action || '').toUpperCase())}</td>
-      <td><a href="./asset.html?tag=${encodeURIComponent(row.asset_tag)}">${escapeHtml(row.asset_tag || '-')}</a></td>
+      <td><a href="./?tag=${encodeURIComponent(row.asset_tag)}">${escapeHtml(row.asset_tag || '-')}</a></td>
       <td>${escapeHtml(row.model || '-')}</td>
       <td>${escapeHtml([row.building, row.room].filter(Boolean).join(' / ') || '-')}</td>
       <td>${escapeHtml(row.notes || '-')}</td>
@@ -157,7 +157,7 @@ function renderAssigneeDamageRows(rows) {
   assigneeDamageTbody.innerHTML = rows.map((row) => `
     <tr>
       <td>${escapeHtml(new Date(row.created_at).toLocaleString())}</td>
-      <td><a href="./asset.html?tag=${encodeURIComponent(row.asset_tag)}">${escapeHtml(row.asset_tag || '-')}</a></td>
+      <td><a href="./?tag=${encodeURIComponent(row.asset_tag)}">${escapeHtml(row.asset_tag || '-')}</a></td>
       <td>${escapeHtml(row.summary || '-')}</td>
       <td>${escapeHtml(row.status || '-')}</td>
       <td>${escapeHtml(row.attribution || '-')}</td>
