@@ -172,16 +172,15 @@
             <strong>Student Device Utilization</strong>
           </div>
           <div class="panel-body">
-            <section class="kpi-insight-grid" aria-label="Utilization KPIs">
-              <div class="kpi"><div class="label">Assigned laptops</div><div class="value" id="utilAssignedPct">0</div><div class="hint">Currently checked out</div></div>
-              <div class="kpi"><div class="label">Available laptops</div><div class="value" id="utilAvailablePct">0</div><div class="hint">Ready for assignment</div></div>
-              <div class="kpi"><div class="label">Idle &gt;60 days</div><div class="value" id="utilIdle60">0</div><div class="hint">Long idle laptop candidates</div></div>
-            </section>
-            <div class="insight-visual util-donut-wrap">
+            <div class="util-layout">
               <div class="util-donut-canvas-wrap">
                 <canvas id="utilDonutChart" aria-label="Asset utilization doughnut chart"></canvas>
               </div>
-              <div class="util-donut-meta" id="utilDonutMeta"></div>
+              <section class="util-kpi-stack" aria-label="Utilization KPIs">
+                <div class="kpi"><div class="label">Assigned laptops</div><div class="value" id="utilAssignedPct">0</div><div class="hint">Currently checked out</div></div>
+                <div class="kpi"><div class="label">Available laptops</div><div class="value" id="utilAvailablePct">0</div><div class="hint">Ready for assignment</div></div>
+                <div class="kpi"><div class="label">Idle &gt;60 days</div><div class="value" id="utilIdle60">0</div><div class="hint">Long idle laptop candidates</div></div>
+              </section>
             </div>
           </div>
         </section>
