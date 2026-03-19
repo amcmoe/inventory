@@ -1328,17 +1328,56 @@ async function searchPeople(term) {
   });
 }
 
-async function createPersonFromDrawer() {
+function openCreatePersonModal() {
   if (currentProfile?.role !== 'admin') {
     toast('Admin role required.', true);
     return;
   }
+
+  const modal = qs('#createPersonModal');
+  const overlay = qs('#createPersonModalOverlay');
+  const nameInput = qs('#createPersonName');
+  const emailInput = qs('#createPersonEmail');
+  const employeeIdInput = qs('#createPersonEmployeeId');
+  const departmentInput = qs('#createPersonDepartment');
+
+  // Pre-fill name from search if available
   const displayNameSeed = drawerAssigneeSearch?.value.trim() || '';
-  const name = window.prompt('New person display name:', displayNameSeed);
-  if (!name) return;
-  const email = window.prompt('Email (optional):') || null;
-  const employeeId = window.prompt('Employee ID (optional):') || null;
-  const department = window.prompt('Department (optional):') || null;
+  if (nameInput) nameInput.value = displayNameSeed;
+  if (emailInput) emailInput.value = '';
+  if (employeeIdInput) employeeIdInput.value = '';
+  if (departmentInput) departmentInput.value = '';
+
+  if (modal) modal.hidden = false;
+  if (overlay) overlay.hidden = false;
+
+  // Focus the name input
+  setTimeout(() => nameInput?.focus(), 50);
+}
+
+function closeCreatePersonModal() {
+  const modal = qs('#createPersonModal');
+  const overlay = qs('#createPersonModalOverlay');
+  if (modal) modal.hidden = true;
+  if (overlay) overlay.hidden = true;
+}
+
+async function createPersonFromDrawer() {
+  const nameInput = qs('#createPersonName');
+  const emailInput = qs('#createPersonEmail');
+  const employeeIdInput = qs('#createPersonEmployeeId');
+  const departmentInput = qs('#createPersonDepartment');
+
+  const name = nameInput?.value.trim();
+  if (!name) {
+    toast('Display name is required.', true);
+    nameInput?.focus();
+    return;
+  }
+
+  const email = emailInput?.value.trim() || null;
+  const employeeId = employeeIdInput?.value.trim() || null;
+  const department = departmentInput?.value.trim() || null;
 
   const { data, error } = await supabase.rpc('admin_create_person', {
     p_display_name: name,
@@ -1356,6 +1395,8 @@ async function createPersonFromDrawer() {
   if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = `Selected: ${data.display_name || name}`;
   if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
   if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+
+  closeCreatePersonModal();
   toast('Person created.');
 }
 
@@ -2635,11 +2676,33 @@ async function init() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      setDamageDrawerOpen(false);
+      const createPersonModal = qs('#createPersonModal');
+      if (createPersonModal && !createPersonModal.hidden) {
+        closeCreatePersonModal();
+      } else {
+        setDamageDrawerOpen(false);
+      }
     }
   });
   drawerCreatePersonBtn?.addEventListener('click', () => {
+    openCreatePersonModal();
+  });
+  qs('#createPersonModalCloseBtn')?.addEventListener('click', closeCreatePersonModal);
+  qs('#createPersonCancelBtn')?.addEventListener('click', closeCreatePersonModal);
+  qs('#createPersonConfirmBtn')?.addEventListener('click', () => {
     createPersonFromDrawer().catch((err) => toast(err.message, true));
+  });
+  qs('#createPersonModalOverlay')?.addEventListener('click', closeCreatePersonModal);
+
+  // Handle Enter key in create person modal inputs
+  const createPersonInputs = ['#createPersonName', '#createPersonEmail', '#createPersonEmployeeId', '#createPersonDepartment'];
+  createPersonInputs.forEach(selector => {
+    qs(selector)?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        createPersonFromDrawer().catch((err) => toast(err.message, true));
+      }
+    });
   });
   window.addEventListener('asset-row-selected', (event) => {
     const detail = event.detail || {};
