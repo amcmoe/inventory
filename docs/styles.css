@@ -3691,6 +3691,7 @@ textarea {
 
 /* ── Admin / People / Settings page layout ───────────── */
 #assetAdminSection,
+#importPreviewSection,
 #bulkCreateSection,
 #peopleMainSection,
 #assigneeSection,
@@ -3710,6 +3711,7 @@ textarea {
 }
 
 #assetAdminSection .panel-body h2,
+#importPreviewSection .panel-body h3,
 #bulkCreateSection .panel-body h3,
 #peopleMainSection .panel-body h2,
 #assigneeSection .panel-body h2,
@@ -3902,6 +3904,23 @@ textarea {
   font-size: 13px;
 }
 
+.admin-import-errors {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 107, 122, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 107, 122, 0.06);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.admin-import-error-item {
+  font-size: 13px;
+  color: var(--text);
+}
+
 .report-assignee-field {
   position: relative;
   flex-basis: 190px;
@@ -4011,6 +4030,21 @@ textarea {
 
 .bulk-create-body {
   position: relative;
+}
+
+#bulkCreateActions {
+  width: 100%;
+  align-items: center;
+}
+
+.bulk-import-export-wrap {
+  margin-left: auto;
+}
+
+.bulk-import-export-wrap .export-popover-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  right: 0;
 }
 
 .bulk-tools {

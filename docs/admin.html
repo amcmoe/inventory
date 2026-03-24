@@ -160,6 +160,19 @@
         </div>
       </section>
 
+      <section class="panel" id="importPreviewSection" hidden>
+        <div class="panel-body">
+          <h3>Asset Import Preview</h3>
+          <div class="muted" id="importSummaryText">Upload a CSV to preview row validation before import.</div>
+          <div class="admin-import-errors" id="importErrorList" hidden></div>
+          <div class="row form-actions">
+            <button class="btn primary" id="applyImportBtn" type="button" hidden>Apply Import</button>
+            <button class="btn" id="downloadImportErrorsBtn" type="button" hidden>Download Error CSV</button>
+            <button class="btn" id="cancelImportBtn" type="button" hidden>Clear Preview</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" id="bulkCreateSection" hidden>
         <div class="panel-body bulk-create-body">
           <div class="bulk-tools">
@@ -212,6 +225,15 @@
                 <button class="btn danger" id="confirmClearBulkYes" type="button">Yes</button>
                 <button class="btn" id="confirmClearBulkNo" type="button">No</button>
               </div>
+              <div class="export-popover bulk-import-export-wrap" id="bulkImportExportPopover">
+                <button class="btn" id="importExportBtn" type="button" aria-haspopup="true" aria-expanded="false">Import / Export</button>
+                <div class="export-popover-menu" id="importExportMenu" hidden>
+                  <button class="btn ghost export-option" id="importAssetsCsvBtn" type="button">Import CSV</button>
+                  <button class="btn ghost export-option" id="exportAllAssetsBtn" type="button">Export All</button>
+                  <button class="btn ghost export-option" id="downloadTemplateCsvBtn" type="button">Download Template CSV</button>
+                </div>
+              </div>
+              <input id="importAssetsFile" type="file" accept=".csv,text/csv" hidden>
             </div>
           </div>
         </div>
@@ -245,7 +267,4 @@
   <script type="module" src="./js/admin.js"></script>
 </body>
 </html>
-
-
-
 

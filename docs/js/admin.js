@@ -32,6 +32,18 @@ const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
 const outForWarrantyRepairInput = qs('#outForWarrantyRepair');
 const warrantyRepairToggleWrap = qs('#warrantyRepairToggleWrap');
+const importExportBtn = qs('#importExportBtn');
+const importExportMenu = qs('#importExportMenu');
+const importAssetsCsvBtn = qs('#importAssetsCsvBtn');
+const exportAllAssetsBtn = qs('#exportAllAssetsBtn');
+const downloadTemplateCsvBtn = qs('#downloadTemplateCsvBtn');
+const importAssetsFile = qs('#importAssetsFile');
+const importPreviewSection = qs('#importPreviewSection');
+const importSummaryText = qs('#importSummaryText');
+const importErrorList = qs('#importErrorList');
+const applyImportBtn = qs('#applyImportBtn');
+const downloadImportErrorsBtn = qs('#downloadImportErrorsBtn');
+const cancelImportBtn = qs('#cancelImportBtn');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 const knownModels = ['ThinkPad L13 G3', 'ThinkPad L13 G4', 'ThinkPad L13 G6', 'Chromebook 3100', 'Chromebook 3110', 'Chromebook 3120'];
@@ -62,6 +74,8 @@ let currentAssetId = null;
 let lockHeartbeatTimer = null;
 let assetLocksChannel = null;
 let currentLockOwner = null;
+let pendingImportRows = [];
+let pendingImportErrors = [];
 
 function withTimeout(promise, ms, timeoutMessage) {
   let timer = null;
@@ -817,6 +831,523 @@ function sanitizeLookupTerm(term) {
     .replace(/[,%()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function setImportExportMenuOpen(open) {
+  if (importExportMenu) importExportMenu.hidden = !open;
+  if (importExportBtn) importExportBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '');
+  if (!/[",\r\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadBlob(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function parseCsvText(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let i = 0;
+  let inQuotes = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(cell);
+      cell = '';
+    } else if (ch === '\n') {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else if (ch !== '\r') {
+      cell += ch;
+    }
+    i += 1;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
+
+function normalizeImportHeader(header) {
+  return String(header || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+const IMPORT_HEADER_ALIASES = {
+  assettag: 'asset_tag',
+  serial: 'serial',
+  manufacturer: 'manufacturer',
+  model: 'model',
+  equipmenttype: 'equipment_type',
+  type: 'equipment_type',
+  building: 'building',
+  room: 'room',
+  servicestartdate: 'service_start_date',
+  inservicesince: 'service_start_date',
+  ownership: 'ownership',
+  ownedorleased: 'ownership',
+  warrantyexpirationdate: 'warranty_expiration_date',
+  warrantydate: 'warranty_expiration_date',
+  obsolete: 'obsolete',
+  status: 'status',
+  outforwarrantyrepair: 'out_for_warranty_repair',
+  outforrepair: 'out_for_warranty_repair',
+  comments: 'comments'
+};
+
+function parseBooleanCell(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (['1', 'true', 'yes', 'y'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'n'].includes(raw)) return false;
+  return null;
+}
+
+function parseDateCell(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return { value: null };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { value: raw };
+  const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const mm = mdy[1].padStart(2, '0');
+    const dd = mdy[2].padStart(2, '0');
+    return { value: `${mdy[3]}-${mm}-${dd}` };
+  }
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return { error: `Invalid date "${raw}"` };
+  return { value: d.toISOString().slice(0, 10) };
+}
+
+function normalizeStatusCell(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (!raw) return { value: 'available' };
+  if (raw === 'assigned') return { value: 'checked_out' };
+  if (['available', 'checked_out', 'repair', 'retired'].includes(raw)) return { value: raw };
+  return { error: `Invalid status "${value}"` };
+}
+
+function normalizeOwnershipCell(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return { value: null };
+  if (raw === 'owned' || raw === 'leased') return { value: raw };
+  return { error: `Invalid ownership "${value}"` };
+}
+
+function mapImportHeaders(headerRow = []) {
+  const indexByKey = {};
+  headerRow.forEach((header, index) => {
+    const normalized = normalizeImportHeader(header);
+    const key = IMPORT_HEADER_ALIASES[normalized];
+    if (key && indexByKey[key] == null) indexByKey[key] = index;
+  });
+  return indexByKey;
+}
+
+function importCell(row, indexByKey, key) {
+  const idx = indexByKey[key];
+  if (idx == null) return '';
+  return String(row[idx] ?? '').trim();
+}
+
+function clearImportPreview() {
+  pendingImportRows = [];
+  pendingImportErrors = [];
+  if (importPreviewSection) importPreviewSection.hidden = true;
+  if (importErrorList) {
+    importErrorList.hidden = true;
+    importErrorList.innerHTML = '';
+  }
+  if (importSummaryText) {
+    importSummaryText.textContent = 'Upload a CSV to preview row validation before import.';
+  }
+  if (applyImportBtn) applyImportBtn.hidden = true;
+  if (downloadImportErrorsBtn) downloadImportErrorsBtn.hidden = true;
+  if (cancelImportBtn) cancelImportBtn.hidden = true;
+  if (importAssetsFile) importAssetsFile.value = '';
+}
+
+function renderImportPreview({ totalRows = 0, validRows = 0, createCount = 0, updateCount = 0, errors = [] }) {
+  pendingImportErrors = Array.isArray(errors) ? errors : [];
+  if (importPreviewSection) importPreviewSection.hidden = false;
+  if (importSummaryText) {
+    importSummaryText.textContent =
+      `Rows: ${totalRows}. Valid: ${validRows}. Creates: ${createCount}. Updates: ${updateCount}. Errors: ${pendingImportErrors.length}.`;
+  }
+  if (importErrorList) {
+    if (!pendingImportErrors.length) {
+      importErrorList.hidden = true;
+      importErrorList.innerHTML = '';
+    } else {
+      const max = 80;
+      const list = pendingImportErrors.slice(0, max).map((entry) => (
+        `<div class="admin-import-error-item">Row ${entry.row}: ${escapeHtml(entry.message)}</div>`
+      ));
+      if (pendingImportErrors.length > max) {
+        list.push(`<div class="admin-import-error-item muted">...and ${pendingImportErrors.length - max} more</div>`);
+      }
+      importErrorList.hidden = false;
+      importErrorList.innerHTML = list.join('');
+    }
+  }
+  if (applyImportBtn) applyImportBtn.hidden = !validRows || pendingImportErrors.length > 0;
+  if (downloadImportErrorsBtn) downloadImportErrorsBtn.hidden = pendingImportErrors.length === 0;
+  if (cancelImportBtn) cancelImportBtn.hidden = false;
+}
+
+async function fetchExistingAssetIdMap(assetTags = []) {
+  const tags = [...new Set(assetTags.map((tag) => String(tag || '').trim()).filter(Boolean))];
+  const idMap = new Map();
+  const CHUNK = 300;
+  for (let i = 0; i < tags.length; i += CHUNK) {
+    const chunk = tags.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from('assets')
+      .select('id, asset_tag')
+      .in('asset_tag', chunk);
+    if (error) throw error;
+    (data || []).forEach((row) => {
+      const tag = String(row?.asset_tag || '').trim();
+      const id = String(row?.id || '').trim();
+      if (tag && id) idMap.set(tag, id);
+    });
+  }
+  return idMap;
+}
+
+async function prepareImportRows(csvText) {
+  const rows = parseCsvText(csvText).filter((row) => row.some((cell) => String(cell || '').trim() !== ''));
+  if (!rows.length) {
+    return { totalRows: 0, validRows: 0, createCount: 0, updateCount: 0, errors: [{ row: 1, message: 'CSV is empty.' }], preparedRows: [] };
+  }
+  const header = rows[0];
+  const dataRows = rows.slice(1);
+  const indexByKey = mapImportHeaders(header);
+  const errors = [];
+  const prepared = [];
+
+  if (indexByKey.asset_tag == null && indexByKey.serial == null) {
+    errors.push({ row: 1, message: 'Missing required header: asset_tag or serial.' });
+  }
+
+  dataRows.forEach((row, idx) => {
+    const rowNum = idx + 2;
+    const assetTagCell = importCell(row, indexByKey, 'asset_tag');
+    const serialCell = importCell(row, indexByKey, 'serial');
+    const normalizedTag = assetTagCell || serialCell;
+    if (!normalizedTag) {
+      errors.push({ row: rowNum, message: 'Missing asset tag/serial.' });
+      return;
+    }
+    if (assetTagCell && serialCell && assetTagCell !== serialCell) {
+      errors.push({ row: rowNum, message: `asset_tag "${assetTagCell}" and serial "${serialCell}" must match.` });
+      return;
+    }
+
+    const statusResult = normalizeStatusCell(importCell(row, indexByKey, 'status'));
+    if (statusResult.error) {
+      errors.push({ row: rowNum, message: statusResult.error });
+      return;
+    }
+    if (statusResult.value === 'checked_out') {
+      errors.push({ row: rowNum, message: 'Status "checked_out/Assigned" cannot be imported from Asset Management CSV.' });
+      return;
+    }
+
+    const ownershipResult = normalizeOwnershipCell(importCell(row, indexByKey, 'ownership'));
+    if (ownershipResult.error) {
+      errors.push({ row: rowNum, message: ownershipResult.error });
+      return;
+    }
+
+    const serviceDateResult = parseDateCell(importCell(row, indexByKey, 'service_start_date'));
+    if (serviceDateResult.error) {
+      errors.push({ row: rowNum, message: serviceDateResult.error });
+      return;
+    }
+    const warrantyDateResult = parseDateCell(importCell(row, indexByKey, 'warranty_expiration_date'));
+    if (warrantyDateResult.error) {
+      errors.push({ row: rowNum, message: warrantyDateResult.error });
+      return;
+    }
+
+    const obsoleteRaw = importCell(row, indexByKey, 'obsolete');
+    const obsoleteParsed = parseBooleanCell(obsoleteRaw);
+    if (obsoleteRaw && obsoleteParsed == null) {
+      errors.push({ row: rowNum, message: `Invalid obsolete value "${obsoleteRaw}"` });
+      return;
+    }
+    const repairOutRaw = importCell(row, indexByKey, 'out_for_warranty_repair');
+    const repairOutParsed = parseBooleanCell(repairOutRaw);
+    if (repairOutRaw && repairOutParsed == null) {
+      errors.push({ row: rowNum, message: `Invalid out_for_warranty_repair value "${repairOutRaw}"` });
+      return;
+    }
+
+    const status = statusResult.value || 'available';
+    prepared.push({
+      rowNum,
+      assetTag: normalizedTag,
+      payload: {
+        p_id: null,
+        p_asset_tag: normalizedTag,
+        p_serial: normalizedTag,
+        p_equipment: null,
+        p_device_name: importCell(row, indexByKey, 'model') || normalizedTag,
+        p_manufacturer: importCell(row, indexByKey, 'manufacturer') || null,
+        p_model: importCell(row, indexByKey, 'model') || null,
+        p_equipment_type: importCell(row, indexByKey, 'equipment_type') || null,
+        p_location: null,
+        p_building: importCell(row, indexByKey, 'building') || null,
+        p_room: importCell(row, indexByKey, 'room') || null,
+        p_service_start_date: serviceDateResult.value || null,
+        p_asset_condition: null,
+        p_comments: importCell(row, indexByKey, 'comments') || null,
+        p_ownership: ownershipResult.value,
+        p_warranty_expiration_date: warrantyDateResult.value || null,
+        p_obsolete: obsoleteParsed === true,
+        p_status: status,
+        p_notes: null,
+        p_out_for_warranty_repair: status === 'repair' && repairOutParsed === true
+      }
+    });
+  });
+
+  if (errors.length) {
+    return {
+      totalRows: dataRows.length,
+      validRows: prepared.length,
+      createCount: 0,
+      updateCount: 0,
+      errors,
+      preparedRows: prepared
+    };
+  }
+
+  const idMap = await fetchExistingAssetIdMap(prepared.map((row) => row.assetTag));
+  let createCount = 0;
+  let updateCount = 0;
+  prepared.forEach((entry) => {
+    const existingId = idMap.get(entry.assetTag) || null;
+    entry.payload.p_id = existingId;
+    if (existingId) updateCount += 1;
+    else createCount += 1;
+  });
+
+  return {
+    totalRows: dataRows.length,
+    validRows: prepared.length,
+    createCount,
+    updateCount,
+    errors,
+    preparedRows: prepared
+  };
+}
+
+function downloadImportErrorsCsv() {
+  if (!pendingImportErrors.length) {
+    toast('No import errors to download.', true);
+    return;
+  }
+  const lines = ['row,error'];
+  pendingImportErrors.forEach((entry) => {
+    lines.push(`${csvEscape(entry.row)},${csvEscape(entry.message)}`);
+  });
+  downloadBlob(`asset-import-errors-${Date.now()}.csv`, 'text/csv;charset=utf-8', `${lines.join('\n')}\n`);
+}
+
+async function handleImportFileSelection(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  const text = await file.text();
+  const preview = await prepareImportRows(text);
+  pendingImportRows = preview.preparedRows || [];
+  renderImportPreview(preview);
+  if (preview.errors.length) {
+    toast(`Import preview found ${preview.errors.length} validation errors.`, true);
+    return;
+  }
+  toast(`Import preview ready: ${preview.validRows} rows valid.`);
+}
+
+async function applyPendingImport() {
+  if (!pendingImportRows.length) {
+    toast('No validated import rows to apply.', true);
+    return;
+  }
+  const ok = window.confirm(`Apply import for ${pendingImportRows.length} assets?`);
+  if (!ok) return;
+
+  let success = 0;
+  const failures = [];
+  const BATCH = 12;
+  for (let i = 0; i < pendingImportRows.length; i += BATCH) {
+    const batch = pendingImportRows.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async (entry) => {
+      const { error } = await supabase.rpc('admin_upsert_asset', entry.payload);
+      return { entry, error };
+    }));
+    results.forEach(({ entry, error }) => {
+      if (error) {
+        failures.push({ row: entry.rowNum, message: error.message || 'Unknown import error.' });
+      } else {
+        success += 1;
+      }
+    });
+  }
+
+  if (failures.length) {
+    pendingImportErrors = failures;
+    if (downloadImportErrorsBtn) downloadImportErrorsBtn.hidden = false;
+    renderImportPreview({
+      totalRows: pendingImportRows.length,
+      validRows: pendingImportRows.length - failures.length,
+      createCount: 0,
+      updateCount: 0,
+      errors: failures
+    });
+    toast(`Imported ${success}/${pendingImportRows.length}. Download error CSV for failures.`, true);
+    return;
+  }
+
+  toast(`Import complete. ${success} assets upserted.`);
+  clearImportPreview();
+}
+
+async function exportAssetsCsv() {
+  await ensureSessionFresh();
+  const { data, error } = await supabase
+    .from('assets')
+    .select('asset_tag, serial, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, out_for_warranty_repair, comments')
+    .order('asset_tag', { ascending: true })
+    .limit(20000);
+  if (error) {
+    toast(error.message, true);
+    return;
+  }
+  const rows = data || [];
+  const headers = [
+    'asset_tag',
+    'serial',
+    'manufacturer',
+    'model',
+    'equipment_type',
+    'building',
+    'room',
+    'service_start_date',
+    'ownership',
+    'warranty_expiration_date',
+    'obsolete',
+    'status',
+    'out_for_warranty_repair',
+    'comments'
+  ];
+  const lines = [headers.join(',')];
+  rows.forEach((row) => {
+    const values = [
+      row.asset_tag,
+      row.serial,
+      row.manufacturer,
+      row.model,
+      row.equipment_type,
+      row.building,
+      row.room,
+      row.service_start_date,
+      row.ownership,
+      row.warranty_expiration_date,
+      row.obsolete ? 'true' : 'false',
+      row.status,
+      row.out_for_warranty_repair ? 'true' : 'false',
+      row.comments
+    ];
+    lines.push(values.map(csvEscape).join(','));
+  });
+  downloadBlob(`assets-export-${Date.now()}.csv`, 'text/csv;charset=utf-8', `${lines.join('\n')}\n`);
+  toast(`Exported ${rows.length} assets.`);
+}
+
+function downloadImportTemplateCsv() {
+  const headers = [
+    'asset_tag',
+    'serial',
+    'manufacturer',
+    'model',
+    'equipment_type',
+    'building',
+    'room',
+    'service_start_date',
+    'ownership',
+    'warranty_expiration_date',
+    'obsolete',
+    'status',
+    'out_for_warranty_repair',
+    'comments'
+  ];
+  const sampleRows = [
+    [
+      'PW063AAA',
+      'PW063AAA',
+      'Lenovo',
+      'ThinkPad L13 G4',
+      'Laptop',
+      'Boiling Springs High School',
+      '102',
+      '2024-08-15',
+      'owned',
+      '2028-08-15',
+      'false',
+      'available',
+      'false',
+      'Ready for assignment'
+    ],
+    [
+      'PW063AAB',
+      'PW063AAB',
+      'Dell',
+      'Chromebook 3110',
+      'Chromebook',
+      'Yellow Breeches Middle School',
+      '',
+      '2023-09-01',
+      'owned',
+      '2027-09-01',
+      'false',
+      'repair',
+      'true',
+      'Cracked screen sent for warranty repair'
+    ]
+  ];
+  const lines = [
+    headers.join(','),
+    ...sampleRows.map((row) => row.map(csvEscape).join(','))
+  ];
+  downloadBlob('asset-import-template.csv', 'text/csv;charset=utf-8', `${lines.join('\n')}\n`);
+  toast('Downloaded import template CSV.');
 }
 
 function getFormValues() {
@@ -1663,6 +2194,35 @@ async function init() {
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
+  importExportBtn?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setImportExportMenuOpen(Boolean(importExportMenu?.hidden));
+  });
+  importAssetsCsvBtn?.addEventListener('click', () => {
+    setImportExportMenuOpen(false);
+    importAssetsFile?.click();
+  });
+  exportAllAssetsBtn?.addEventListener('click', () => {
+    setImportExportMenuOpen(false);
+    exportAssetsCsv().catch((err) => toast(err.message, true));
+  });
+  downloadTemplateCsvBtn?.addEventListener('click', () => {
+    setImportExportMenuOpen(false);
+    downloadImportTemplateCsv();
+  });
+  importAssetsFile?.addEventListener('change', (event) => {
+    handleImportFileSelection(event).catch((err) => toast(err.message, true));
+  });
+  applyImportBtn?.addEventListener('click', () => {
+    applyPendingImport().catch((err) => toast(err.message, true));
+  });
+  cancelImportBtn?.addEventListener('click', clearImportPreview);
+  downloadImportErrorsBtn?.addEventListener('click', downloadImportErrorsCsv);
+  document.addEventListener('click', (event) => {
+    const target = event?.target;
+    const inPopover = target && target.closest && target.closest('#bulkImportExportPopover');
+    if (!inPopover) setImportExportMenuOpen(false);
+  });
   qs('#assetTag').addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
@@ -1732,6 +2292,7 @@ async function init() {
   syncEquipmentTypeInput();
   qs('#status').addEventListener('change', syncWarrantyRepairFieldVisibility);
   setEditMode(false);
+  clearImportPreview();
   updateBulkSerialCount();
   syncBulkScannerToggleLabel();
   restoreGlobalRemoteSession().catch((err) => toast(err.message, true));
