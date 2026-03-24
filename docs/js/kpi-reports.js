@@ -34,6 +34,8 @@ const damageTrendChart = qs('#damageTrendChart');
 const damageBuildingRateChart = qs('#damageBuildingRateChart');
 const warrantyExpiryBand = qs('#warrantyExpiryBand');
 const warrantyBuildingList = qs('#warrantyBuildingList');
+const warrantyOutRepairCount = qs('#warrantyOutRepairCount');
+const warrantyOutOfWarrantyCount = qs('#warrantyOutOfWarrantyCount');
 const churn90Count = qs('#churn90Count');
 const churnRepeatAssets = qs('#churnRepeatAssets');
 const churnTrendChart = qs('#churnTrendChart');
@@ -721,6 +723,9 @@ function renderWarrantyInsights() {
   const in60 = now + (60 * 24 * 60 * 60 * 1000);
   const in365 = now + (365 * 24 * 60 * 60 * 1000);
   const assets = cachedAssets;
+  const outForWarrantyRepair = assets.filter((a) =>
+    String(a?.status || '').toLowerCase() === 'repair' && Boolean(a?.out_for_warranty_repair)
+  );
   const validWarranty = assets.filter((a) => safeDate(a?.warranty_expiration_date));
   const out = validWarranty.filter((a) => safeDate(a.warranty_expiration_date).getTime() < now);
   const expiring60 = validWarranty.filter((a) => {
@@ -733,10 +738,23 @@ function renderWarrantyInsights() {
   });
 
   const warrantyBars = [
-    { label: 'Out of warranty', value: out.length, display: out.length.toLocaleString() },
+    {
+      label: 'Out for warranty repair',
+      value: outForWarrantyRepair.length,
+      display: outForWarrantyRepair.length.toLocaleString(),
+      href: './reports.html?kpi_custom=warranty_repair_out'
+    },
+    {
+      label: 'Out of warranty',
+      value: out.length,
+      display: out.length.toLocaleString(),
+      href: './reports.html?kpi_custom=out_of_warranty'
+    },
     { label: 'Expiring within 60 days', value: expiring60.length, display: expiring60.length.toLocaleString() },
     { label: 'Expiring within 365 days', value: expiring365.length, display: expiring365.length.toLocaleString() }
   ].filter((item) => item.value > 0);
+  if (warrantyOutRepairCount) warrantyOutRepairCount.textContent = outForWarrantyRepair.length.toLocaleString();
+  if (warrantyOutOfWarrantyCount) warrantyOutOfWarrantyCount.textContent = out.length.toLocaleString();
   if (warrantyExpiryBand) {
     if (warrantyBars.length) {
       renderMiniBars(warrantyExpiryBand, warrantyBars);
@@ -748,11 +766,11 @@ function renderWarrantyInsights() {
   const buildingTotal = new Map();
   const buildingOut = new Map();
   assets.forEach((a) => {
-    const b = normalizeText(a?.building) || 'Unspecified';
+    const b = normalizeText(a?.building) || 'Unknown Building';
     buildingTotal.set(b, (buildingTotal.get(b) || 0) + 1);
   });
   out.forEach((a) => {
-    const b = normalizeText(a?.building) || 'Unspecified';
+    const b = normalizeText(a?.building) || 'Unknown Building';
     buildingOut.set(b, (buildingOut.get(b) || 0) + 1);
   });
   const rows = [...buildingTotal.entries()]
@@ -1038,7 +1056,7 @@ async function loadKpis() {
   await ensureSessionFresh();
   const { data: assetData, error: assetError } = await supabase
     .from('assets')
-    .select('id, asset_tag, serial, model, status, service_start_date, warranty_expiration_date, building, equipment_type')
+    .select('id, asset_tag, serial, model, status, out_for_warranty_repair, service_start_date, warranty_expiration_date, building, equipment_type')
     .limit(5000);
   if (assetError) {
     toast(assetError.message || 'Failed to load KPIs.', true);

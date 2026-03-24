@@ -1987,7 +1987,15 @@ textarea::placeholder {
 }
 
 .warranty-layout {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.warranty-kpi-rail {
+  margin-bottom: 0;
+}
+
+.warranty-kpi-rail .kpi {
+  min-height: 100%;
 }
 
 .churn-layout {
@@ -3784,7 +3792,8 @@ textarea {
 #reportsMainSection,
 #userReportsMainSection {
   margin-top: 30px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   max-width: 1280px;
   margin-left: auto;
   margin-right: auto;
@@ -4890,4 +4899,9 @@ select optgroup {
   }
 }
 
-
+#warrantyRepairToggleWrap .checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+}

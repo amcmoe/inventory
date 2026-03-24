@@ -1400,24 +1400,51 @@ async function createPersonFromDrawer() {
   toast('Person created.');
 }
 
+function selectedAssetIsAssigned() {
+  const assigneeId = String(selectedAsset?.assigneeId || '').trim();
+  if (assigneeId) return true;
+  const assigneeName = String(selectedAsset?.assigneeName || selectedAsset?.assignee || '').trim();
+  return Boolean(assigneeName) && assigneeName.toLowerCase() !== 'unassigned';
+}
+
+function syncAssigneeActionButton() {
+  if (!drawerSetAssigneeBtn) return;
+  drawerSetAssigneeBtn.textContent = selectedAssetIsAssigned() ? 'Unassign' : 'Set Assignee';
+}
+
 async function setAssigneeFromDrawer() {
   if (!selectedAsset?.assetTag) {
     toast('Select an asset first.', true);
+    return;
+  }
+  if (selectedAssetIsAssigned()) {
+    const { error: unassignError } = await supabase.rpc('unassign_asset', {
+      p_asset_tag: selectedAsset.assetTag,
+      p_notes: 'Unassigned from search drawer'
+    });
+    if (unassignError) {
+      toast(unassignError.message, true);
+      return;
+    }
+    selectedAsset.status = String(selectedAsset.status || '').toLowerCase() === 'checked_out'
+      ? 'available'
+      : selectedAsset.status;
+    selectedAsset.assigneeId = '';
+    selectedAsset.assigneeName = '';
+    if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = 'Current: Unassigned';
+    syncAssigneeActionButton();
+    toast('Device unassigned.');
+    await loadAssets();
     return;
   }
   if (!selectedPerson?.id) {
     toast('Select an assignee first.', true);
     return;
   }
-  if (selectedAsset.status === 'checked_out') {
-    const { error: checkinError } = await supabase.rpc('checkin_asset', {
-      p_asset_tag: selectedAsset.assetTag,
-      p_notes: 'Reassigned from search drawer'
-    });
-    if (checkinError) {
-      toast(checkinError.message, true);
-      return;
-    }
+  const currentStatus = String(selectedAsset?.status || '').toLowerCase();
+  if (currentStatus !== 'available') {
+    toast('Set status to Available before assigning this device.', true);
+    return;
   }
   const { error: checkoutError } = await supabase.rpc('checkout_asset', {
     p_asset_tag: selectedAsset.assetTag,
@@ -1429,6 +1456,15 @@ async function setAssigneeFromDrawer() {
     toast(checkoutError.message, true);
     return;
   }
+  selectedAsset.status = 'checked_out';
+  selectedAsset.assigneeId = selectedPerson.id;
+  selectedAsset.assigneeName = selectedPerson.display_name || selectedPerson.name || '';
+  if (drawerAssigneeSelected) {
+    drawerAssigneeSelected.textContent = selectedAsset.assigneeName
+      ? `Current: ${selectedAsset.assigneeName}`
+      : 'Current: Assigned';
+  }
+  syncAssigneeActionButton();
   toast('Assignee updated.');
   await loadAssets();
 }
@@ -1837,6 +1873,7 @@ function clearAllDamageDrafts() {
   if (drawerDamageNotes) drawerDamageNotes.value = '';
   if (drawerDamagePhotos) drawerDamagePhotos.value = '';
   selectedAsset = null;
+  syncAssigneeActionButton();
   capturedDamagePhotos = [];
   expandedDamagePhotoId = null;
   renderCapturedDamageThumbs();
@@ -2717,6 +2754,7 @@ async function init() {
       assigneeName: detail.assignedTo || '',
       notes: detail.notes || ''
     };
+    syncAssigneeActionButton();
     selectedPerson = null;
     if (drawerAssigneeSearch) drawerAssigneeSearch.value = '';
     if (drawerAssigneeSelected) {

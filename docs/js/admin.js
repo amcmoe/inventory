@@ -30,6 +30,8 @@ const pairMeta = qs('#pairMeta');
 const pairRegenerateBtn = qs('#pairRegenerateBtn');
 const pairEndSessionBtn = qs('#pairEndSessionBtn');
 const remoteBadge = qs('#remoteBadge');
+const outForWarrantyRepairInput = qs('#outForWarrantyRepair');
+const warrantyRepairToggleWrap = qs('#warrantyRepairToggleWrap');
 
 const knownManufacturers = ['Apple', 'Dell', 'Lenovo', 'HP', 'Beelink'];
 const knownModels = ['ThinkPad L13 G3', 'ThinkPad L13 G4', 'ThinkPad L13 G6', 'Chromebook 3100', 'Chromebook 3110', 'Chromebook 3120'];
@@ -575,6 +577,20 @@ function setEditMode(isEditMode) {
   editOnlyFields.forEach((node) => {
     node.hidden = !isEditMode;
   });
+  syncWarrantyRepairFieldVisibility();
+}
+
+function syncWarrantyRepairFieldVisibility() {
+  if (!warrantyRepairToggleWrap || !outForWarrantyRepairInput) return;
+  const statusFieldWrap = qs('#status')?.closest?.('[data-edit-only]');
+  const isEditMode = statusFieldWrap ? !statusFieldWrap.hidden : true;
+  const isRepair = qs('#status')?.value === 'repair';
+  if (!isEditMode || !isRepair) {
+    warrantyRepairToggleWrap.hidden = true;
+    outForWarrantyRepairInput.checked = false;
+    return;
+  }
+  warrantyRepairToggleWrap.hidden = false;
 }
 
 async function acquireAssetLock(assetId) {
@@ -826,6 +842,7 @@ function getFormValues() {
     p_warranty_expiration_date: qs('#warrantyExpirationDate').value || null,
     p_obsolete: qs('#obsolete').value === 'true',
     p_status: qs('#status').value,
+    p_out_for_warranty_repair: qs('#status').value === 'repair' && Boolean(outForWarrantyRepairInput?.checked),
     p_notes: null
   };
 }
@@ -853,7 +870,11 @@ function setForm(asset) {
   qs('#warrantyExpirationDate').value = asset.warranty_expiration_date || '';
   qs('#obsolete').value = asset.obsolete ? 'true' : 'false';
   qs('#status').value = editableStatus;
+  if (outForWarrantyRepairInput) {
+    outForWarrantyRepairInput.checked = editableStatus === 'repair' && Boolean(asset.out_for_warranty_repair);
+  }
   setEditMode(Boolean(asset.id));
+  syncWarrantyRepairFieldVisibility();
 }
 
 function formatHistoryTime(ts) {
@@ -980,7 +1001,7 @@ async function loadByTag() {
 
   const { data, error } = await supabase
     .from('assets')
-    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, notes')
+    .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, location, building, room, service_start_date, asset_condition, comments, ownership, warranty_expiration_date, obsolete, status, out_for_warranty_repair, notes')
     .or(`asset_tag.ilike.%${term}%,serial.ilike.%${term}%,device_name.ilike.%${term}%,manufacturer.ilike.%${term}%,model.ilike.%${term}%,equipment_type.ilike.%${term}%,building.ilike.%${term}%,room.ilike.%${term}%`)
     .order('updated_at', { ascending: false })
     .limit(1)
@@ -1709,6 +1730,7 @@ async function init() {
   syncModelInput();
   qs('#equipmentType').addEventListener('change', syncEquipmentTypeInput);
   syncEquipmentTypeInput();
+  qs('#status').addEventListener('change', syncWarrantyRepairFieldVisibility);
   setEditMode(false);
   updateBulkSerialCount();
   syncBulkScannerToggleLabel();
@@ -1746,4 +1768,3 @@ async function init() {
 }
 
 init().catch((err) => toast(err.message, true));
-

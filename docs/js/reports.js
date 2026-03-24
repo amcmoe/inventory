@@ -71,6 +71,8 @@ const customFilterLabels = {
   missing_building: 'Data Quality: Missing building',
   missing_service_date: 'Data Quality: Missing service date',
   missing_warranty_date: 'Data Quality: Missing warranty date',
+  out_of_warranty: 'Warranty: Out of warranty',
+  warranty_repair_out: 'Warranty: Devices out for warranty repair',
   top_device_damagers: 'Top 25 Device Damagers',
   top_damaged_devices: 'Top 25 Damaged Devices'
 };
@@ -79,6 +81,10 @@ const prebuiltCustomQuerySections = [
   {
     title: 'Damage Insights',
     keys: ['top_device_damagers', 'top_damaged_devices']
+  },
+  {
+    title: 'Warranty Insights',
+    keys: ['warranty_repair_out', 'out_of_warranty']
   },
   {
     title: 'Data Quality Health',
@@ -355,6 +361,8 @@ function applyFilters(query, filters, ignoreStatus = false) {
   if (activeCustomFilter === 'missing_building') q = q.or('building.is.null,building.eq.""');
   if (activeCustomFilter === 'missing_service_date') q = q.is('service_start_date', null);
   if (activeCustomFilter === 'missing_warranty_date') q = q.is('warranty_expiration_date', null);
+  if (activeCustomFilter === 'out_of_warranty') q = q.lt('warranty_expiration_date', new Date().toISOString().slice(0, 10));
+  if (activeCustomFilter === 'warranty_repair_out') q = q.eq('status', 'repair').eq('out_for_warranty_repair', true);
   return q;
 }
 

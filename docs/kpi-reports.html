@@ -248,6 +248,18 @@
           </div>
           <div class="panel-body">
             <div class="warranty-layout">
+              <section class="kpi-insight-grid warranty-kpi-rail" aria-label="Warranty KPIs">
+                <div class="kpi">
+                  <div class="label"><a class="kpi-panel-link" href="./reports.html?kpi_custom=warranty_repair_out">Devices out for warranty repair</a></div>
+                  <div class="value" id="warrantyOutRepairCount">0</div>
+                  <div class="hint">Assets marked as out for warranty repair</div>
+                </div>
+                <div class="kpi">
+                  <div class="label"><a class="kpi-panel-link" href="./reports.html?kpi_custom=out_of_warranty">Out of warranty</a></div>
+                  <div class="value" id="warrantyOutOfWarrantyCount">0</div>
+                  <div class="hint">Assets with expired warranty date</div>
+                </div>
+              </section>
               <div class="insight-visual bars-visual" id="warrantyExpiryBand"></div>
               <div class="insight-visual insight-list" id="warrantyBuildingList"></div>
             </div>

@@ -7,6 +7,7 @@ export function qsa(selector) {
 }
 
 export function toast(message, isError = false) {
+  const TOAST_VISIBLE_MS = 5000;
   const el = document.createElement('div');
   el.className = `toast ${isError ? 'error' : 'ok'}`;
   el.textContent = message;
@@ -15,7 +16,7 @@ export function toast(message, isError = false) {
   setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => el.remove(), 200);
-  }, 2600);
+  }, TOAST_VISIBLE_MS);
 }
 
 export function formatDateTime(value) {
