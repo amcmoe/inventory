@@ -3208,6 +3208,7 @@ tbody tr.selected {
 .detail .k {
   font-size: 12px;
   color: var(--muted-2);
+  font-weight: 700;
 }
 
 .detail .v {
@@ -3227,24 +3228,41 @@ tbody tr.selected {
 
 .toast {
   position: fixed;
-  bottom: 18px;
+  bottom: 22px;
   left: 50%;
   transform: translateX(-50%) translateY(12px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease, transform 160ms ease;
   z-index: 80;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  background: rgba(15, 19, 27, 0.92);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  color: var(--text);
-  font-size: 13px;
+  padding: 13px 18px;
+  border: 1px solid rgba(110, 168, 255, 0.55);
+  background: rgba(34, 76, 140, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 12px;
+  box-shadow: 0 14px 28px rgba(5, 10, 18, 0.45);
+  color: #eaf3ff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 [data-theme="light"] .toast {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(76, 133, 221, 0.86);
+  color: #ffffff;
+  border-color: rgba(52, 103, 178, 0.58);
+}
+
+.toast.error {
+  background: rgba(145, 35, 48, 0.84);
+  border-color: rgba(255, 132, 145, 0.52);
+  color: #fff4f6;
+}
+
+[data-theme="light"] .toast.error {
+  background: rgba(177, 49, 66, 0.9);
+  color: #fff7f8;
 }
 
 .toast.show {
@@ -4529,6 +4547,7 @@ textarea {
 .drawer-summary-pill .pill-item .k {
   font-size: 11px;
   color: var(--muted-2);
+  font-weight: 700;
 }
 
 .drawer-summary-pill .pill-item .v {
@@ -4552,8 +4571,29 @@ textarea {
   color: var(--muted-2);
 }
 
+.drawer-lifecycle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+
+.drawer-lifecycle-item .k {
+  font-size: 11px;
+  color: var(--muted-2);
+  font-weight: 700;
+}
+
+.drawer-lifecycle-item .v {
+  font-size: 14px;
+  margin-top: 2px;
+}
+
 @media (max-width: 640px) {
   .drawer-summary-pill .pill-grid {
+    grid-template-columns: 1fr;
+  }
+  .drawer-lifecycle-grid {
     grid-template-columns: 1fr;
   }
 }

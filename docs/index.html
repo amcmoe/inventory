@@ -151,15 +151,7 @@
     </div>
     <div class="drawer-body">
       <div id="drawerLockStatus" class="asset-lock-banner" hidden></div>
-      <div id="drawerDetails"></div>
-      <div class="detail">
-        <div class="k">Notes</div>
-        <div class="v" id="drawerNotes">-</div>
-      </div>
-      <div class="detail" id="drawerDamageHistory">
-        <div class="k">Damage History</div>
-        <div class="v" id="drawerDamageHistoryList">No damage reports yet.</div>
-      </div>
+      <div id="drawerAssetDetails"></div>
       <div class="detail" id="drawerAssigneeEditor" hidden>
         <div class="k">Change Assignee</div>
         <div class="v">
@@ -172,14 +164,46 @@
           </div>
         </div>
       </div>
+      <div id="drawerAssignmentDetails"></div>
+      <div class="detail">
+        <div class="k">Damage History</div>
+        <div class="v" id="drawerDamageHistoryList">No damage reports yet.</div>
+      </div>
+      <div class="detail">
+        <div class="k">Previous Notes</div>
+        <div class="v" id="drawerNotes">-</div>
+      </div>
       <div class="detail" id="drawerNoteEditor" hidden>
-        <div class="k">Add Note</div>
+        <div class="k">Add Note (Append)</div>
         <div class="v">
           <textarea id="drawerNoteInput" rows="3" placeholder="Add note to this asset..."></textarea>
           <div class="row">
             <button class="btn" id="drawerSaveNoteBtn" type="button">Save Note</button>
           </div>
         </div>
+      </div>
+      <div class="detail" id="drawerLifecycleDetail">
+        <details>
+          <summary>Lifecycle &amp; Warranty</summary>
+          <div class="drawer-lifecycle-grid">
+            <div class="drawer-lifecycle-item">
+              <div class="k">In Service Since</div>
+              <div class="v" id="drawerLifeServiceStart">-</div>
+            </div>
+            <div class="drawer-lifecycle-item">
+              <div class="k">Warranty Expiration</div>
+              <div class="v" id="drawerLifeWarrantyExpiry">-</div>
+            </div>
+            <div class="drawer-lifecycle-item">
+              <div class="k">Owned or Leased</div>
+              <div class="v" id="drawerLifeOwnership">-</div>
+            </div>
+            <div class="drawer-lifecycle-item">
+              <div class="k">Obsolete</div>
+              <div class="v" id="drawerLifeObsolete">No</div>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
     <div class="drawer-footer">

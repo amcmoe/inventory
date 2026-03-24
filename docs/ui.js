@@ -19,8 +19,13 @@ const navCount = $("#navCount");
 
 const drawerPrimary = $("#drawerPrimary");
 const drawerSecondary = $("#drawerSecondary");
-const drawerDetails = $("#drawerDetails");
+const drawerAssetDetails = $("#drawerAssetDetails");
+const drawerAssignmentDetails = $("#drawerAssignmentDetails");
 const drawerNotes = $("#drawerNotes");
+const drawerLifeServiceStart = $("#drawerLifeServiceStart");
+const drawerLifeWarrantyExpiry = $("#drawerLifeWarrantyExpiry");
+const drawerLifeOwnership = $("#drawerLifeOwnership");
+const drawerLifeObsolete = $("#drawerLifeObsolete");
 const printLabelBtn = $("#printLabelBtn");
 const editBtn = $("#editBtn");
 
@@ -183,8 +188,9 @@ function enhanceAssetTable() {
       const ownership = tr.dataset.ownership || "";
       const warrantyExpirationDate = tr.dataset.warrantyExpirationDate || "";
       const obsolete = tr.dataset.obsolete || "No";
+      const canonicalStatus = tr.dataset.status || status || "";
       currentRowData = {
-        assetId, serial, assetTag, model, assignedTo, status,
+        assetId, serial, assetTag, model, assignedTo, status: canonicalStatus,
         assigneeId,
         building: buildingCell,
         manufacturer, equipmentType, building, room, serviceStartDate,
@@ -194,8 +200,8 @@ function enhanceAssetTable() {
 
       if (drawerPrimary) drawerPrimary.textContent = serial || "Asset";
       if (drawerSecondary) drawerSecondary.textContent = model || "-";
-      if (drawerDetails) {
-        drawerDetails.innerHTML = `
+      if (drawerAssetDetails) {
+        drawerAssetDetails.innerHTML = `
           <div class="drawer-summary-grid">
             <section class="drawer-summary-pill">
               <div class="pill-title">Asset</div>
@@ -206,6 +212,12 @@ function enhanceAssetTable() {
                 <div class="pill-item"><div class="k">Serial</div><div class="v mono">${escapeHtml(serial || "-")}</div></div>
               </div>
             </section>
+          </div>
+        `;
+      }
+      if (drawerAssignmentDetails) {
+        drawerAssignmentDetails.innerHTML = `
+          <div class="drawer-summary-grid">
             <section class="drawer-summary-pill">
               <div class="pill-title">Assignment</div>
               <div class="pill-grid">
@@ -215,20 +227,13 @@ function enhanceAssetTable() {
                 <div class="pill-item"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
               </div>
             </section>
-            <section class="drawer-summary-pill">
-              <details>
-                <summary>Lifecycle & Warranty</summary>
-                <div class="pill-grid with-top-gap">
-                  <div class="pill-item"><div class="k">In Service Since</div><div class="v">${escapeHtml(fmtDate(serviceStartDate))}</div></div>
-                  <div class="pill-item"><div class="k">Warranty Expiration</div><div class="v">${escapeHtml(fmtDate(warrantyExpirationDate))}</div></div>
-                  <div class="pill-item"><div class="k">Owned or Leased</div><div class="v">${escapeHtml(ownership || "-")}</div></div>
-                  <div class="pill-item"><div class="k">Obsolete</div><div class="v">${escapeHtml(obsolete || "No")}</div></div>
-                </div>
-              </details>
-            </section>
           </div>
         `;
       }
+      if (drawerLifeServiceStart) drawerLifeServiceStart.textContent = fmtDate(serviceStartDate);
+      if (drawerLifeWarrantyExpiry) drawerLifeWarrantyExpiry.textContent = fmtDate(warrantyExpirationDate);
+      if (drawerLifeOwnership) drawerLifeOwnership.textContent = ownership || "-";
+      if (drawerLifeObsolete) drawerLifeObsolete.textContent = obsolete || "No";
       if (drawerNotes) drawerNotes.textContent = tr.dataset.notes || "-";
       window.dispatchEvent(new CustomEvent("asset-row-selected", { detail: currentRowData }));
 

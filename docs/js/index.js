@@ -1392,9 +1392,7 @@ async function createPersonFromDrawer() {
 
   selectedPerson = data;
   if (drawerAssigneeSearch) drawerAssigneeSearch.value = data.display_name || name;
-  if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = `Selected: ${data.display_name || name}`;
-  if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
-  if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+  syncAssigneeEditorState();
 
   closeCreatePersonModal();
   toast('Person created.');
@@ -1407,9 +1405,46 @@ function selectedAssetIsAssigned() {
   return Boolean(assigneeName) && assigneeName.toLowerCase() !== 'unassigned';
 }
 
+function normalizeAssetStatus(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (raw === 'assigned') return 'checked_out';
+  return raw;
+}
+
 function syncAssigneeActionButton() {
   if (!drawerSetAssigneeBtn) return;
   drawerSetAssigneeBtn.textContent = selectedAssetIsAssigned() ? 'Unassign' : 'Set Assignee';
+}
+
+function syncAssigneeEditorState() {
+  const isAssigned = selectedAssetIsAssigned();
+  if (drawerAssigneeSearch) {
+    drawerAssigneeSearch.hidden = isAssigned;
+    if (isAssigned) drawerAssigneeSearch.value = '';
+  }
+  if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
+  if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+  if (drawerAssigneeSelected) {
+    if (isAssigned) {
+      const name = String(selectedAsset?.assigneeName || selectedAsset?.assignee || '').trim() || 'Unassigned';
+      drawerAssigneeSelected.textContent = `Assigned to: ${name}`;
+    } else if (selectedPerson?.display_name) {
+      drawerAssigneeSelected.textContent = `Selected: ${selectedPerson.display_name}`;
+    } else {
+      drawerAssigneeSelected.textContent = 'Current: Unassigned';
+    }
+  }
+  syncAssigneeActionButton();
+}
+
+function refreshDrawerSelectionByAssetTag(assetTag) {
+  const tag = String(assetTag || '').trim();
+  if (!tag) return false;
+  const rows = Array.from(assetTbody?.querySelectorAll?.('tr[data-asset-tag]') || []);
+  const target = rows.find((row) => String(row.dataset.assetTag || '').trim() === tag);
+  if (!target) return false;
+  target.click();
+  return true;
 }
 
 async function setAssigneeFromDrawer() {
@@ -1426,22 +1461,24 @@ async function setAssigneeFromDrawer() {
       toast(unassignError.message, true);
       return;
     }
-    selectedAsset.status = String(selectedAsset.status || '').toLowerCase() === 'checked_out'
+    selectedAsset.status = normalizeAssetStatus(selectedAsset.status) === 'checked_out'
       ? 'available'
       : selectedAsset.status;
     selectedAsset.assigneeId = '';
     selectedAsset.assigneeName = '';
-    if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = 'Current: Unassigned';
-    syncAssigneeActionButton();
+    selectedAsset.assignee = '';
+    selectedPerson = null;
+    syncAssigneeEditorState();
     toast('Device unassigned.');
     await loadAssets();
+    refreshDrawerSelectionByAssetTag(selectedAsset.assetTag);
     return;
   }
   if (!selectedPerson?.id) {
     toast('Select an assignee first.', true);
     return;
   }
-  const currentStatus = String(selectedAsset?.status || '').toLowerCase();
+  const currentStatus = normalizeAssetStatus(selectedAsset?.status || '');
   if (currentStatus !== 'available') {
     toast('Set status to Available before assigning this device.', true);
     return;
@@ -1459,14 +1496,11 @@ async function setAssigneeFromDrawer() {
   selectedAsset.status = 'checked_out';
   selectedAsset.assigneeId = selectedPerson.id;
   selectedAsset.assigneeName = selectedPerson.display_name || selectedPerson.name || '';
-  if (drawerAssigneeSelected) {
-    drawerAssigneeSelected.textContent = selectedAsset.assigneeName
-      ? `Current: ${selectedAsset.assigneeName}`
-      : 'Current: Assigned';
-  }
-  syncAssigneeActionButton();
+  selectedAsset.assignee = selectedAsset.assigneeName;
+  syncAssigneeEditorState();
   toast('Assignee updated.');
   await loadAssets();
+  refreshDrawerSelectionByAssetTag(selectedAsset.assetTag);
 }
 
 async function saveAssetNoteFromDrawer() {
@@ -2662,8 +2696,9 @@ async function init() {
     renderSearchPrompt();
   });
   drawerAssigneeSearch?.addEventListener('input', (event) => {
+    if (selectedAssetIsAssigned()) return;
     selectedPerson = null;
-    drawerAssigneeSelected.textContent = 'No assignee selected';
+    if (drawerAssigneeSelected) drawerAssigneeSelected.textContent = 'Current: Unassigned';
     window.clearTimeout(personSearchDebounce);
     personSearchDebounce = window.setTimeout(() => {
       searchPeople(event.target.value.trim()).catch((err) => toast(err.message, true));
@@ -2754,16 +2789,9 @@ async function init() {
       assigneeName: detail.assignedTo || '',
       notes: detail.notes || ''
     };
-    syncAssigneeActionButton();
     selectedPerson = null;
     if (drawerAssigneeSearch) drawerAssigneeSearch.value = '';
-    if (drawerAssigneeSelected) {
-      drawerAssigneeSelected.textContent = detail.assignedTo
-        ? `Current: ${detail.assignedTo}`
-        : 'Current: Unassigned';
-    }
-    if (drawerAssigneeSuggestions) drawerAssigneeSuggestions.hidden = true;
-    if (drawerCreatePersonBtn) drawerCreatePersonBtn.hidden = true;
+    syncAssigneeEditorState();
     if (drawerNotes) {
       drawerNotes.textContent = detail.notes || '-';
     }
