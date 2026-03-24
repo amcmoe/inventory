@@ -726,6 +726,7 @@ function renderWarrantyInsights() {
   const outForWarrantyRepair = assets.filter((a) =>
     String(a?.status || '').toLowerCase() === 'repair' && Boolean(a?.out_for_warranty_repair)
   );
+  const missingWarrantyDate = assets.filter((a) => !safeDate(a?.warranty_expiration_date));
   const validWarranty = assets.filter((a) => safeDate(a?.warranty_expiration_date));
   const out = validWarranty.filter((a) => safeDate(a.warranty_expiration_date).getTime() < now);
   const expiring60 = validWarranty.filter((a) => {
@@ -738,20 +739,9 @@ function renderWarrantyInsights() {
   });
 
   const warrantyBars = [
-    {
-      label: 'Out for warranty repair',
-      value: outForWarrantyRepair.length,
-      display: outForWarrantyRepair.length.toLocaleString(),
-      href: './reports.html?kpi_custom=warranty_repair_out'
-    },
-    {
-      label: 'Out of warranty',
-      value: out.length,
-      display: out.length.toLocaleString(),
-      href: './reports.html?kpi_custom=out_of_warranty'
-    },
     { label: 'Expiring within 60 days', value: expiring60.length, display: expiring60.length.toLocaleString() },
-    { label: 'Expiring within 365 days', value: expiring365.length, display: expiring365.length.toLocaleString() }
+    { label: 'Expiring within 365 days', value: expiring365.length, display: expiring365.length.toLocaleString() },
+    { label: 'Missing warranty date', value: missingWarrantyDate.length, display: missingWarrantyDate.length.toLocaleString(), href: './reports.html?kpi_custom=missing_warranty_date' }
   ].filter((item) => item.value > 0);
   if (warrantyOutRepairCount) warrantyOutRepairCount.textContent = outForWarrantyRepair.length.toLocaleString();
   if (warrantyOutOfWarrantyCount) warrantyOutOfWarrantyCount.textContent = out.length.toLocaleString();
@@ -906,7 +896,9 @@ function renderUtilizationInsights() {
   const assigned = laptopAssets.filter((a) => String(a?.status || '').toLowerCase() === 'checked_out').length;
   const availableAssets = laptopAssets.filter((a) => String(a?.status || '').toLowerCase() === 'available');
   const available = availableAssets.length;
-  const other = Math.max(0, total - assigned - available);
+  const repair = laptopAssets.filter((a) => String(a?.status || '').toLowerCase() === 'repair').length;
+  const retired = laptopAssets.filter((a) => String(a?.status || '').toLowerCase() === 'retired').length;
+  const unknown = Math.max(0, total - assigned - available - repair - retired);
   const txByAsset = new Map();
   cachedTransactions.forEach((tx) => {
     if (!tx?.asset_id) return;
@@ -926,9 +918,14 @@ function renderUtilizationInsights() {
   if (utilIdle60) utilIdle60.textContent = idle60Assets.length.toLocaleString();
 
   if (utilDonutChart && typeof window !== 'undefined' && window.Chart) {
-    const data = [assigned, available, other];
-    const labels = ['Assigned', 'Available', 'Other Status'];
-    const colors = ['#6ea8ff', '#88f0c6', '#ffb36e'];
+    const data = [assigned, available, repair, retired];
+    const labels = ['Assigned', 'Available', 'Repair', 'Retired'];
+    const colors = ['#6ea8ff', '#88f0c6', '#ffb36e', '#ff7e8f'];
+    if (unknown > 0) {
+      data.push(unknown);
+      labels.push('Unknown');
+      colors.push('#9fb3c8');
+    }
     if (utilDonutChartInstance) {
       utilDonutChartInstance.destroy();
     }
