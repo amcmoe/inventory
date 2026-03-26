@@ -3707,10 +3707,21 @@ textarea {
   margin-top: 12px;
 }
 
+.admin-bulk-toggle-btn {
+  margin-left: auto;
+}
+
+#saveAssetBtn.is-dimmed {
+  opacity: 0.55;
+  filter: saturate(0.8);
+}
+
 /* ── Admin / People / Settings page layout ───────────── */
 #assetAdminSection,
 #importPreviewSection,
 #bulkCreateSection,
+#applicationsLoadingPanel,
+#applicationsMainSection,
 #peopleMainSection,
 #assigneeSection,
 #siteSettingsMainSection {
@@ -3731,6 +3742,7 @@ textarea {
 #assetAdminSection .panel-body h2,
 #importPreviewSection .panel-body h3,
 #bulkCreateSection .panel-body h3,
+#applicationsMainSection .panel-body h2,
 #peopleMainSection .panel-body h2,
 #assigneeSection .panel-body h2,
 #assigneeHistorySection .panel-body h2,
@@ -4017,6 +4029,226 @@ textarea {
 
 .app-users-table-wrap {
   margin-top: 0;
+}
+
+#applicationsMainSection .panel-body {
+  padding-top: 14px;
+}
+
+#applicationsMainSection .app-users-head {
+  margin-bottom: 8px;
+}
+
+#applicationsMainSection .applications-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+#applicationsMainSection .applications-block > h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+#applicationsMainSection .export-popover-section-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-2);
+  padding: 4px 8px 2px;
+}
+
+#applicationsMainSection .applications-toolbar {
+  align-items: center;
+  gap: 8px;
+}
+
+#applicationsMainSection .applications-filters {
+  margin-top: 6px;
+  margin-bottom: 10px;
+  gap: 10px 12px;
+  align-items: start;
+}
+
+#applicationsMainSection .applications-form-grid {
+  gap: 10px 12px;
+  align-items: start;
+}
+
+#applicationsMainSection .applications-filter-platform-field {
+  grid-column: 1 / -1;
+}
+
+#applicationsMainSection .applications-form-platform-field {
+  grid-column: 1 / -1;
+}
+
+#applicationsMainSection .chip-picker-field {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 50px;
+  padding: 8px 10px 9px;
+}
+
+#applicationsMainSection .chip-picker-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-2);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+#applicationsMainSection .chip-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 24px;
+}
+
+#applicationsMainSection .chip-toggle {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  line-height: 1;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+#applicationsMainSection .chip-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+}
+
+#applicationsMainSection .chip-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#applicationsMainSection .chip-toggle:hover {
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+#applicationsMainSection .chip-toggle.is-active {
+  border-color: rgba(110, 168, 255, 0.45);
+  background: rgba(110, 168, 255, 0.14);
+  color: var(--text);
+}
+
+#applicationsMainSection .chip-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (min-width: 1100px) {
+  #applicationsMainSection .chip-toggle {
+    padding: 7px 12px;
+    font-size: 0.88rem;
+    gap: 8px;
+  }
+
+  #applicationsMainSection .chip-icon {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+
+  #applicationsMainSection .chip-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+#applicationsMainSection .float-field input {
+  min-height: 50px;
+  padding-top: 18px;
+  padding-bottom: 9px;
+}
+
+#applicationsMainSection .float-field.select-field select {
+  min-height: 50px;
+  padding-top: 18px;
+  padding-bottom: 9px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+#applicationsMainSection .float-field.select-field {
+  padding-right: 0;
+}
+
+#applicationsMainSection .float-field.select-field::after {
+  right: 14px;
+}
+
+#applicationsMainSection .float-field.select-field > label {
+  top: 8px;
+  transform: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+#applicationsMainSection .float-field.select-field select:focus + label {
+  color: var(--accent);
+}
+
+#applicationsMainSection .float-field.select-field:focus-within select {
+  color: var(--text);
+}
+
+#applicationsMainSection textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+#applicationsMainSection .applications-notes-field {
+  grid-column: 1 / -1;
+}
+
+#applicationsMainSection .applications-notes-field textarea {
+  min-height: 86px;
+}
+
+#applicationsMainSection .applications-actions {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+#applicationsMainSection .table-wrap {
+  overflow-x: hidden;
+}
+
+#applicationsMainSection table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#applicationsMainSection th,
+#applicationsMainSection td {
+  overflow-wrap: anywhere;
 }
 
 #assigneeSection {

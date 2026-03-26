@@ -49,11 +49,34 @@
               <label for="appUserName">Display Name</label>
             </div>
             <div>
-              <label for="appUserRole">Role</label>
-              <select id="appUserRole">
-                <option value="viewer">Viewer</option>
-                <option value="tech">Tech</option>
-                <option value="admin">Admin</option>
+              <label for="appUserSuper">Super User (Full Admin)</label>
+              <select id="appUserSuper">
+                <option value="no" selected>No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div>
+              <label for="inventoryAccess">Inventory Access</label>
+              <select id="inventoryAccess">
+                <option value="none">None</option>
+                <option value="view" selected>View</option>
+                <option value="edit">Edit</option>
+              </select>
+            </div>
+            <div>
+              <label for="applicationsAccess">Applications Access</label>
+              <select id="applicationsAccess">
+                <option value="none" selected>None</option>
+                <option value="view">View</option>
+                <option value="edit">Edit</option>
+              </select>
+            </div>
+            <div>
+              <label for="infrastructureAccess">Infrastructure Access</label>
+              <select id="infrastructureAccess">
+                <option value="none" selected>None</option>
+                <option value="view">View</option>
+                <option value="edit">Edit</option>
               </select>
             </div>
           </div>
@@ -61,14 +84,17 @@
             <button class="btn primary" id="saveAppUserBtn" type="button">Save App User</button>
             <button class="btn" id="inviteAppUserBtn" type="button" hidden>Send Invite</button>
           </div>
-          <div class="muted app-user-help" id="appUserHelp">Tip: User must sign in with Google at least once before a role can be assigned.</div>
+          <div class="muted app-user-help" id="appUserHelp">Tip: User must sign in with Google at least once before permissions can be assigned. Super User grants access to User Management and permission administration.</div>
           <div class="table-wrap app-users-table-wrap">
             <table role="grid" aria-label="Application access users">
               <thead>
                 <tr>
                   <th>Email</th>
                   <th>Display Name</th>
-                  <th>Role</th>
+                  <th>Super User</th>
+                  <th>Inventory</th>
+                  <th>Applications</th>
+                  <th>Infrastructure</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -158,6 +184,3 @@
   <script type="module" src="./js/people.js"></script>
 </body>
 </html>
-
-
-

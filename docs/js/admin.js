@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
+import { qs, toast, escapeHtml, applyModuleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const adminLoadingPanel = qs('#adminLoadingPanel');
 const adminTopbar = qs('#adminTopbar');
@@ -39,6 +39,7 @@ const exportAllAssetsBtn = qs('#exportAllAssetsBtn');
 const downloadTemplateCsvBtn = qs('#downloadTemplateCsvBtn');
 const importAssetsFile = qs('#importAssetsFile');
 const importPreviewSection = qs('#importPreviewSection');
+const toggleBulkCreateSectionBtn = qs('#toggleBulkCreateSectionBtn');
 const importSummaryText = qs('#importSummaryText');
 const importErrorList = qs('#importErrorList');
 const applyImportBtn = qs('#applyImportBtn');
@@ -76,6 +77,30 @@ let assetLocksChannel = null;
 let currentLockOwner = null;
 let pendingImportRows = [];
 let pendingImportErrors = [];
+
+function setBulkCreateSectionOpen(open) {
+  const isOpen = Boolean(open);
+  if (bulkCreateSection) {
+    bulkCreateSection.hidden = !isOpen;
+  }
+  if (!isOpen && bulkScannerRunning) {
+    stopBulkScanner();
+  }
+  const saveBtn = qs('#saveAssetBtn');
+  if (saveBtn) {
+    saveBtn.disabled = isOpen;
+    saveBtn.classList.toggle('is-dimmed', isOpen);
+    if (isOpen) {
+      saveBtn.title = 'Bulk Create mode is active. Close it to save a single asset.';
+    } else if (saveBtn.title === 'Bulk Create mode is active. Close it to save a single asset.') {
+      saveBtn.title = '';
+    }
+  }
+  if (toggleBulkCreateSectionBtn) {
+    toggleBulkCreateSectionBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    toggleBulkCreateSectionBtn.textContent = isOpen ? 'Hide Bulk Create' : 'Bulk Create';
+  }
+}
 
 function withTimeout(promise, ms, timeoutMessage) {
   let timer = null;
@@ -779,6 +804,15 @@ function updateLockUI() {
     inputs.forEach(input => {
       input.disabled = false;
     });
+  }
+
+  if (!bulkCreateSection?.hidden) {
+    const saveBtn = qs('#saveAssetBtn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.classList.add('is-dimmed');
+      saveBtn.title = 'Bulk Create mode is active. Close it to save a single asset.';
+    }
   }
 }
 
@@ -1510,6 +1544,10 @@ async function loadDamageHistory(assetId, assetTag) {
 }
 
 async function saveAsset() {
+  if (!bulkCreateSection?.hidden) {
+    toast('Close Bulk Create to save a single asset.', true);
+    return;
+  }
   const payload = getFormValues();
   const isEdit = Boolean(payload.p_id);
 
@@ -2178,13 +2216,12 @@ async function init() {
   if (assetAdminSection) {
     assetAdminSection.hidden = false;
   }
-  if (bulkCreateSection) {
-    bulkCreateSection.hidden = false;
-  }
+  setBulkCreateSectionOpen(false);
   if (adminNav) {
     adminNav.hidden = false;
     adminNav.style.display = '';
   }
+  applyModuleVisibility(profile);
   initAdminNav();
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,
@@ -2194,6 +2231,10 @@ async function init() {
 
   qs('#saveAssetBtn').addEventListener('click', saveAsset);
   qs('#loadByTagBtn').addEventListener('click', loadByTag);
+  toggleBulkCreateSectionBtn?.addEventListener('click', () => {
+    const nextOpen = Boolean(bulkCreateSection?.hidden);
+    setBulkCreateSectionOpen(nextOpen);
+  });
   importExportBtn?.addEventListener('click', (event) => {
     event.stopPropagation();
     setImportExportMenuOpen(Boolean(importExportMenu?.hidden));

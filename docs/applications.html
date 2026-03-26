@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://*.supabase.co; connect-src 'self' https://*.supabase.co; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="icon" href="./favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+  <title>ITAM - Applications</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar"></aside>
+
+    <main class="main">
+      <header class="topbar" id="applicationsTopbar" hidden
+        data-title="Applications"
+        data-subtitle="Track software references, ownership, and links."></header>
+
+      <section class="panel" id="applicationsLoadingPanel">
+        <div class="panel-body">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <h2>Checking Access</h2>
+          <p class="muted">Please wait while we verify your session.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="applicationsMainSection" hidden>
+        <div class="panel-body">
+          <div class="app-users-head">
+            <h2>Applications</h2>
+            <div class="row applications-toolbar">
+              <button class="btn ghost" id="toggleApplicationFormBtn" type="button" aria-expanded="false">Add / Edit Application</button>
+              <div class="export-popover bulk-import-export-wrap" id="applicationsImportPopover">
+                <button class="btn ghost" id="applicationsImportBtn" type="button" aria-haspopup="true" aria-expanded="false">Import/Export</button>
+                <div class="export-popover-menu" id="applicationsImportMenu" hidden>
+                  <div class="export-popover-section-label">Import</div>
+                  <button class="btn ghost export-option" id="importApplicationsCsvBtn" type="button">Import CSV</button>
+                  <button class="btn ghost export-option" id="downloadApplicationsTemplateBtn" type="button">Download Template</button>
+                  <div class="export-popover-section-label">Export</div>
+                  <button class="btn ghost export-option" id="exportApplicationsCsvBtn" type="button">Export CSV</button>
+                </div>
+              </div>
+              <button class="bulk-icon-btn app-refresh-btn" id="refreshApplicationsBtn" type="button" aria-label="Refresh applications" title="Refresh applications">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <input id="importApplicationsFile" type="file" accept=".csv,text/csv" hidden>
+          <p class="muted" id="applicationsAccessHint">Maintain software inventory and ownership references.</p>
+          <section class="applications-block applications-filter-block" aria-label="Filter applications">
+            <h3>Filter Applications</h3>
+            <div class="grid cols-2 applications-filters">
+              <div class="float-field">
+                <input id="applicationSearchInput" type="search" placeholder=" ">
+                <label for="applicationSearchInput">Search Applications</label>
+              </div>
+              <div class="float-field select-field">
+                <select id="applicationStatusFilter">
+                  <option value="">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="deprecated">Deprecated</option>
+                </select>
+                <label for="applicationStatusFilter">Filter by Status</label>
+              </div>
+              <div class="float-field select-field">
+                <select id="applicationAudienceFilter">
+                  <option value="">All</option>
+                  <option value="students">Students</option>
+                  <option value="staff">Staff</option>
+                  <option value="both">Both</option>
+                </select>
+                <label for="applicationAudienceFilter">Filter by Audience</label>
+              </div>
+              <div class="chip-picker-field applications-filter-platform-field" aria-label="Filter by Platform">
+                <div class="chip-picker-label">Filter by Platform</div>
+                <div class="chip-picker" id="applicationPlatformFilterChips">
+                  <button type="button" class="chip-toggle" data-chip-value="all">All</button>
+                  <button type="button" class="chip-toggle" data-chip-value="windows">Windows</button>
+                  <button type="button" class="chip-toggle" data-chip-value="macos">macOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="chromeos">ChromeOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="ipados">iPadOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="web">Web</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="applications-block applications-form-block" id="applicationsFormBlock" aria-label="Add or edit application" hidden>
+            <h3>Add / Edit Application</h3>
+            <div class="grid cols-2 applications-form-grid">
+              <input id="applicationId" type="hidden">
+              <div class="float-field">
+                <input id="applicationName" placeholder=" " required>
+                <label for="applicationName">Application Name</label>
+              </div>
+              <div class="chip-picker-field applications-form-platform-field" aria-label="Application Platforms">
+                <div class="chip-picker-label">Platform</div>
+                <div class="chip-picker" id="applicationPlatformChips">
+                  <button type="button" class="chip-toggle" data-chip-value="all">All</button>
+                  <button type="button" class="chip-toggle" data-chip-value="windows">Windows</button>
+                  <button type="button" class="chip-toggle" data-chip-value="macos">macOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="chromeos">ChromeOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="ipados">iPadOS</button>
+                  <button type="button" class="chip-toggle" data-chip-value="web">Web</button>
+                </div>
+              </div>
+              <div class="float-field">
+                <input id="applicationOwnerContact" placeholder=" ">
+                <label for="applicationOwnerContact">Owner / Contact</label>
+              </div>
+              <div class="float-field">
+                <input id="applicationReferenceUrl" type="url" placeholder=" ">
+                <label for="applicationReferenceUrl">Site URL</label>
+              </div>
+              <div class="float-field">
+                <input id="applicationStoreUrl" type="url" placeholder=" ">
+                <label for="applicationStoreUrl">App Store URL</label>
+              </div>
+              <div class="float-field select-field">
+                <select id="applicationStatus">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="deprecated">Deprecated</option>
+                </select>
+                <label for="applicationStatus">Status</label>
+              </div>
+              <div class="float-field select-field">
+                <select id="applicationAudience">
+                  <option value="students">Students</option>
+                  <option value="staff">Staff</option>
+                  <option value="both">Both</option>
+                </select>
+                <label for="applicationAudience">Audience</label>
+              </div>
+              <div class="applications-notes-field">
+                <label for="applicationNotes">Notes</label>
+                <textarea id="applicationNotes" rows="3" placeholder="Optional notes..."></textarea>
+              </div>
+            </div>
+            <div class="row app-users-actions applications-actions">
+              <button class="btn primary" id="saveApplicationBtn" type="button">Save Application</button>
+              <button class="btn" id="clearApplicationBtn" type="button">Clear</button>
+              <button class="btn danger" id="deleteApplicationBtn" type="button" hidden>Delete Application</button>
+            </div>
+          </section>
+
+          <div class="table-wrap app-users-table-wrap">
+            <table role="grid" aria-label="Applications table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Platform</th>
+                  <th>Audience</th>
+                  <th>Owner / Contact</th>
+                  <th>Reference</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="applicationsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./shell.js"></script>
+  <script src="./nav.js"></script>
+  <script type="module" src="./js/applications.js"></script>
+</body>
+</html>

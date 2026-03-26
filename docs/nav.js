@@ -4,6 +4,7 @@
     search:     `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
     shield:     `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
     package:    `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`,
+    appWindow:  `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="14" x2="16" y2="14"/></svg>`,
     users:      `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     sliders:    `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`,
     barChart:   `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
@@ -25,27 +26,28 @@
   </div>
 </div>
 <nav class="nav" aria-label="Primary" id="sidebarNav" hidden>
-  <a href="./">${IC.search}<span>Search</span></a>
-  <div class="nav-group nav-group-admin" data-role-min="admin">
+  <a href="./" data-module="inventory" data-module-min="view">${IC.search}<span>Search</span></a>
+  <a href="./admin.html" data-role-min="admin" data-module="inventory" data-module-min="edit">${IC.package}<span>Asset Management</span></a>
+  <a href="./applications.html" data-module="applications" data-module-min="view">${IC.appWindow}<span>Application Management</span></a>
+  <div class="nav-group nav-group-admin" data-role-min="admin" data-module="inventory" data-module-min="edit">
     <button class="nav-group-toggle" type="button" aria-expanded="false">
       <span class="nav-group-label">${IC.shield}<span>Admin</span></span>
       <span class="nav-caret" aria-hidden="true">&#9662;</span>
     </button>
     <div class="nav-submenu">
-      <a class="nav-subitem" href="./admin.html">${IC.package}<span>Asset Management</span></a>
-      <a class="nav-subitem" href="./people.html">${IC.users}<span>User Management</span></a>
-      <a class="nav-subitem" href="./site-settings.html">${IC.sliders}<span>Site Settings</span></a>
+      <a class="nav-subitem" href="./people.html" data-module="inventory" data-module-min="edit">${IC.users}<span>User Management</span></a>
+      <a class="nav-subitem" href="./site-settings.html" data-module="inventory" data-module-min="edit">${IC.sliders}<span>Site Settings</span></a>
     </div>
   </div>
-  <div class="nav-group nav-group-reports">
+  <div class="nav-group nav-group-reports" data-module="inventory" data-module-min="view">
     <button class="nav-group-toggle" type="button" aria-expanded="false">
       <span class="nav-group-label">${IC.barChart}<span>Reports</span></span>
       <span class="nav-caret" aria-hidden="true">&#9662;</span>
     </button>
     <div class="nav-submenu">
-      <a class="nav-subitem" href="./kpi-reports.html">${IC.trending}<span>KPI Reports</span></a>
-      <a class="nav-subitem" href="./reports.html">${IC.table}<span>Report Builder</span></a>
-      <a class="nav-subitem" href="./user-reports.html">${IC.userCheck}<span>User Reports</span></a>
+      <a class="nav-subitem" href="./kpi-reports.html" data-module="inventory" data-module-min="view">${IC.trending}<span>KPI Reports</span></a>
+      <a class="nav-subitem" href="./reports.html" data-module="inventory" data-module-min="view">${IC.table}<span>Report Builder</span></a>
+      <a class="nav-subitem" href="./user-reports.html" data-module="inventory" data-module-min="view">${IC.userCheck}<span>User Reports</span></a>
     </div>
   </div>
 </nav>
@@ -71,7 +73,8 @@
 
     const PAGE_MAP = {
       'index.html':            { href: './',                        group: null },
-      'admin.html':            { href: './admin.html',             group: 'nav-group-admin' },
+      'applications.html':     { href: './applications.html',       group: null },
+      'admin.html':            { href: './admin.html',             group: null },
       'people.html':           { href: './people.html',            group: 'nav-group-admin' },
       'site-settings.html': { href: './site-settings.html', group: 'nav-group-admin' },
       'kpi-reports.html':      { href: './kpi-reports.html',       group: 'nav-group-reports' },

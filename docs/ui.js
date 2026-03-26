@@ -78,9 +78,12 @@ function setTheme(theme) {
   if (saved) setTheme(saved);
 })();
 
-function statusBadge(status) {
+function statusBadge(status, options = {}) {
+  const outForWarrantyRepair = Boolean(options?.outForWarrantyRepair);
   const s = String(status || "").toLowerCase();
-  const label = s === "checked_out" ? "Assigned" : (status ? status.charAt(0).toUpperCase() + status.slice(1) : "-");
+  const label = s.includes("repair")
+    ? (outForWarrantyRepair ? "Repair - Warranty" : "Repair - Internal")
+    : (s === "checked_out" ? "Assigned" : (status ? status.charAt(0).toUpperCase() + status.slice(1) : "-"));
   let cls = "info";
   if (s.includes("available")) cls = "ok";
   else if (s.includes("assigned") || s.includes("in service") || s.includes("checked_out")) cls = "info";
@@ -188,13 +191,14 @@ function enhanceAssetTable() {
       const ownership = tr.dataset.ownership || "";
       const warrantyExpirationDate = tr.dataset.warrantyExpirationDate || "";
       const obsolete = tr.dataset.obsolete || "No";
+      const outForWarrantyRepair = String(tr.dataset.outForWarrantyRepair || "").toLowerCase() === "true";
       const canonicalStatus = tr.dataset.status || status || "";
       currentRowData = {
         assetId, serial, assetTag, model, assignedTo, status: canonicalStatus,
         assigneeId,
         building: buildingCell,
         manufacturer, equipmentType, building, room, serviceStartDate,
-        ownership, warrantyExpirationDate, obsolete,
+        ownership, warrantyExpirationDate, obsolete, outForWarrantyRepair,
         notes: tr.dataset.notes || ""
       };
 
@@ -224,7 +228,7 @@ function enhanceAssetTable() {
                 <div class="pill-item"><div class="k">Building</div><div class="v">${escapeHtml(building || "-")}</div></div>
                 <div class="pill-item"><div class="k">Room</div><div class="v">${escapeHtml(room || "-")}</div></div>
                 <div class="pill-item"><div class="k">Assigned To</div><div class="v">${escapeHtml(assignedTo || "-")}</div></div>
-                <div class="pill-item"><div class="k">Status</div><div class="v">${statusBadge(status)}</div></div>
+                <div class="pill-item"><div class="k">Status</div><div class="v">${statusBadge(status, { outForWarrantyRepair })}</div></div>
               </div>
             </section>
           </div>
@@ -249,7 +253,8 @@ function enhanceAssetTable() {
     const statusTd = tds[3];
     if (statusTd && !statusTd.querySelector(".badge")) {
       const raw = statusTd.textContent.trim();
-      statusTd.innerHTML = statusBadge(raw);
+      const outForWarrantyRepair = String(tr.dataset.outForWarrantyRepair || "").toLowerCase() === "true";
+      statusTd.innerHTML = statusBadge(raw, { outForWarrantyRepair });
     }
     const serialTd = tds[0];
     if (serialTd) serialTd.classList.add("mono");

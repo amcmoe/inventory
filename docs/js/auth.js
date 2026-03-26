@@ -145,7 +145,7 @@ export async function getCurrentProfile(sessionOverride = null) {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, role, display_name')
+    .select('user_id, role, display_name, inventory_access, applications_access, infrastructure_access')
     .eq('user_id', session.user.id)
     .maybeSingle();
 

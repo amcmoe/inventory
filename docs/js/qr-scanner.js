@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, moduleCanView, applyModuleVisibility } from './ui.js';
 
 const scannerTopbar = qs('#scannerTopbar');
 const scannerNav = qs('#sidebarNav');
@@ -190,7 +190,12 @@ async function init() {
   }
 
   const profile = await getCurrentProfile();
+  if (!moduleCanView(profile, 'inventory')) {
+    window.location.href = './index.html';
+    return;
+  }
   setRoleVisibility(profile.role);
+  applyModuleVisibility(profile);
 
   scannerLoadingPanel.hidden = true;
   scannerTopbar.hidden = false;

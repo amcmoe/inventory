@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, signInWithGoogle, signOut, ensureSessionFresh, startSessionKeepAlive } from './auth.js';
-import { qs, toast, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, loadSiteBrandingFromServer } from './ui.js';
+import { qs, toast, escapeHtml, setRoleVisibility, moduleCanView, moduleCanEdit, applyModuleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, loadSiteBrandingFromServer } from './ui.js';
 
 const authPanel = qs('#authPanel');
 const authShell = qs('#authShell');
@@ -785,9 +785,13 @@ function renderAssets(assets) {
     const serial = asset.serial || asset.asset_tag || '';
     const lookupTag = asset.asset_tag || serial;
     const buildingLabel = asset.building || '';
-    const canWrite = Boolean(currentProfile && (currentProfile.role === 'admin' || currentProfile.role === 'tech'));
+    const canWrite = Boolean(
+      moduleCanEdit(currentProfile, 'inventory') &&
+      currentProfile &&
+      (currentProfile.role === 'admin' || currentProfile.role === 'tech')
+    );
     return `
-      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-id="${escapeHtml(asset.id || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-assignee-id="${escapeHtml(assigneeId || '')}" data-status="${escapeHtml(asset.status || '')}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
+      <tr data-notes="${escapeHtml(asset.notes || '')}" data-asset-id="${escapeHtml(asset.id || '')}" data-asset-tag="${escapeHtml(lookupTag)}" data-serial="${escapeHtml(serial)}" data-model="${escapeHtml(asset.model || '')}" data-manufacturer="${escapeHtml(asset.manufacturer || '')}" data-equipment-type="${escapeHtml(asset.equipment_type || '')}" data-assignee="${escapeHtml(assignedTo || '')}" data-assignee-id="${escapeHtml(assigneeId || '')}" data-status="${escapeHtml(asset.status || '')}" data-out-for-warranty-repair="${asset.out_for_warranty_repair ? 'true' : 'false'}" data-building="${escapeHtml(asset.building || '')}" data-room="${escapeHtml(asset.room || '')}" data-service-start-date="${escapeHtml(asset.service_start_date || '')}" data-ownership="${escapeHtml(asset.ownership || '')}" data-warranty-expiration-date="${escapeHtml(asset.warranty_expiration_date || '')}" data-obsolete="${asset.obsolete ? 'Yes' : 'No'}">
         <td>${escapeHtml(serial)}</td>
         <td>${escapeHtml(asset.model || '')}</td>
         <td>${escapeHtml(assignedTo)}</td>
@@ -1042,7 +1046,7 @@ async function loadAssets() {
 
     let query = supabase
       .from('assets')
-      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+      .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, out_for_warranty_repair, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
       .order('asset_tag', { ascending: true })
       .limit(200);
 
@@ -1069,7 +1073,7 @@ async function loadAssets() {
     if (assigneeAssetIds.length) {
       let assigneeQuery = supabase
         .from('assets')
-        .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
+        .select('id, asset_tag, serial, device_name, manufacturer, model, equipment_type, building, room, service_start_date, ownership, warranty_expiration_date, obsolete, status, out_for_warranty_repair, notes, asset_current(assignee_person_id, checked_out_at, people(display_name))')
         .in('id', assigneeAssetIds)
         .order('asset_tag', { ascending: true })
         .limit(200);
@@ -1248,10 +1252,10 @@ async function loadRecentActivity() {
 async function initAuthedUI(session) {
   authPanel.hidden = true;
   authShell.hidden = true;
-  dashboardShell.hidden = false;
-  indexTopbar.hidden = false;
-  searchPanel.hidden = false;
-  mainNav.hidden = false;
+  dashboardShell.hidden = true;
+  indexTopbar.hidden = true;
+  searchPanel.hidden = true;
+  mainNav.hidden = true;
   window.scrollTo(0, 0);
 
   try {
@@ -1270,13 +1274,53 @@ async function initAuthedUI(session) {
     authMessage.textContent = 'Access denied. Contact an admin to be added to the system.';
     return;
   }
+  const { error: moduleAccessError } = await supabase.rpc('require_module_access', {
+    p_module: 'inventory',
+    p_min_access: 'view'
+  });
+  const hasInventoryViewAccess = !moduleAccessError && moduleCanView(currentProfile, 'inventory');
+  if (!moduleCanView(currentProfile, 'inventory')) {
+    if (currentProfile.role === 'admin') {
+      window.location.href = './people.html';
+      return;
+    }
+    authPanel.hidden = false;
+    authShell.hidden = false;
+    dashboardShell.hidden = true;
+    indexTopbar.hidden = true;
+    searchPanel.hidden = true;
+    mainNav.hidden = true;
+    authMessage.textContent = 'Signed in, but your Inventory access is set to None.';
+    return;
+  }
+  if (!hasInventoryViewAccess) {
+    if (currentProfile.role === 'admin') {
+      window.location.href = './people.html';
+      return;
+    }
+    authPanel.hidden = false;
+    authShell.hidden = false;
+    dashboardShell.hidden = true;
+    indexTopbar.hidden = true;
+    searchPanel.hidden = true;
+    mainNav.hidden = true;
+    authMessage.textContent = 'Signed in, but your Inventory access check failed.';
+    return;
+  }
 
   setRoleVisibility(currentProfile.role || 'viewer');
+  applyModuleVisibility(currentProfile);
   initAdminNav();
+  dashboardShell.hidden = false;
+  indexTopbar.hidden = false;
+  searchPanel.hidden = false;
+  mainNav.hidden = false;
   await loadSiteBrandingFromServer({
     supabaseClient: supabase
   });
-  userMeta.textContent = `${currentProfile.display_name || session.user.email} (${currentProfile.role || 'viewer'})`;
+  const inventoryAccess = String(currentProfile.inventory_access || 'none').toLowerCase();
+  const superUserLabel = currentProfile.role === 'admin' ? ' | Super User' : '';
+  userMeta.textContent = `${currentProfile.display_name || session.user.email} (Inventory: ${inventoryAccess}${superUserLabel})`;
 
   renderSearchPrompt();
   startAutoRefresh();
@@ -2800,7 +2844,11 @@ async function init() {
         drawerDamageHistoryList.textContent = 'Could not load damage history.';
       }
     });
-    const canWrite = Boolean(currentProfile && (currentProfile.role === 'admin' || currentProfile.role === 'tech'));
+    const canWrite = Boolean(
+      moduleCanEdit(currentProfile, 'inventory') &&
+      currentProfile &&
+      (currentProfile.role === 'admin' || currentProfile.role === 'tech')
+    );
     if (drawerAssigneeEditor) {
       drawerAssigneeEditor.hidden = !canWrite;
     }

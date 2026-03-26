@@ -1,6 +1,6 @@
 import { supabase, ROLES, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, escapeHtml, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
+import { qs, toast, escapeHtml, applyModuleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const peopleLoadingPanel = qs('#peopleLoadingPanel');
 const peopleTopbar = qs('#peopleTopbar');
@@ -28,17 +28,26 @@ function sanitizeFilterTerm(term) {
     .trim();
 }
 
+function deriveRoleForSave({ superUser, inventoryAccess, applicationsAccess, infrastructureAccess }) {
+  if (superUser) return 'admin';
+  const hasEditAccess = [inventoryAccess, applicationsAccess, infrastructureAccess].some((value) => value === 'edit');
+  return hasEditAccess ? 'tech' : 'viewer';
+}
+
 
 function renderAppUsers(rows) {
   if (!rows?.length) {
-    appUsersTbody.innerHTML = '<tr><td colspan="4" class="muted">No app users found.</td></tr>';
+    appUsersTbody.innerHTML = '<tr><td colspan="7" class="muted">No app users found.</td></tr>';
     return;
   }
   appUsersTbody.innerHTML = rows.map((row) => `
     <tr data-user-id="${escapeHtml(row.user_id)}">
       <td>${escapeHtml(row.email || '')}</td>
       <td>${escapeHtml(row.display_name || '')}</td>
-      <td>${escapeHtml(row.role || '')}</td>
+      <td>${row.role === 'admin' ? 'Yes' : 'No'}</td>
+      <td>${escapeHtml(row.inventory_access || 'view')}</td>
+      <td>${escapeHtml(row.applications_access || 'none')}</td>
+      <td>${escapeHtml(row.infrastructure_access || 'none')}</td>
       <td><button class="btn" type="button" data-load-user-id="${escapeHtml(row.user_id)}">Edit</button></td>
     </tr>
   `).join('');
@@ -50,7 +59,10 @@ function renderAppUsers(rows) {
       if (!row) return;
       qs('#appUserEmail').value = row.email || '';
       qs('#appUserName').value = row.display_name || '';
-      qs('#appUserRole').value = row.role || 'viewer';
+      qs('#appUserSuper').value = row.role === 'admin' ? 'yes' : 'no';
+      qs('#inventoryAccess').value = row.inventory_access || 'view';
+      qs('#applicationsAccess').value = row.applications_access || 'none';
+      qs('#infrastructureAccess').value = row.infrastructure_access || 'none';
     });
   });
 }
@@ -74,22 +86,30 @@ async function loadAppUsers() {
 async function saveAppUser() {
   await ensureSessionFresh();
   const email = qs('#appUserEmail').value.trim().toLowerCase();
-  const role = qs('#appUserRole').value;
+  const superUser = qs('#appUserSuper').value === 'yes';
   const displayName = qs('#appUserName').value.trim() || null;
+  const inventoryAccess = qs('#inventoryAccess').value;
+  const applicationsAccess = qs('#applicationsAccess').value;
+  const infrastructureAccess = qs('#infrastructureAccess').value;
+  const allowedAccess = ['none', 'view', 'edit'];
+  const role = deriveRoleForSave({ superUser, inventoryAccess, applicationsAccess, infrastructureAccess });
 
   if (!email) {
     toast('User email is required.', true);
     return;
   }
-  if (!['admin', 'tech', 'viewer'].includes(role)) {
-    toast('Role is invalid.', true);
+  if (!allowedAccess.includes(inventoryAccess) || !allowedAccess.includes(applicationsAccess) || !allowedAccess.includes(infrastructureAccess)) {
+    toast('Module access level is invalid.', true);
     return;
   }
 
   const { error } = await supabase.rpc('admin_upsert_profile_by_email', {
     p_email: email,
     p_role: role,
-    p_display_name: displayName
+    p_display_name: displayName,
+    p_inventory_access: inventoryAccess,
+    p_applications_access: applicationsAccess,
+    p_infrastructure_access: infrastructureAccess
   });
   if (error) {
     toast(error.message, true);
@@ -355,6 +375,7 @@ async function init() {
   if (peopleLoadingPanel) peopleLoadingPanel.hidden = true;
   if (peopleTopbar) peopleTopbar.hidden = false;
   if (peopleNav) peopleNav.hidden = false;
+  applyModuleVisibility(profile);
   initAdminNav();
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,

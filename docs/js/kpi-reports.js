@@ -1,6 +1,6 @@
 import { supabase, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
+import { qs, toast, setRoleVisibility, moduleCanView, applyModuleVisibility, initTheme, bindThemeToggle, bindSignOut, initAdminNav, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const topbar = qs('#kpiReportsTopbar');
 const nav = qs('#sidebarNav');
@@ -1118,7 +1118,12 @@ async function init() {
   if (!requireAuth(session)) return;
 
   const profile = await getCurrentProfile();
+  if (!moduleCanView(profile, 'inventory')) {
+    window.location.href = './index.html';
+    return;
+  }
   setRoleVisibility(profile.role);
+  applyModuleVisibility(profile);
   initAdminNav();
   await loadSiteBrandingFromServer({
     supabaseClient: supabase,

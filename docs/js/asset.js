@@ -1,6 +1,6 @@
 import { supabase, ROLES, roleCanWrite, requireConfig } from './supabase-client.js';
 import { getSession, getCurrentProfile, requireAuth, signOut, ensureSessionFresh } from './auth.js';
-import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, initTheme, bindThemeToggle, bindSignOut, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
+import { qs, toast, formatDateTime, escapeHtml, setRoleVisibility, moduleCanView, moduleCanEdit, applyModuleVisibility, initTheme, bindThemeToggle, bindSignOut, initConnectionBadgeMonitor, loadSiteBrandingFromServer } from './ui.js';
 
 const bucket = 'asset-damage-photos';
 
@@ -531,7 +531,12 @@ async function init() {
   }
 
   profile = await getCurrentProfile();
+  if (!moduleCanView(profile, 'inventory')) {
+    window.location.href = './index.html';
+    return;
+  }
   setRoleVisibility(profile.role);
+  applyModuleVisibility(profile);
   await loadSiteBrandingFromServer({
     supabaseClient: supabase,
     ensureSessionFreshFn: ensureSessionFresh
@@ -555,7 +560,7 @@ async function init() {
   if (historySection) historySection.hidden = false;
   if (damageSection) damageSection.hidden = false;
 
-  if (!roleCanWrite(profile.role)) {
+  if (!(moduleCanEdit(profile, 'inventory') && roleCanWrite(profile.role))) {
     qs('#actionButtons').hidden = true;
   }
 
@@ -602,4 +607,3 @@ async function init() {
 init().catch((err) => {
   toast(err.message, true);
 });
-

@@ -4,6 +4,7 @@ import {
   qs,
   toast,
   setRoleVisibility,
+  applyModuleVisibility,
   initTheme,
   bindThemeToggle,
   bindSignOut,
@@ -100,6 +101,7 @@ async function init() {
     return;
   }
 
+  applyModuleVisibility(profile);
   initAdminNav();
   stopConnectionBadgeMonitor = initConnectionBadgeMonitor({
     supabaseClient: supabase,

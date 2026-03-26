@@ -75,6 +75,45 @@ export function bindThemeToggle() {
   });
 }
 
+export function normalizeModuleAccess(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'edit') return 'edit';
+  if (raw === 'view') return 'view';
+  return 'none';
+}
+
+export function getModuleAccess(profile, moduleName = 'inventory') {
+  const key = String(moduleName || '').trim().toLowerCase();
+  if (!profile || typeof profile !== 'object') return 'none';
+  if (key === 'inventory') return normalizeModuleAccess(profile.inventory_access || 'none');
+  if (key === 'applications') return normalizeModuleAccess(profile.applications_access || 'none');
+  if (key === 'infrastructure') return normalizeModuleAccess(profile.infrastructure_access || 'none');
+  return 'none';
+}
+
+export function moduleCanView(profile, moduleName = 'inventory') {
+  const access = getModuleAccess(profile, moduleName);
+  return access === 'view' || access === 'edit';
+}
+
+export function moduleCanEdit(profile, moduleName = 'inventory') {
+  return getModuleAccess(profile, moduleName) === 'edit';
+}
+
+export function hasModuleAccess(profile, moduleName = 'inventory', minAccess = 'view') {
+  const required = normalizeModuleAccess(minAccess);
+  if (required === 'edit') return moduleCanEdit(profile, moduleName);
+  return moduleCanView(profile, moduleName);
+}
+
+export function applyModuleVisibility(profile) {
+  document.querySelectorAll('[data-module]').forEach((el) => {
+    const moduleName = el.getAttribute('data-module') || 'inventory';
+    const minAccess = el.getAttribute('data-module-min') || 'view';
+    el.hidden = !hasModuleAccess(profile, moduleName, minAccess);
+  });
+}
+
 const BRANDING_STORAGE_KEY = 'inventorySiteBrandingV1';
 const DEFAULT_BRANDING = {
   siteName: 'IT Asset Management',
